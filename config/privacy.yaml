@@ -1,0 +1,30 @@
+# Privacy and security settings for nlt-fusion
+#
+# These settings enforce the Privacy-First Design principles from README.md.
+# Production settings below are NON-NEGOTIABLE for end-user deployments.
+# Relaxation of local_processing_only is permitted ONLY during development/training phases.
+
+privacy:
+  # All processing happens locally — no external transmission without explicit consent
+  local_processing_only: true
+
+  # No external data transmission without user consent
+  allow_external_transmission: false
+
+  # User data is never monetized
+  data_monetization: false
+
+  # Clear about what data exists and where
+  transparent_data_disclosure: true
+
+  # Data retention (days) — 0 means session-only, no persistence
+  data_retention_days: 0
+
+  # Simulation data storage path (local only)
+  local_storage_path: "./data/"
+
+development_overrides:
+  # Set to true only during active development/training phases
+  # Must be reverted before any production or end-user deployment
+  relax_local_processing: false
+  note: "Relaxing local_processing_only requires explicit approval from Joshua W. Dorsey, Sr."

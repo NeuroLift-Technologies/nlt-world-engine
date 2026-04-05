@@ -1,0 +1,27 @@
+# TOI-OTOI fusion parameters for nlt-fusion
+#
+# Status: Stub — populate with validated values during Phase 5 implementation.
+# See TOI-OTOI-INTEGRATION.md for framework context.
+# Architectural changes to these parameters require approval from Joshua W. Dorsey, Sr.
+
+fusion:
+  # Minimum number of scenarios an Avatar must complete before fusion eligibility
+  min_scenarios_completed: 10
+
+  # Minimum independence score (0.0 - 1.0) required across scenario categories
+  min_independence_score: 0.80
+
+  # Scenario categories that must all be represented in completed scenarios
+  required_scenario_categories:
+    - workplace
+    - personal
+    - social_dynamics
+
+  # Fusion trigger: Avatar must demonstrate independence in all required categories
+  independence_threshold_per_category: 0.75
+
+  # Whether to require human review before finalizing fusion
+  require_human_review: true
+
+  # Human authority for fusion approval
+  human_authority: "Joshua W. Dorsey, Sr."

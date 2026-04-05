@@ -1,0 +1,13 @@
+# nlt-fusion Python dependencies
+#
+# Install with: pip install -r requirements.txt
+# Minimum Python version: 3.10
+
+# Testing
+pytest>=7.0
+
+# Linting (matches CI configuration in .github/workflows/python-app.yml)
+flake8>=6.0
+
+# YAML configuration parsing
+PyYAML>=6.0

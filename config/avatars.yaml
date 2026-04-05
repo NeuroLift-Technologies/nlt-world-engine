@@ -1,0 +1,103 @@
+# Avatar configurations for nlt-fusion
+# 19 Avatar-Aide-Advocate pairs
+#
+# Status: Stub — populate with full configuration during Phase 3 implementation.
+# See docs/architecture.md for the full list of pairs.
+
+avatars:
+  # Executive Function Focused
+  - id: stay-alert
+    name: StayAlert
+    trait: sustained_attention_deficit
+    status: planned
+
+  - id: impulse-guard
+    name: ImpulseGuard
+    trait: impulsivity_control
+    status: planned
+
+  - id: focus-flow
+    name: FocusFlow
+    trait: hyperfocus_management
+    status: planned
+
+  - id: timely
+    name: Timely
+    trait: time_blindness
+    status: planned
+
+  - id: memory-mate
+    name: MemoryMate
+    trait: working_memory_deficits
+    status: planned
+
+  - id: mood-ease
+    name: MoodEase
+    trait: emotional_regulation
+    status: planned
+
+  - id: task-kickstart
+    name: TaskKickstart
+    trait: task_initiation_difficulty
+    status: planned
+
+  - id: calm-core
+    name: CalmCore
+    trait: low_frustration_tolerance
+    status: planned
+
+  - id: planner-pro
+    name: Planner Pro
+    trait: prioritization_and_planning
+    status: planned
+
+  - id: smooth-switch
+    name: SmoothSwitch
+    trait: transition_difficulties
+    status: planned
+
+  - id: aware-mate
+    name: AwareMate
+    trait: self_monitoring_challenges
+    status: planned
+
+  - id: steady-mind
+    name: SteadyMind
+    trait: poor_impulse_control
+    status: planned
+
+  - id: focus-recharge
+    name: FocusRecharge
+    trait: effortful_focus_fatigue
+    status: planned
+
+  - id: effort-align
+    name: EffortAlign
+    trait: effort_vs_productivity_perception
+    status: planned
+
+  # Non-Executive Function
+  - id: stress-shield
+    name: StressShield
+    trait: stress_sensitivity
+    status: planned
+
+  - id: sensory-balance
+    name: SensoryBalance
+    trait: sensory_sensitivity
+    status: planned
+
+  - id: social-sync
+    name: SocialSync
+    trait: social_challenges
+    status: planned
+
+  - id: sensory-seeker
+    name: SensorySeeker
+    trait: sensory_seeking_behavior
+    status: planned
+
+  - id: confidence-coach
+    name: ConfidenceCoach
+    trait: self_esteem_and_identity
+    status: planned
