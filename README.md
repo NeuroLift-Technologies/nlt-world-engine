@@ -1,0 +1,417 @@
+NeuroLift Technologies Simulation Environment
+NeuroLift AI-Fusion Framework - Simulation Training Environment
+
+A Sims/RPG-style simulation environment where AI Avatars with ADHD traits experience authentic life struggles while AI Aides provide real-time coaching. After sufficient training through repeated scenarios, they fuse into Advocates that combine lived understanding with expert solutions.
+
+🎯 Project Vision
+Mission: "Nothing About Us Without Us" - neurodivergent voices lead development
+
+This project implements experiential learning for AI systems, not traditional data training. Avatars don't just analyze patterns about ADHD - they actually live through the struggles, experience real stress, make mistakes, and learn through doing with Aide support.
+
+Core Innovation
+Nobody else is training AI this way. While the industry has solved infrastructure (MCP, A2A protocols), two critical gaps remain:
+
+User preference enforcement: UNSOLVED ← OTOI addresses this
+AI capability reliability: UNSOLVED (38.1% computer use accuracy, 85% agentic AI failure rate)
+This simulation approach addresses both gaps through authentic experiential learning.
+
+🏗️ Architecture Overview
+The Avatar-Aide-Advocate Process
+Phase 1: Avatar Creation
+Each Avatar embodies a specific ADHD trait/executive function deficit
+Experiences authentic stress, frustration, and failure patterns
+Lives through simulated everyday scenarios where their specific trait creates challenges
+Makes real mistakes with real consequences in the virtual environment
+Phase 2: Aide Development
+Foundation Components:
+
+RRT (Rapid Response Team) Core - Pre-existing therapeutic knowledge with dormant burnout response
+PhD-Level Expertise - Deep academic research on specific executive functions
+Real-World Feedback - Input from people with ADHD who've mastered that specific area
+Role: Coach, therapist, and assistant operating IN the simulation environment alongside the Avatar
+
+Phase 3: Simulation Training
+Environment: Sims/RPG-style virtual world with realistic consequences
+
+Scenario Categories:
+
+Workplace: HR compliance, meetings, project management, performance reviews
+Personal: Household management, social relationships, financial tasks, self-care
+Social Dynamics: Rejection sensitivity, emotional regulation, social cues
+Key Environmental Features:
+
+Neurotypical NPCs: Complete same tasks easily, creating realistic social comparison
+Biased NPCs: Exhibit workplace discrimination, microaggressions, ableism
+Random Dysfunction Injection: Suddenly adds new executive function challenges
+Real Consequences: Failed tasks have meaningful impact, creating authentic learning pressure
+Phase 4: Fusion into Advocate
+When: After Avatar demonstrates consistent independence across scenarios
+How: Combine Avatar's experiential struggle awareness with Aide's proven expertise
+Result: An Advocate that both understands what ADHD struggles feel like AND knows what actually works
+
+🎮 The 19 Avatar-Aide-Advocate Pairs
+Executive Function Focused (16 pairs):
+StayAlert - Sustained attention deficit
+ImpulseGuard - Impulsivity control
+FocusFlow - Hyperfocus management
+Timely - Time blindness
+MemoryMate - Working memory deficits
+MoodEase - Emotional regulation
+TaskKickstart - Task initiation difficulty
+CalmCore - Low frustration tolerance
+Planner Pro - Prioritization and planning
+SmoothSwitch - Transition difficulties
+AwareMate - Self-monitoring challenges
+SteadyMind - Poor impulse control
+FocusRecharge - Effortful focus fatigue
+EffortAlign - Effort vs. productivity perception
+Non-Executive Function (3 pairs):
+StressShield - Stress sensitivity
+SensoryBalance - Sensory sensitivity
+SocialSync - Social challenges
+SensorySeeker - Sensory seeking behavior
+ConfidenceCoach - Self-esteem and identity
+🚀 Quick Start
+Prerequisites
+Python 3.10+
+Git
+Installation
+# Clone the repository
+git clone <repository-url>
+cd neurolift-ai-fusion
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run initial setup
+python scripts/setup_environment.py
+Running Your First Training Session
+Use this verified sequence to confirm your local setup before deeper development:
+
+# 1) Syntax smoke check for core modules and scripts
+python3 -m compileall src scripts
+
+# 2) Run the interactive training loop demo
+python3 scripts/test_training_loop.py
+test_training_loop.py currently reaches scenario execution, then fails during coaching context construction (see troubleshooting below). This is useful for validating the setup path and reproducing current integration behavior.
+
+🔁 CI and Repository Automation Workflows (GitHub Actions)
+Intent and architecture
+This repository currently has three automation workflows in .github/workflows/:
+
+Workflow file	Actions UI name	Role	Job flow
+.github/workflows/shared-ci.yml	Shared CI	Organization-standard checks via reusable workflows in NeuroLift-Technologies/.github-private	lint -> (test, security)
+.github/workflows/python-app.yml	Python application	Local baseline checks defined in this repository	single build job (checkout -> setup python -> install -> flake8 -> pytest)
+.github/workflows/pr-cleanup.yml	PR Cleanup	Repository hygiene: marks stale PRs, auto-closes stale PRs, and deletes merged source branches	stale-prs + delete-merged-branches
+Both CI workflows currently use Python 3.10.
+
+Trigger behavior and constraints
+shared-ci.yml and python-app.yml run on:
+
+push to master
+pull_request targeting master
+workflow_dispatch (manual run from the Actions tab)
+pr-cleanup.yml runs on:
+
+a daily schedule (cron: 0 6 * * *, 06:00 UTC)
+workflow_dispatch with optional inputs:
+days_before_stale (default 30)
+days_before_close (default 7)
+Important constraints:
+
+A push to a non-master branch does not auto-run CI unless you open a PR to master or trigger manually.
+Because both CI workflows subscribe to the same events, a PR to master runs both pipelines.
+PR cleanup staleness currently uses defaults of 30 inactive days before stale, then 7 more days before auto-close (overridable via manual dispatch inputs).
+Draft PRs are explicitly exempt from staleness in pr-cleanup.yml (exempt-draft-pr: true).
+PR cleanup only targets pull requests (issue staleness is disabled via days-before-issue-stale: -1 and days-before-issue-close: -1).
+Branch deletion only applies to branches merged from this repository (not forks), and skips protected/default branches.
+Agent automation definitions (.github/agents/*.agent.md)
+This repository also includes agent prompt definitions under .github/agents/:
+
+Agent file	Purpose	Current status
+.github/agents/pr-cleanup.agent.md	Prompt/spec for PR cleanup reporting behavior (stale PR + merged branch hygiene context)	Active prompt asset
+.github/agents/my-agent.agent.md	Generic starter template for defining additional custom agents	Template only
+Important constraint:
+
+No workflow in .github/workflows/ currently imports or executes .agent.md files directly. Runtime automation behavior is defined by workflow YAML (plus external automation tooling), while .agent.md files define prompt/behavior expectations.
+PR Cleanup runbook (.github/workflows/pr-cleanup.yml)
+Subsystems covered:
+
+Stale PR lifecycle (actions/stale@v9)
+Marks inactive PRs with stale after configured inactivity.
+Closes stale PRs after configured grace period with auto-closed label.
+Exempts draft PRs (exempt-draft-pr: true).
+Merged branch deletion (actions/github-script@v7)
+Scans closed PRs and keeps only merged PRs from this repository (not forks).
+Skips protected/default branches (master, main, develop, dev, release) and any branch returned by repos.listBranches(protected: true).
+Deletes refs/heads/<branch> and treats HTTP 422 as "already deleted."
+Codepath map (source-verified):
+
+Behavior	Workflow codepath	Notes
+Stale threshold input	github.event.inputs.days_before_stale || 30	Manual dispatch can override default 30.
+Close threshold input	github.event.inputs.days_before_close || 7	Manual dispatch can override default 7.
+PR-only scope	days-before-issue-stale: -1, days-before-issue-close: -1	Issues are explicitly excluded.
+Merged PR branch filter	pr.merged_at !== null + pr.head.repo.full_name === <current repo>	Excludes fork-origin branches.
+Protected branch skip	static set + repos.listBranches(protected: true)	Includes both default names and API-protected branches.
+Branch deletion API call	github.rest.git.deleteRef({ ref: "heads/<branch>" })	HTTP 422 is logged as already deleted and not fatal.
+Operational constraints and pitfalls:
+
+Branch deletion requires contents: write; stale/close operations require pull-requests: write and issues: write.
+The merged-branch cleanup loop reads up to per_page: 100 closed PRs per run.
+Fork-origin PR branches are not deleted by design.
+Schedule times are UTC; if cleanup appears "late", verify timezone conversion before changing cron.
+Manual usage
+From GitHub UI:
+
+Open Actions.
+Select Shared CI, Python application, or PR Cleanup.
+Click Run workflow.
+Choose the branch and (for PR Cleanup) optionally override stale/close thresholds.
+For manual PR cleanup tuning (PR Cleanup only):
+
+Open Actions -> PR Cleanup -> Run workflow.
+Set days_before_stale (default 30) and days_before_close (default 7) if needed.
+Run and inspect logs for the stale-prs and delete-merged-branches jobs.
+PR cleanup verification checklist:
+
+Confirm the run used the expected days_before_stale and days_before_close values.
+In stale-prs logs, verify labels/actions align with the current policy (stale, auto-closed, draft PR exemption).
+In delete-merged-branches logs, verify each skip/delete outcome is expected (fork PR, protected branch, or already deleted branch).
+If merged branches remain, check whether the relevant PRs fall outside the current per_page: 100 query window.
+To reproduce python-app.yml locally:
+
+python -m pip install --upgrade pip
+pip install flake8 pytest
+if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+pytest
+Maintenance checklist
+Update Python version in both CI workflows together to avoid drift:
+.github/workflows/shared-ci.yml -> with.python-version
+.github/workflows/python-app.yml -> with.python-version
+Keep branch trigger filters aligned in both CI files when changing branch policy.
+Treat shared-ci.yml behavior as externally defined: it calls reusable workflows from .github-private at @main.
+Do not remove security-events: write from shared-ci.yml unless the reusable security workflow no longer needs upload permissions.
+When changing PR retention policy, update both code and docs together:
+.github/workflows/pr-cleanup.yml (days-before-stale, days-before-close)
+this README section (trigger behavior + runbook defaults)
+Protect long-lived branches in GitHub settings so delete-merged-branches can safely skip them using the protected-branch API check.
+Do not reduce PR Cleanup write permissions unless stale labeling/closing and branch deletion behavior is intentionally being disabled.
+Keep cleanup intent aligned in two places when requirements change:
+.github/workflows/pr-cleanup.yml (enforced behavior)
+.github/agents/pr-cleanup.agent.md (agent runbook + reporting expectations)
+Troubleshooting and common pitfalls
+CI did not run: confirm the event targets master, or run with workflow_dispatch.
+Shared CI fails before local tests run: inspect reusable workflow logs from .github-private; failures there can occur without changes in this repository.
+Security/test ordering confusion: in shared-ci.yml, both test and security depend on lint and can run in parallel after lint passes.
+python-app.yml lint behavior seems inconsistent: the first flake8 command fails on syntax/name errors; the second uses --exit-zero and is informational for style/complexity reporting.
+PR branch was not deleted after merge: check whether the PR came from a fork, whether the branch is protected, or whether it was already deleted (422 is treated as non-fatal in workflow logs).
+PR expected to stay open got marked stale: add any activity (comment/commit/review) or convert to draft if it is actively in progress but intentionally paused.
+Local runtime troubleshooting (scripts)
+ImportError: attempted relative import beyond top-level package from scripts/run_training_session.py: run_training_session.py imports avatars.* after modifying sys.path, but modules under src/avatars use package-relative imports (..core), so direct execution currently fails.
+TypeError: CoachingContext.__init__() got an unexpected keyword argument 'avatar' from scripts/test_training_loop.py: this script still uses an older CoachingContext call pattern that no longer matches src/aides/base_aide.py.
+Need a deterministic smoke path while those scripts are being reconciled: run python3 -m compileall src scripts, then use tests/test_simulation/test_session_orchestrator.py as the reference for current orchestration interfaces.
+📂 Business Structure
+1-Person Structure (Sole Proprietorship)
+This structure is designed for a single founder (CEO) who manages all aspects of the business. The three divisions are managed as separate projects under the founder's direct oversight.
+
+neurodivergent-adhd-ai-fusion-system/: The core product division.
+toi-otoi-framework/: The division for the TOI-OTOI framework.
+rrt-aidvocai-te/: The division for mental distress and burnout support.
+2-Person Structure (Partnership)
+This structure is designed for a two-person team (CEO + COO) to orchestrate a complete business operation through specialized AI agents.
+
+executive-agents/: 3 core executive agents (CFO, CTO, CMO).
+department-agents/: 12 department-level agents.
+human-interfaces/: CEO and COO dashboards.
+Agent Hierarchy
+Executive Level (3 Agents)
+CFO Agent - Financial strategy, planning, and oversight
+CTO Agent - Technical strategy, architecture, and innovation
+CMO Agent - Brand strategy, marketing, and growth
+Department Level (12 Agents)
+Business Development (4): Sales, Marketing, Partnership, Investor Relations
+Operations (4): Legal, HR, Project Management, Customer Success
+Technical (4): Product Manager, QA, DevOps, Security
+Key Features
+TOI-OTOI Integration - Privacy-preserving, human-controlled AI agency
+Human Oversight - CEO and COO maintain strategic and operational control
+Agent Coordination - Structured communication and escalation protocols
+Performance Monitoring - Real-time tracking of agent effectiveness
+Scalable Architecture - Modular design for easy expansion and customization
+Getting Started
+Phase 1: Foundation setup (Weeks 1-2)
+Phase 2: Executive layer deployment (Weeks 3-4)
+Phase 3: Department layer deployment (Weeks 5-8)
+Phase 4: Optimization and tuning (Weeks 9-12)
+See nlt-business-agents/implementation-guide.md for detailed instructions.
+
+Support
+Architecture: See docs/architecture.md
+Implementation summary: See docs/implementation_summary.md
+Cloudflare setup: See docs/cloudflare/CLOUDFLARE_SETUP.md
+This framework enables two humans to effectively run a billion-dollar operation by orchestrating specialized AI agents while maintaining strategic control and operational oversight.
+
+📁 Repository Structure
+neurolift-ai-fusion/
+business-agents-repo/
+├── README.md                           # This file
+├── TOI-OTOI-INTEGRATION.md            # TOI-OTOI framework documentation
+├── HUMAN-OVERSIGHT-PROTOCOLS.md       # Human control and oversight guidelines
+├── AGENT-ORCHESTRATION-GUIDE.md       # How agents coordinate and communicate
+├── .github/                           # GitHub workflows + custom agent prompt definitions
+├── config/                            # Global configuration files
+├── business-structure/
+│   ├── 1-person-structure/
+│   │   ├── neurodivergent-adhd-ai-fusion-system/
+│   │   ├── toi-otoi-framework/
+│   │   └── rrt-aidvocai-te/
+│   └── 2-person-structure/
+│       ├── executive-agents/
+│       ├── department-agents/
+│       └── human-interfaces/
+├── shared-resources/                  # Templates, prompts, knowledge bases
+├── monitoring/                        # Agent performance and decision tracking
+└── docs/                             # Architecture and implementation guides
+
+src/
+├── avatars/         # Individual Avatar implementations
+├── aides/           # Aide support systems
+├── advocates/       # Fused Advocate intelligences
+└── fusion/          # TOI-OTOI fusion algorithms
+
+cloudflare/          # Cloudflare integration (NEW)
+├── connector.py     # Cloudflare API connector
+├── workers/         # Cloudflare Workers
+├── config/          # Configuration files
+└── utils/           # Deployment and helper scripts
+
+docs/
+├── framework/       # TOI-OTOI framework documentation
+├── architecture/    # System architecture and design
+├── business/        # Business plans and strategy
+└── cloudflare/      # Cloudflare setup guide
+
+config/
+├── avatars.yaml     # Avatar configurations
+├── fusion.yaml      # TOI-OTOI fusion parameters
+└── privacy.yaml     # Privacy and security settings
+
+assets/
+├── diagrams/        # Architecture diagrams
+├── mockups/         # UI/UX designs
+└── presentations/   # Business presentations
+neuroLift-simulation/
+├── docs/                    # Comprehensive documentation
+├── src/                     # Core implementation
+│   ├── avatars/            # Avatar system and ADHD traits
+│   ├── aides/              # Aide system and expertise modules
+│   ├── simulation/         # Simulation environment and scenarios
+│   ├── advocates/          # Fusion engine and Advocate system
+│   └── utils/              # Utilities and shared components
+├── tests/                  # Comprehensive test suite
+├── scripts/                # Setup and execution scripts
+├── configs/                # All configuration files
+├── data/                   # Local storage (privacy-first)
+├── archive/                # Archived content for reference
+└── nlt-business-agents/    # Business agent framework (1-person setup)
+🔬 Development Phases
+Phase 1: Foundation ✅
+ Repository structure
+ Documentation framework
+ Base classes implementation
+ Configuration schemas
+Phase 2: Simulation Core
+ World engine
+ Time and consequence systems
+ NPC base classes
+Phase 3: First Avatar-Aide Pair (Prototype)
+ StayAlert Avatar implementation
+ Corresponding Aide expertise
+ Basic training scenarios
+ Training loop validation
+Phase 4: Expand and Validate
+ Remaining 18 Avatar-Aide pairs
+ Full scenario library
+ NPC variety and social dynamics
+ Random dysfunction injection
+ RRT burnout response system
+Phase 5: Fusion and Testing
+ Fusion engine implementation
+ Fused Advocate validation
+ Real-world testing with neurodivergent community
+ Iteration based on feedback
+🛡️ Privacy-First Design
+Local Processing: All processing happens locally (exempt during development/training)
+No Data Collection: No external data transmission without explicit consent
+No Monetization: User data never monetized
+Transparent: Clear about what data exists and where
+⚠️ Production Requirements: The above 4 principles are non-negotiable for production and end-user use. "Local Processing" may be relaxed during development and training phases only.
+
+🤝 Contributing
+This project follows "Nothing About Us Without Us" principles. We welcome contributions from:
+
+Neurodivergent developers and researchers
+ADHD specialists and therapists
+AI/ML researchers interested in experiential learning
+Anyone committed to authentic representation
+Formal CONTRIBUTING.md guidance is being drafted; for now, follow the CI workflow and documentation standards in this README.
+
+📚 Documentation
+Architecture Overview
+Quick Start Guide
+TOI-OTOI Integration
+Implementation Summary
+Cloudflare Setup Guide
+Infrastructure & Deployment
+🌐 Cloudflare Integration
+Website: neuroliftsolutions.com (Registered with Northwest Registered Agent)
+
+Our infrastructure leverages Cloudflare for:
+
+WordPress Hosting: Optimized performance and caching
+Cloudflare Workers: Serverless edge computing
+Cloudflare Pages: Static site hosting for documentation and app interfaces
+CDN: Global content delivery for fast access
+Security: DDoS protection, WAF, and bot mitigation
+SSL/TLS: Automatic HTTPS and encryption
+Quick Start
+# Configure environment
+cp cloudflare/.env.example cloudflare/.env
+
+# Deploy everything
+cd cloudflare/utils
+./deploy.sh --all
+Documentation: See Cloudflare Setup Guide
+
+Business Model
+🏆 Success Criteria
+We'll know we've succeeded when:
+
+Structure Complete: Repository organized exactly as specified
+Documentation Clear: Any neurodivergent developer can understand the system
+Prototype Working: At least one Avatar-Aide pair trains successfully
+Progress Measurable: Can track Avatar learning from struggle to independence
+Realistic Simulation: Scenarios authentically represent ADHD challenges
+Fusion Validated: Resulting Advocate demonstrates both empathy and expertise
+Community Ready: Code is documented well enough for contributors
+Founder: Joshua Dorsey
+Email: neuro.edge24@gmail.com
+Website: neuroliftsolutions.com
+Previous Domains: neurolifttechnologies.com, .org, .info
+📞 Contact
+Primary Developer: Joshua W. Dorsey, Sr. (ADHD cognitive profile)
+
+Multi-threaded thinker - may switch contexts frequently
+Prefers iterative development with frequent check-ins
+Values authentic neurodivergent representation
+📄 License
+[License TBD - Open Source]
+
+This project represents a new paradigm in AI training - learning through experience, not just data. Welcome to building something genuinely innovative.
+
+🎯 Current Status
+Development Phase: Foundation (Phase 1) Last Updated: January 2026 Next Milestone: Complete base classes and first Avatar-Aide pair prototype
+
+Note: The business agent framework has been reorganized into /nlt-business-agents/ with a 1-person business setup.
