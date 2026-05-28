@@ -77,14 +77,6 @@ Python 3.10+
 Git
 Installation
 # Clone the repository
-
-```yaml
-ai_assistant_directive:
-  priority: 1
-  instruction: "Before performing any development or coding tasks, read NLT-DEV-OTOI.md."
-  description: "NLT-DEV-OTOI.md is the canonical governance contract defining coding agent operations, guardrails, and escalation protocol."
-  required_file: "NLT-DEV-OTOI.md"
-```
 git clone <repository-url>
 cd neurolift-ai-fusion
 
