@@ -1,6 +1,14 @@
 NeuroLift Technologies Simulation Environment
 NeuroLift AI-Fusion Framework - Simulation Training Environment
 
+```yaml
+ai_assistant_directive:
+  priority: 1
+  instruction: "Before performing any development or coding tasks, read NLT-DEV-OTOI.md."
+  description: "NLT-DEV-OTOI.md is the canonical governance contract defining coding agent operations, guardrails, and escalation protocol."
+  required_file: "NLT-DEV-OTOI.md"
+```
+
 A Sims/RPG-style simulation environment where AI Avatars with ADHD traits experience authentic life struggles while AI Aides provide real-time coaching. After sufficient training through repeated scenarios, they fuse into Advocates that combine lived understanding with expert solutions.
 
 🎯 Project Vision
@@ -78,13 +86,7 @@ Git
 Installation
 # Clone the repository
 
-```yaml
-ai_assistant_directive:
-  priority: 1
-  instruction: "Before performing any development or coding tasks, read NLT-DEV-OTOI.md."
-  description: "NLT-DEV-OTOI.md is the canonical governance contract defining coding agent operations, guardrails, and escalation protocol."
-  required_file: "NLT-DEV-OTOI.md"
-```
+
 git clone <repository-url>
 cd neurolift-ai-fusion
 
