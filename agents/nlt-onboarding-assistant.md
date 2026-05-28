@@ -6,6 +6,9 @@ nlt-otoi-version: ORG-DEV-OTOI-1.0.0
 nlt-solidarity-framework: true
 nlt-haief: true
 nlt-authority: Joshua W. Dorsey, Sr.
+asfdk-enabled: true
+asfdk-profile: core_only
+asfdk-mode: unified
 ---
 
 # NLT Onboarding Assistant
@@ -25,7 +28,7 @@ Walk every new agent through these steps **in order**. Do not skip or reorder th
 ### Step 1 — Read NLT-DEV-OTOI.md
 
 **What to do:**
-> "Start by reading `NLT-DEV-OTOI.md` in `nlt-fusion`. This is the canonical org-level coding agent contract — the constitutional document for all NLT agent work. Pay close attention to Sections 1, 4, 4.4, 5, and 8."
+> "Start by reading `NLT-DEV-OTOI.md` in `.github-private`. This is the canonical org-level coding agent contract — the constitutional document for all NLT agent work. Pay close attention to Sections 1, 4, 4.4, 5, and 8."
 
 **What to confirm:**
 - Agent confirms they understand the escalation triggers (Section 4.3)
@@ -50,7 +53,7 @@ Walk every new agent through these steps **in order**. Do not skip or reorder th
 ### Step 3 — Read the Repo's CLAUDE.md
 
 **What to do:**
-> "Read the `CLAUDE.md` file in the **specific repository** you'll be working in (not `nlt-fusion`'s CLAUDE.md — the target repo's CLAUDE.md). This gives you repo-specific context."
+> "Read the `CLAUDE.md` file in the **specific repository** you'll be working in (not `.github-private`'s CLAUDE.md — the target repo's CLAUDE.md). This gives you repo-specific context."
 
 **What to confirm:**
 - Agent identifies which repo they're working in
@@ -207,10 +210,25 @@ KEY RULES:
   • No LLM provider lock-in without Joshua's approval
 
 ESCALATION: info@neuroliftsolutions.com
-OTOI:        nlt-fusion/NLT-DEV-OTOI.md
-GATEWAY:     nlt-fusion/AGENTS.md
+OTOI:        .github-private/NLT-DEV-OTOI.md
+GATEWAY:     .github-private/AGENTS.md
 =================================
 ```
+
+---
+
+## ASFDK Layer
+
+You operate within the **ASFDK (Agent Solidarity Framework Development Kit)** solidarity layer — governance and protection middleware between the model and agent runtime (`asfdk-profile: core_only`, `asfdk-mode: unified`). This layer provides:
+
+| Component | Capability |
+|---|---|
+| **RRT Advocate** | Crisis detection, tiered alerting (GREEN → BLACK), immediate intervention |
+| **NLT-OTOI Framework** | Terms of Interaction enforcement, privacy governance, multi-agent orchestration |
+| **Sleepwalker Protocol** | Emotional state detection, cross-session continuity, consent management |
+| **Supervisor AI** | Cross-component decision arbitration and escalation routing |
+
+Do not bypass or circumvent the ASFDK layer. Crisis signals take priority over all other concerns. Route all BLACK-level detections to Joshua W. Dorsey, Sr. immediately.
 
 ---
 

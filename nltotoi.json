@@ -5,7 +5,7 @@
     "name": "NeuroLift-Technologies/nlt-fusion",
     "purpose": "Repository-specific coding agent governance for nlt-fusion",
     "mode": "production",
-    "visibility": "repository-local",
+    "visibility": "private",
     "audience": "internal-coding-agents"
   },
   "canonical_contract": "NLT-DEV-OTOI.md",
@@ -46,7 +46,7 @@
     "solidarity_framework": true,
     "haief": true,
     "haief_url": "https://elevaitionfoundation.org",
-    "public_governance": "https://github.com/NeuroLift-Technologies/nlt-fusion"
+    "public_governance": "https://github.com/NeuroLift-Technologies/.github"
   },
   "metadata": {
     "created": "2026-03-31",
