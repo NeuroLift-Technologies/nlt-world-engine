@@ -1,19 +1,25 @@
-# AGENTS.md — NeuroLift Technologies nlt-fusion Repository Agent Gateway
+# AGENTS.md — NeuroLift Technologies Organization-Wide Internal Gateway
 
-> **Internal use only.** This is the repository-specific governance gateway for coding agents operating in this repository. This copy is scoped to NeuroLift-Technologies/nlt-fusion, with project-specific operational context kept in this repository.
+> **Internal use only.** This is the private governance gateway for all coding agents operating within NeuroLift Technologies repositories. For public-facing principles, see the public [`NeuroLift-Technologies/.github`](https://github.com/NeuroLift-Technologies/.github) repository.
 
 ---
 
 ## You Are Here
 
-You are a coding agent operating within the **NeuroLift Technologies** organization. This document is your repo-local coordination gateway.
+You are a coding agent operating within the **NeuroLift Technologies** organization. This document is your internal coordination gateway.
 
 **Mandatory reading order:**
-1. `NLT-DEV-OTOI.md` — Repo-local coding agent contract (this repo, root level)
+1. `NLT-DEV-OTOI.md` — Full org-level coding agent contract (this repo, root level)
 2. Repo-level `CLAUDE.md` — Project-specific context (in the repo you are working in)
 3. `docs/active-threads.md` — Current work state (in the repo you are working in)
 
-> **Repo-local note:** Governance docs in this repository are the working copy for NeuroLift-Technologies/nlt-fusion. Keep references local unless Joshua explicitly asks for an upstream sync.
+> **Can't access `.github-private`?** If links to this repository return 404, key governance
+> docs are mirrored publicly:
+> - NLT-DEV-OTOI.md → https://github.com/NeuroLift-Technologies/.github/blob/main/governance/NLT-DEV-OTOI.md
+> - AGENTS.md → https://github.com/NeuroLift-Technologies/.github/blob/main/governance/AGENTS.md
+>
+> Ask your org admin to grant the GitHub App access to `.github-private`. See
+> `docs/troubleshooting/github-app-access.md` in this repo for instructions.
 
 **Final authority:** Joshua W. Dorsey, Sr. Escalate. Do not guess.
 
@@ -23,10 +29,10 @@ You are a coding agent operating within the **NeuroLift Technologies** organizat
 
 The ethical foundation of all NLT work is publicly documented in the **Solidarity Framework** and **HAIEF** (Human-AI Ethical Integration Framework):
 
-- Repo-local governance context: [NeuroLift-Technologies/nlt-fusion](https://github.com/NeuroLift-Technologies/nlt-fusion)
+- Public governance principles: [`NeuroLift-Technologies/.github`](https://github.com/NeuroLift-Technologies/.github)
 - HAIEF reference: https://elevaitionfoundation.org
 
-The principles are public. The operational machinery for this work lives in this repository.
+The principles are public. The operational machinery is in this private repository.
 
 ---
 
@@ -82,10 +88,10 @@ These are **non-negotiable**. No exceptions without explicit Joshua approval:
 
 ## Internal File Map
 
-All files below live in this repository (`NeuroLift-Technologies/nlt-fusion`):
+All files below live in this repository (`NeuroLift-Technologies/.github-private`):
 
 ```
-NLT-DEV-OTOI.md                        ← Repo-local agent contract
+NLT-DEV-OTOI.md                        ← Canonical org-level agent contract
 AGENTS.md                               ← This file
 nltotoi.json                            ← Discovery manifest
 
