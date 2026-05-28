@@ -1,6 +1,6 @@
 # TOI-OTOI Integration
 
-> This document describes the TOI-OTOI (Terms of Interaction / Operator Terms of Interaction) framework integration within the NeuroLift AI-Fusion system.
+> This document describes the TOI-OTOI (Terms of Interaction / Orchestrated Terms of Interaction) framework integration within the NeuroLift AI-Fusion system.
 >
 > **Status:** Stub — full content to be developed. See `README.md` for context.
 
