@@ -1,0 +1,40 @@
+---
+description: Project-wide rules for the nlt-fusion repository
+globs:
+alwaysApply: true
+---
+
+# nlt-fusion — Cursor Rules
+
+## Governance
+
+- Read `NLT-DEV-OTOI.md` before making any changes. It is the canonical agent contract.
+- Joshua W. Dorsey, Sr. is final authority on all architectural, deployment, UX, and strategic decisions. Escalate — do not guess.
+- Follow commit format: `[AGENT_NAME] type(scope): description`
+- No LLM provider lock-in, no architecture decisions, no production deployments, no credential storage, no external integrations without explicit Joshua approval.
+
+## Codebase Layout
+
+- `world-engine/` — All application code (React frontend + Python simulation engine)
+- `world-engine/src/` — Python simulation engine (ECS world engine, avatars, aides, NPCs, scenarios)
+- `world-engine/*.jsx`, `world-engine/index.html` — React frontend prototype (CDN-loaded, no build step)
+- Root level — Governance infrastructure (AGENTS.md, NLT-DEV-OTOI.md, SOPs, templates)
+
+## Python Engine
+
+- Python source uses relative imports (`from ..core.events import ...`).
+- Missing core modules: `src/avatars/base_avatar.py`, `src/aides/base_aide.py`, `src/fusion/readiness_assessor.py`, `src/database/supabase_client.py`. Do not stub these without Joshua's approval.
+- No `__init__.py` files exist yet. Do not add without Joshua's approval on package structure.
+- No `requirements.txt` or `pyproject.toml` exists. Dev tools (flake8, pytest) are installed via pip.
+
+## Frontend Prototype
+
+- No package.json, no bundler, no build step. React 18 + Babel loaded from CDN.
+- Serve with any static file server: `cd world-engine && python3 -m http.server 8765`
+- Do not introduce a build pipeline unless the prototype is promoted to `apps/`.
+
+## Lint and Validation
+
+- `flake8 world-engine/src/ --select=E9,F63,F7,F82` — must pass with 0 errors
+- `python3 -m compileall world-engine/src/` — must compile cleanly
+- `bash .nltotoi/scripts/validate-governance.sh` — must pass before any governance file changes
