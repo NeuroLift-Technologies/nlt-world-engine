@@ -152,7 +152,7 @@ Before ending any significant session:
 
 ### Codebase overview
 
-This repo has two runnable components plus governance infrastructure:
+This repo has two runnable components — the React frontend prototype and the governance validation script — plus a Python simulation engine that is **not yet runnable end-to-end**:
 
 | Component | Location | How to run |
 |---|---|---|
@@ -166,12 +166,12 @@ This repo has two runnable components plus governance infrastructure:
 - **Flake8 (style):** `flake8 world-engine/src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics`
 - **Syntax check:** `python3 -m compileall world-engine/src/`
 - **pytest:** `pytest` — no tests directory exists yet; pytest will collect zero tests
-- The CI workflows (`.github/workflows/python-app.yml`, `.github/workflows/shared-ci.yml`) target the `master` branch; they will not auto-run on feature branches unless a PR targets `master`
+- The only CI workflow is `.github/workflows/validate-governance.yml` (`on: [push, pull_request]`), which runs `bash .nltotoi/scripts/validate-governance.sh` on every push and pull request — there is no branch filter, so it runs on feature branches too. (There are no `python-app.yml` or `shared-ci.yml` workflows in this repo.)
 
 ### Gotchas
 
 - The frontend prototype has **no build step** and **no package.json**. It loads React 18 + Babel from CDN. Any static file server works.
-- Python source under `world-engine/src/` uses relative imports (`from ..core.events import ...`). There are no `__init__.py` files in the tree, so these modules cannot be imported as a package yet.
+- Python source under `world-engine/src/` uses explicit relative imports (`from ..core.events import ...`), so the modules must be imported with the correct package context (e.g., as a `python -m` module from a configured root), not executed as standalone scripts. The absence of `__init__.py` files is not itself the blocker — modern Python imports these directories as namespace packages.
 - `session_orchestrator.py` and `training_session.py` import modules that don't exist in this repo (`base_avatar`, `base_aide`, `readiness_assessor`, `supabase_client`). They compile fine but cannot be executed.
 - `$HOME/.local/bin` must be on `PATH` for `flake8` and `pytest` to be found (the update script installs them via `pip install --user`).
 
