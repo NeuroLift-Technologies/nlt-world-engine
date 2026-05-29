@@ -152,7 +152,7 @@ Before ending any significant session:
 
 ### Codebase overview
 
-This repo has two runnable components plus governance infrastructure:
+This repo currently has one runnable component plus governance infrastructure:
 
 | Component | Location | How to run |
 |---|---|---|
@@ -166,12 +166,12 @@ This repo has two runnable components plus governance infrastructure:
 - **Flake8 (style):** `flake8 world-engine/src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics`
 - **Syntax check:** `python3 -m compileall world-engine/src/`
 - **pytest:** `pytest` — no tests directory exists yet; pytest will collect zero tests
-- The CI workflows (`.github/workflows/python-app.yml`, `.github/workflows/shared-ci.yml`) target the `master` branch; they will not auto-run on feature branches unless a PR targets `master`
+- The current CI workflow is `.github/workflows/validate-governance.yml`, and it runs on both `push` and `pull_request` events
 
 ### Gotchas
 
 - The frontend prototype has **no build step** and **no package.json**. It loads React 18 + Babel from CDN. Any static file server works.
-- Python source under `world-engine/src/` uses relative imports (`from ..core.events import ...`). There are no `__init__.py` files in the tree, so these modules cannot be imported as a package yet.
+- Python source under `world-engine/src/` uses relative imports (`from ..core.events import ...`), so modules must be executed with the correct package context; missing runtime modules are the main blocker for end-to-end execution.
 - `session_orchestrator.py` and `training_session.py` import modules that don't exist in this repo (`base_avatar`, `base_aide`, `readiness_assessor`, `supabase_client`). They compile fine but cannot be executed.
 - `$HOME/.local/bin` must be on `PATH` for `flake8` and `pytest` to be found (the update script installs them via `pip install --user`).
 

@@ -20,7 +20,7 @@
     "work_in_progress": [],
     "blockers": [
       "Python simulation engine cannot run end-to-end — missing core modules (base_avatar.py, base_aide.py, readiness_assessor.py, supabase_client.py) that likely live in a sibling repo",
-      "No __init__.py files exist in world-engine/src/ tree, so Python packages cannot be imported"
+      "Simulation modules use package-relative imports and require package-context execution paths that are not yet documented"
     ],
     "decisions_made": [
       "Used pip install --user for flake8/pytest since no requirements.txt or pyproject.toml exists — matches CI workflow approach",
@@ -33,7 +33,12 @@
     "escalations": [],
     "next_agent_notes": "The dev environment is fully set up. The React frontend works via python3 -m http.server 8765 from world-engine/. flake8 and pytest are installed. The Python simulation engine has 10 source files that compile but cannot execute due to missing modules. See AGENTS.md Cursor Cloud section for all commands.",
     "files_modified": [
-      "AGENTS.md"
+      ".cursor/rules/nlt-fusion.mdc",
+      ".cursorignore",
+      "AGENTS.md",
+      "docs/active-threads.md",
+      "docs/agent-log/handoffs/2026-05-29-cursor-cloud-dev-setup-handoff.json",
+      "docs/agent-log/registrations/2026-05-29-cursor-cloud-dev-setup.json"
     ],
     "tests_run": [
       "bash .nltotoi/scripts/validate-governance.sh — 29/29 passed",
