@@ -1,0 +1,9 @@
+# Duplicate/mirror content — these are copies of the root governance files
+world-engine/uploads/
+
+# Earlier drafts preserved for reference — not canonical
+world-engine/_drafts/
+
+# Build artifacts
+**/__pycache__/
+**/*.pyc
