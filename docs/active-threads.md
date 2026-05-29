@@ -21,9 +21,12 @@
 ### Repo housekeeping — sync threads, prune duplicates/branches, triage PR #1 🟡 IN PROGRESS
 - **Agent:** Claude Code · **Opened:** 2026-05-29
 - Removed the duplicate `world-engine/uploads/` tree (46 unreferenced mirror files of the
-  root governance docs + frontend); pruned merged/abandoned branches; recommended closing
-  PR #1 (stale skeleton base, conflicts with now-canonical governance, stub inaccuracies),
-  with a curated salvage of its useful config/docs to follow once engine direction is set.
+  root governance docs + frontend); kept `_drafts/`.
+- Triaged and **closed PR #1** (stale skeleton base, conflicts with now-canonical
+  governance, stub inaccuracies); its useful config/docs to be salvaged once engine
+  direction is set.
+- Branch pruning still pending — remote deletion is blocked in this environment (HTTP 403),
+  so the stale branches must be removed via the GitHub UI.
 
 ### Governance normalization decision — carried over from Codex 2026-04-25 🟡 NEEDS DECISION
 - Codex's 2026-04-25 handoff left pending: *"Whether this repository should be included in

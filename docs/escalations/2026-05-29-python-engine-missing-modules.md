@@ -7,7 +7,7 @@
 
 ## Escalation Record
 
-**Date:** 2026-05-29T00:00:00Z
+**Date:** 2026-05-29
 **Agent:** Claude Code
 **Session:** claude/wizardly-lovelace-7Wt7H
 **OTOI Version:** ORG-DEV-OTOI-1.0.0
@@ -20,7 +20,7 @@
 
 The Python simulation engine under `world-engine/src/` cannot run end-to-end. Making it
 runnable touches package structure and dependency management — architectural decisions that
-per `CLAUDE.md` and `HUMAN-OVERSIGHT-PROTOCOLS.md` require Joshua's approval, not a guess.
+require Joshua's approval per `CLAUDE.md`, not a guess.
 
 ---
 
