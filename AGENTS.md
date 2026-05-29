@@ -148,4 +148,33 @@ Before ending any significant session:
 
 ---
 
+## Cursor Cloud specific instructions
+
+### Codebase overview
+
+This repo has two runnable components plus governance infrastructure:
+
+| Component | Location | How to run |
+|---|---|---|
+| **React frontend prototype** | `world-engine/` (index.html + JSX) | `cd world-engine && python3 -m http.server 8765` then open `http://127.0.0.1:8765/` |
+| **Python simulation engine** | `world-engine/src/` | Not yet runnable end-to-end — core modules (`src/avatars/base_avatar.py`, `src/aides/base_aide.py`, `src/fusion/readiness_assessor.py`, `src/database/supabase_client.py`) are missing from this repo |
+| **Governance validation** | `.nltotoi/scripts/validate-governance.sh` | `bash .nltotoi/scripts/validate-governance.sh` |
+
+### Lint and test
+
+- **Flake8 (critical):** `flake8 world-engine/src/ --count --select=E9,F63,F7,F82 --show-source --statistics`
+- **Flake8 (style):** `flake8 world-engine/src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics`
+- **Syntax check:** `python3 -m compileall world-engine/src/`
+- **pytest:** `pytest` — no tests directory exists yet; pytest will collect zero tests
+- The CI workflows (`.github/workflows/python-app.yml`, `.github/workflows/shared-ci.yml`) target the `master` branch; they will not auto-run on feature branches unless a PR targets `master`
+
+### Gotchas
+
+- The frontend prototype has **no build step** and **no package.json**. It loads React 18 + Babel from CDN. Any static file server works.
+- Python source under `world-engine/src/` uses relative imports (`from ..core.events import ...`). There are no `__init__.py` files in the tree, so these modules cannot be imported as a package yet.
+- `session_orchestrator.py` and `training_session.py` import modules that don't exist in this repo (`base_avatar`, `base_aide`, `readiness_assessor`, `supabase_client`). They compile fine but cannot be executed.
+- `$HOME/.local/bin` must be on `PATH` for `flake8` and `pytest` to be found (the update script installs them via `pip install --user`).
+
+---
+
 *Internal governance document — NeuroLift Technologies | ORG-DEV-OTOI-1.0.0*
