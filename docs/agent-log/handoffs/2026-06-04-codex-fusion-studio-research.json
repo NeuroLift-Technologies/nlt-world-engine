@@ -1,0 +1,76 @@
+{
+  "handoff_record": {
+    "session_id": "codex-fusion-studio-research-2026-06-04",
+    "agent_name": "Codex",
+    "date": "2026-06-04",
+    "otoi_version": "ORG-DEV-OTOI-1.0.0",
+    "repo": "NeuroLift-Technologies/nlt-fusion",
+    "branch": "governance/otoi-compliance",
+    "work_completed": [
+      "Compared both supplied Claude Design exports against the current checkout.",
+      "Confirmed the earlier canonical World Engine export was already present byte-for-byte.",
+      "Adopted the newer product-facing Studio shell while reusing canonical World Engine data, simulation, and tweaks files.",
+      "Researched the linked Hugging Face papers, related papers/models, and relevant GitHub game-development projects.",
+      "Documented provider-neutral architecture options and human-centered constraints.",
+      "Added draft v1 snapshot, action, event, intervention, and replay schemas.",
+      "Added and validated a deterministic StayAlert coaching replay fixture."
+    ],
+    "work_in_progress": [],
+    "blockers": [
+      "Visual browser smoke testing remains outstanding because the in-app browser runtime could not start in this sandbox session.",
+      "The workspace does not include the jsonschema package for full JSON Schema semantic validation.",
+      "The bundled Node runtime does not include a JSX parser for an additional static syntax pass."
+    ],
+    "decisions_made": [
+      "Preserve the existing canonical World Engine and add the Studio as a separate renderer shell.",
+      "Keep all model, provider, external integration, framework, deployment, and transport choices unselected.",
+      "Normalize draft snapshot collections as stable ID-keyed objects and preserve implementation-specific data under extensions.",
+      "Use ordered events with explicit state_changes for deterministic reference replay verification."
+    ],
+    "decisions_pending": [
+      "Joshua must approve the Python-to-browser transport and production runtime architecture.",
+      "Joshua must approve any game engine, LLM/VLM provider, external service, or learned world-model experiment.",
+      "The team should review whether the draft contract's ID-keyed snapshot normalization and replay mutation vocabulary are acceptable."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Start with world-engine/contracts/v1/README.md and docs/research/world-engine-landscape-2026-06-04.md. Run a browser smoke test at /studio/ when the browser runtime is available. The next implementation step after contract review is a read-only adapter that converts the current browser World Engine state into snapshot.schema.json without changing simulation ownership.",
+    "files_modified": [
+      "docs/active-threads.md",
+      "docs/agent-log/handoffs/2026-06-04-codex-fusion-studio-research.json",
+      "docs/agent-log/intent/2026-06-04-fusion-studio-research.md",
+      "docs/agent-log/registrations/2026-06-04-codex-fusion-studio-research.json",
+      "docs/research/world-engine-landscape-2026-06-04.md",
+      "studio/README.md",
+      "studio/app.jsx",
+      "studio/fleet.jsx",
+      "studio/fusion.jsx",
+      "studio/helpers.jsx",
+      "studio/index.html",
+      "studio/iso.jsx",
+      "studio/layout.css",
+      "studio/live-sim.jsx",
+      "studio/nlt.css",
+      "studio/telemetry.jsx",
+      "world-engine/README.md",
+      "world-engine/contracts/examples/stay-alert-coaching.replay.json",
+      "world-engine/contracts/v1/README.md",
+      "world-engine/contracts/v1/action.schema.json",
+      "world-engine/contracts/v1/common.schema.json",
+      "world-engine/contracts/v1/event.schema.json",
+      "world-engine/contracts/v1/intervention.schema.json",
+      "world-engine/contracts/v1/replay.schema.json",
+      "world-engine/contracts/v1/snapshot.schema.json",
+      "world-engine/tests/test_contracts.py"
+    ],
+    "tests_run": [
+      "python -m unittest discover -s world-engine/tests -p test_*.py -v: 4 tests passed",
+      "python -m json.tool over registration, replay fixture, and all contract JSON files: passed",
+      "Resolved all 12 local references in studio/index.html: passed",
+      "git diff --check: passed",
+      "Browser smoke test: not completed because the in-app browser runtime was unavailable",
+      "JSX parser pass: not completed because @babel/parser was unavailable"
+    ],
+    "tests_passing": true,
+    "pr_url": ""
+  }
+}

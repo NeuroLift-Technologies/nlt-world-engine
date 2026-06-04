@@ -2,6 +2,10 @@
 
 A standalone React prototype that visualises the Avatar/Aide/Scenario world. **Not wired** to the Python simulation engine — the sim ticks locally in the browser. See `docs/specs/world-engine-prototype-schema.md` for the full data contract.
 
+The product-facing Claude Design shell lives in [`../studio/`](../studio/) and reuses this prototype's canonical data, simulation hook, and tweaks panel.
+
+The provider-neutral transport and deterministic replay draft lives in [`contracts/v1/`](contracts/v1/).
+
 ## Run it
 
 No build step. Any static file server works:
