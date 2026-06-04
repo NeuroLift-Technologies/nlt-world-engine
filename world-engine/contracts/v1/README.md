@@ -30,6 +30,17 @@ LLM provider, or learned world model.
 6. A replay hash is SHA-256 over the canonical expected final snapshot:
    sorted object keys, no insignificant whitespace, and UTF-8 encoding.
 
+## Life Sim v1 (browser)
+
+The browser prototype implements a minimal life-simulation loop:
+
+- **Objects** with affordances (`work`, `rest`, `meet`, …) on the lot (`data.js` → `OBJECTS`)
+- **Motives** including `energy` plus focus / stress / cognitive load
+- **Flow:** walk to object → `INTERACTION_STARTED` / `USE_OBJECT` → scenario task → complete
+- **Actions (contract):** `move_to`, `use_object`, `rest`, `assign_scenario`
+
+Genre packs (city builder, open-world RPG) can reuse the same action/event surface with different object and scenario catalogs.
+
 ## Compatibility Targets
 
 - Browser prototype: `world-engine/data.js` and `world-engine/sim.jsx`

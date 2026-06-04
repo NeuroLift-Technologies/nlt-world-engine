@@ -25,16 +25,21 @@ function hueColors(hue) {
 
 // Friendly label for an avatar runtime state.
 const STATE_LABEL = {
-  idle: "Idle", working: "On task", drifting: "Drifting",
+  idle: "Idle", walking: "Walking", working: "On task", drifting: "Drifting",
   hyperfocus: "Hyperfocus", overwhelmed: "Overwhelmed", coached: "Coached",
 };
 const STATE_COLOR = {
-  idle: "var(--ink-3)", working: "var(--focus)", drifting: "var(--load)",
+  idle: "var(--ink-3)", walking: "var(--gold-deep)", working: "var(--focus)", drifting: "var(--load)",
   hyperfocus: "var(--violet)", overwhelmed: "var(--burnout)", coached: "var(--calm)",
 };
 
 // Event-kind → display metadata.
 const EVENT_META = {
+  MOVE_TO_OBJECT: { c: "var(--gold-deep)", g: "world", label: "GO TO" },
+  INTERACTION_STARTED: { c: "var(--focus)", g: "world", label: "USE" },
+  USE_OBJECT: { c: "var(--focus)", g: "world", label: "INTERACT" },
+  NEED_LOW: { c: "var(--stress)", g: "state", label: "NEED↓" },
+  NEED_RECOVER: { c: "var(--calm)", g: "state", label: "REST" },
   TASK_START: { c: "var(--focus)", g: "task", label: "TASK START" },
   TASK_COMPLETE: { c: "var(--calm)", g: "task", label: "TASK ✓" },
   TASK_FAIL: { c: "var(--burnout)", g: "task", label: "TASK ✗" },
