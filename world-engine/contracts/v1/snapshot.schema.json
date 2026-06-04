@@ -90,6 +90,7 @@
           "state": {
             "enum": [
               "idle",
+              "walking",
               "working",
               "drifting",
               "hyperfocus",

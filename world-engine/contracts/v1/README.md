@@ -30,21 +30,18 @@ LLM provider, or learned world model.
 6. A replay hash is SHA-256 over the canonical expected final snapshot:
    sorted object keys, no insignificant whitespace, and UTF-8 encoding.
 
-## Life Sim v1 (browser)
+## Life sim v1 (2026-06)
 
-The browser prototype implements a minimal life-simulation loop:
-
-- **Objects** with affordances (`work`, `rest`, `meet`, …) on the lot (`data.js` → `OBJECTS`)
-- **Motives** including `energy` plus focus / stress / cognitive load
-- **Flow:** walk to object → `INTERACTION_STARTED` / `USE_OBJECT` → scenario task → complete
-- **Actions (contract):** `move_to`, `use_object`, `rest`, `assign_scenario`
-
-Genre packs (city builder, open-world RPG) can reuse the same action/event surface with different object and scenario catalogs.
+- **Objects:** Interactive lot objects (`move_to`, `use_object`) map to `world-engine/data.js` `OBJECTS`.
+- **Avatar state:** `walking` is used while pathing to a target object before `working`.
+- **Energy motive:** Runtime energy is `0..1` in the browser and headless engine (`world-engine/src/simulation/life_sim/`). Replays may store it under `avatars.<id>.extensions.energy` until metrics schema gains a first-class field.
+- **Actions:** `move_to`, `use_object`, and `rest` complement `assign_scenario` for object-first flows.
 
 ## Compatibility Targets
 
 - Browser prototype: `world-engine/data.js` and `world-engine/sim.jsx`
 - Product shell: `studio/`
+- Python headless life sim: `world-engine/src/simulation/life_sim/`
 - Python event bus and session concepts: `world-engine/src/`
 
 The contract intentionally captures their shared surface while leaving richer ECS,
