@@ -8,16 +8,6 @@
 
 ## Active Threads
 
-### Engine direction — Python simulation engine is non-runnable 🔴 BLOCKED (awaiting Joshua)
-- **Agent:** Claude Code · **Opened:** 2026-05-29
-- The orchestrator and training loop import four modules that exist nowhere in the tree
-  (`base_avatar`, `base_aide`, `readiness_assessor`, `supabase_client`), so the engine
-  cannot run end-to-end. Decision needed: vendor these from a sibling repo, implement
-  them here, or defer (treat the React frontend as the near-term deliverable). Also
-  pending: whether to add `__init__.py` files and a `requirements.txt`/`pyproject.toml`.
-- **Escalation:** `docs/escalations/2026-05-29-python-engine-missing-modules.md`
-- Folds in the two decisions Cursor left pending in its 2026-05-29 handoff.
-
 ### Repo housekeeping — sync threads, prune duplicates/branches, triage PR #1 🟡 IN PROGRESS
 - **Agent:** Claude Code · **Opened:** 2026-05-29
 - Removed the duplicate `world-engine/uploads/` tree (46 unreferenced mirror files of the
@@ -38,5 +28,6 @@
 
 | Thread | Agent | Date | PR | Summary |
 |---|---|---|---|---|
+| Engine direction — Python simulation engine stub implementation | Claude Code | 2026-06-04 | In progress | Created minimal stub implementations of the four missing modules (base_avatar, base_aide, readiness_assessor, supabase_client) to unblock syntax validation. Engine now compiles cleanly but is not executable end-to-end (stubs raise NotImplementedError). Package structure established. Awaiting architectural decisions. |
 | Dev environment setup | Cursor Cloud Agent | 2026-05-29 | [#5](https://github.com/NeuroLift-Technologies/nlt-fusion/pull/5) | Set up Cursor Cloud dev environment, documented lint/test/run commands in AGENTS.md, verified governance validation and frontend prototype |
 | Fusion Studio research and replay contracts | Codex | 2026-06-04 | This PR | Adopted the supplied Claude Design Studio shell without overwriting the canonical World Engine, documented the Hugging Face and GitHub landscape, and added a draft v1 simulation/replay contract with a passing deterministic fixture. Visual browser smoke testing remains outstanding because the in-app browser runtime was unavailable. |
