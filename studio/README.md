@@ -5,7 +5,7 @@ Product-facing Claude Design prototype for the NLT Fusion World Engine.
 The Studio adds three views over the existing browser simulation:
 
 - **Live Sim** - one Avatar/Aide pair, scenario controls, telemetry, and inner monologue
-- **Fleet** - all avatars, state signals, interventions, and fusion readiness
+- **Fleet** - active avatar roster (default: single StayAlert pair), state signals, interventions, and fusion readiness
 - **Fusion** - the Avatar + Aide to Advocate progression ceremony
 
 ## Run

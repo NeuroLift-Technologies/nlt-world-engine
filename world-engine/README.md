@@ -34,7 +34,7 @@ The page boots React 18 + Babel from a CDN and loads the `.jsx` files in-browser
 
 ## Roster
 
-19 ADHD-trait avatars. IDs use snake_case matching the Python repo convention (`src/avatars/adhd_traits/`). The first two map directly to existing Python implementations (`stay_alert`, `task_kickstart`); the remaining 17 are design proposals.
+Default mode is **one Avatar/Aide pair** (`stay_alert` + Dr. Vance). Set `ROSTER_MODE = 'full'` in `data.js` to load all 19 design-proposal avatars. IDs use snake_case matching the Python repo convention (`src/avatars/adhd_traits/`). `stay_alert` maps to the Python implementation in the parent `neurolift-ai-fusion` repo.
 
 Full table in `docs/specs/world-engine-prototype-schema.md#canonical-roster`.
 

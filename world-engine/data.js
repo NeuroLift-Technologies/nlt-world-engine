@@ -53,8 +53,12 @@ window.WE_DATA = (function () {
       blurb: 'Why-power is low. Reward feels distant.' },
   ];
 
+  const AVATARS = ROSTER_MODE === 'single'
+    ? ALL_AVATARS.filter((a) => a.id === SINGLE_PAIR_ID)
+    : ALL_AVATARS;
+
   // Aides paired 1:1 with each avatar by trait expertise.
-  const AIDES = {
+  const ALL_AIDES = {
     stay_alert:      { name: 'Dr. Vance',    style: 'supportive skill-building', focus: 'pomodoro · anchoring · mental-fatigue mgmt' },
     task_kickstart:  { name: 'Coach Reyes',  style: 'gentle activation',         focus: 'two-minute starts · ladder steps · momentum' },
     focus_flow:      { name: 'Coach Mei',    style: 'gentle boundary',           focus: 'externally-paced exits · transition rituals' },
