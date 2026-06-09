@@ -152,6 +152,8 @@ class AgentInterface:
             return False
 
         my_x, my_y = self.position()
+        if (my_x, my_y) == (-1, -1):
+            return False
         if max(abs(my_x - target_pos.x), abs(my_y - target_pos.y)) <= 1:
             return self.submit_intent("move_to", data={"x": my_x, "y": my_y})
 
