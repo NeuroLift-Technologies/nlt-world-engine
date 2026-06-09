@@ -83,8 +83,11 @@ lands on a draft PR for his review before merge.
 
 ### Outcome
 
-*(To be filled in after the action is taken)*
-
-**Date completed:**
-**Result:**
-**Deviations from plan:**
+**Date completed:** 2026-06-09
+**Result:** Both parts landed. Training-side code removed (git history preserves it);
+environment core implemented: Collider/Needs/Descriptor components, Needs/Movement/
+Interaction systems, spatial grid index, deterministic clock + seeded RNG, world_builder
+with default home world, upgraded AgentInterface, runnable `demo.py` (utility agent
+autonomously living a full simulated day), 12 new tests — 16 total passing, flake8 clean.
+**Deviations from plan:** None material. NPC behavior kept as a stationary "chat" prop for
+v1 (BaseNPC behavioral wiring deferred to the next thread, as noted in active-threads.md).
