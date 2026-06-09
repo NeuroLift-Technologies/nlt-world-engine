@@ -84,18 +84,21 @@ class MovementSystem(EngineSystem):
                 controller.finish_intent("failed", reason="no_path")
                 return
             data["_path"] = path
+            data["_path_i"] = 0  # Cursor instead of pop(0): O(1) per step
 
         # Accumulate fractional movement so slow speeds still progress
         data["_movement_budget"] = data.get("_movement_budget", 0.0) \
             + self.tiles_per_second * delta_time
 
-        while data["_movement_budget"] >= 1.0 and path:
+        while data["_movement_budget"] >= 1.0 and data["_path_i"] < len(path):
             data["_movement_budget"] -= 1.0
-            next_x, next_y = path.pop(0)
-            # Re-check walkability in case the world changed since pathing
-            if not self.engine.grid.is_walkable(next_x, next_y) and (next_x, next_y) != goal:
+            next_x, next_y = path[data["_path_i"]]
+            # Re-check walkability in case the world changed since pathing —
+            # the goal included: agents never step onto solid tiles
+            if not self.engine.grid.is_walkable(next_x, next_y):
                 data["_path"] = None
                 return  # Re-path next tick
+            data["_path_i"] += 1
             old_x, old_y = pos.x, pos.y
             pos.x, pos.y = next_x, next_y
             self.engine.grid.update_entity_position(entity, old_x, old_y, next_x, next_y)

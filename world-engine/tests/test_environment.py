@@ -77,6 +77,16 @@ class TestMovement(unittest.TestCase):
         self.assertEqual(agent.last_result()["status"], "failed")
         self.assertEqual(agent.last_result()["reason"], "no_path")
 
+    def test_move_onto_solid_tile_fails(self):
+        # Agents approach objects via adjacent tiles; a solid goal is no_path
+        engine = make_engine()
+        place_block(engine, 5, 5)
+        agent = AgentInterface(engine, "a1", x=0, y=0)
+        agent.move_to(5, 5)
+        engine.run_simulation_step()
+        self.assertEqual(agent.last_result()["status"], "failed")
+        self.assertEqual(agent.last_result()["reason"], "no_path")
+
     def test_move_adjacent_to_skips_unreachable_side(self):
         # The closest adjacent tile (4,5) is walkable but walled into a
         # pocket; the agent must route to a reachable side instead

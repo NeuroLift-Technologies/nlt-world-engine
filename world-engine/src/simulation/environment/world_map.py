@@ -52,9 +52,12 @@ class GridManager:
         """Incrementally move an entity in the positional index."""
         if self._index is None:
             return  # Index will be rebuilt lazily with fresh positions
-        cell = self._index.get((old_x, old_y))
+        old_key = (old_x, old_y)
+        cell = self._index.get(old_key)
         if cell is not None:
             cell.pop(entity, None)
+            if not cell:
+                del self._index[old_key]  # Don't accumulate empty cells
         self._index.setdefault((new_x, new_y), {})[entity] = None
 
     def get_entities_at(self, x: int, y: int) -> List[Entity]:
@@ -96,11 +99,13 @@ class GridManager:
         """
         if not self.in_bounds(start_x, start_y) or not self.in_bounds(goal_x, goal_y):
             return []
-            
-        # Optimization: If the goal itself is occupied, we pathfind to a walkable adjacent tile.
-        # But standard A* checks goal walkability. If goal is solid, we can't reach it.
-        # To handle walking *up to* an interactable, the agent should goal to an adjacent cell.
-        
+
+        # A solid goal is unreachable — agents approach objects via an
+        # adjacent walkable tile (AgentInterface.move_adjacent_to), never by
+        # standing on them.
+        if not self.is_walkable(goal_x, goal_y):
+            return []
+
         frontier: List[Tuple[float, int, int]] = []
         heapq.heappush(frontier, (0, start_x, start_y))
         came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {}
@@ -129,9 +134,8 @@ class GridManager:
             
             for next_x, next_y in neighbors:
                 next_node = (next_x, next_y)
-                
-                # Check walkability (unless it is the goal itself, maybe we want to walk TO a solid object)
-                if not self.is_walkable(next_x, next_y) and next_node != goal:
+
+                if not self.is_walkable(next_x, next_y):
                     continue
                     
                 new_cost = cost_so_far[current] + 1.0 # Cost is 1 per step
