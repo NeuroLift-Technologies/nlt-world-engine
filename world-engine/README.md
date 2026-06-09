@@ -25,7 +25,8 @@ The page boots React 18 + Babel from a CDN and loads the `.jsx` files in-browser
 | `index.html` | Entry point, CDN loaders, script order |
 | `data.js` | Static data — 19 avatars, paired aides, 11 scenarios, 5 rooms, NPCs, strategies, event vocabulary |
 | `app.jsx` | Top-level composition, layout, theme/zoom/pan, tweaks panel mount |
-| `sim.jsx` | Tick loop, avatar runtime state, event emission, flavor-bias tables |
+| `sim.jsx` | Life-sim tick loop: objects, walking, interactions, motives, events |
+| `data.js` | `OBJECTS` catalog, scenarios linked to `objectId`, single-pair roster mode |
 | `world-view.jsx` | Isometric CSS/SVG renderer (32×16 tile diamond, rooms, props, avatars, NPCs) |
 | `hud.jsx` | HUD panels — `TopBar`, `AvatarStateCard`, `EventStream`, `AideLog`, `FleetRoster`, `ScenarioControls`, `ProgressPanel` |
 | `tweaks-panel.jsx` | Live-tuning shell with the `__activate_edit_mode` host protocol |

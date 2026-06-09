@@ -116,6 +116,7 @@ const WE_VIEW = (function () {
   }
 
   const STATE_ICONS = {
+    walking: '→',
     drifting: '…',
     hyperfocus: '◉',
     overwhelmed: '!',
@@ -123,7 +124,19 @@ const WE_VIEW = (function () {
     working: '▸',
   };
 
+  function SimObject({ obj, active = false, target = false }) {
+    const { sx, sy } = iso(obj.tx, obj.ty);
+    return (
+      <div
+        className={`we-sim-object ${active ? 'active' : ''} ${target ? 'target' : ''}`}
+        style={{ left: sx, top: sy - 6 }}
+        title={`${obj.name} · ${obj.affordances.join(', ')}`}
+      />
+    );
+  }
+
   function World({ avatars, selectedId, onSelectAvatar, showLabels = true, scale = 1, panX = 0, panY = 0 }) {
+    const selected = avatars.find((av) => av.id === selectedId) || avatars[0];
     const stageRef = React.useRef(null);
 
     // Compute world bounds

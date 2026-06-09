@@ -45,6 +45,9 @@ const WE_HUD = (function () {
     const aide = WE.AIDES[av.id];
     const sc = av.scenarioId ? WE.SCENARIOS.find(s => s.id === av.scenarioId) : null;
     const room = WE.ROOMS.find(r => r.id === av.room);
+    const obj = av.currentObjectId
+      ? (WE.OBJECTS_BY_ID && WE.OBJECTS_BY_ID[av.currentObjectId])
+      : (av.targetObjectId && WE.OBJECTS_BY_ID ? WE.OBJECTS_BY_ID[av.targetObjectId] : null);
     return (
       <div className="we-card we-state">
         <div className="we-state-head">
