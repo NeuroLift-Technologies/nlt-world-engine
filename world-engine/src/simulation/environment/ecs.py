@@ -8,7 +8,7 @@ with entities using rich object-oriented logic.
 """
 
 import uuid
-from typing import Any, Dict, List, Type, TypeVar, Optional, Set, cast
+from typing import Any, Dict, List, Type, TypeVar, Optional, cast
 
 T = TypeVar('T', bound='Component')
 
@@ -53,7 +53,11 @@ class Registry:
     Stores all entities, their components, and runs registered systems.
     """
     def __init__(self):
-        self._entities: Set[Entity] = set()
+        # Insertion-ordered (dict-backed) so iteration — and therefore system
+        # processing order, lock acquisition, and tie-breaking — is
+        # deterministic across runs. A plain set would iterate in UUID-hash
+        # order, which the engine seed does not control.
+        self._entities: Dict[Entity, None] = {}
         self._by_id: Dict[str, Entity] = {}
         # Dictionary mapping Component Class -> {Entity ID -> Component Instance}
         self._components: Dict[Type[Component], Dict[str, Component]] = {}
@@ -61,7 +65,7 @@ class Registry:
 
     def add_entity(self, entity: Entity) -> None:
         """Add an entity to the registry."""
-        self._entities.add(entity)
+        self._entities[entity] = None
         self._by_id[entity.entity_id] = entity
 
     def get_entity(self, entity_id: str) -> Optional[Entity]:
@@ -71,7 +75,7 @@ class Registry:
     def remove_entity(self, entity: Entity) -> None:
         """Remove an entity and all its associated components."""
         if entity in self._entities:
-            self._entities.remove(entity)
+            del self._entities[entity]
             self._by_id.pop(entity.entity_id, None)
             for component_type in self._components:
                 if entity.entity_id in self._components[component_type]:
