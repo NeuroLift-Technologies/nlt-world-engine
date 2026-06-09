@@ -6,7 +6,7 @@ Provides spatial indexing, queries (e.g., finding nearby entities),
 and pathfinding for agents navigating the environment.
 """
 
-from typing import List, Dict, Tuple, Optional, Set
+from typing import List, Dict, Tuple, Optional
 import heapq
 from .ecs import Registry, Position, Entity, Collider
 
@@ -25,7 +25,8 @@ class GridManager:
         self.width = width
         self.height = height
         self.registry = registry
-        self._index: Optional[Dict[Tuple[int, int], Set[Entity]]] = None
+        # Cell membership is insertion-ordered (dict-backed) for determinism
+        self._index: Optional[Dict[Tuple[int, int], Dict[Entity, None]]] = None
 
     def in_bounds(self, x: int, y: int) -> bool:
         """Check if coordinates are within the grid bounds."""
@@ -35,14 +36,14 @@ class GridManager:
         """Force a rebuild of the positional index on next query."""
         self._index = None
 
-    def _ensure_index(self) -> Dict[Tuple[int, int], Set[Entity]]:
+    def _ensure_index(self) -> Dict[Tuple[int, int], Dict[Entity, None]]:
         if self._index is None:
-            index: Dict[Tuple[int, int], Set[Entity]] = {}
+            index: Dict[Tuple[int, int], Dict[Entity, None]] = {}
             if self.registry:
                 for entity in self.registry.get_entities_with(Position):
                     pos = self.registry.get_component(entity, Position)
                     if pos:
-                        index.setdefault((pos.x, pos.y), set()).add(entity)
+                        index.setdefault((pos.x, pos.y), {})[entity] = None
             self._index = index
         return self._index
 
@@ -53,8 +54,8 @@ class GridManager:
             return  # Index will be rebuilt lazily with fresh positions
         cell = self._index.get((old_x, old_y))
         if cell is not None:
-            cell.discard(entity)
-        self._index.setdefault((new_x, new_y), set()).add(entity)
+            cell.pop(entity, None)
+        self._index.setdefault((new_x, new_y), {})[entity] = None
 
     def get_entities_at(self, x: int, y: int) -> List[Entity]:
         """Find all entities currently at a specific coordinate."""

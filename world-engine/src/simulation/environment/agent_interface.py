@@ -165,11 +165,13 @@ class AgentInterface:
                 nx, ny = target_pos.x + dx, target_pos.y + dy
                 if self.engine.grid.is_walkable(nx, ny):
                     candidates.append((abs(nx - my_x) + abs(ny - my_y), nx, ny))
-        if not candidates:
-            return False
         candidates.sort()
-        _, x, y = candidates[0]
-        return self.submit_intent("move_to", data={"x": x, "y": y})
+        # Nearest walkable side first, but only accept one we can actually
+        # reach — the closest tile may sit in a walled-off pocket
+        for _, x, y in candidates:
+            if (x, y) == (my_x, my_y) or self.engine.grid.find_path(my_x, my_y, x, y):
+                return self.submit_intent("move_to", data={"x": x, "y": y})
+        return False
 
     def use(self, target_id: str, affordance: str) -> bool:
         """Use an affordance on an adjacent interactable entity."""

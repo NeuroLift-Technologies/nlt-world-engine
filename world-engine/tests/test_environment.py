@@ -77,6 +77,26 @@ class TestMovement(unittest.TestCase):
         self.assertEqual(agent.last_result()["status"], "failed")
         self.assertEqual(agent.last_result()["reason"], "no_path")
 
+    def test_move_adjacent_to_skips_unreachable_side(self):
+        # The closest adjacent tile (4,5) is walkable but walled into a
+        # pocket; the agent must route to a reachable side instead
+        engine = make_engine(seconds_per_tick=1.0, tiles_per_second=5.0)
+        target = engine.spawn_entity()
+        engine.registry.add_component(target, Position(5, 5))
+        engine.registry.add_component(target, Collider())
+        engine.registry.add_component(target, Interactable(affordances=["use"]))
+        for x, y in [(3, 5), (4, 4), (4, 6)]:
+            place_block(engine, x, y)
+        engine.grid.invalidate_index()
+        agent = AgentInterface(engine, "a1", x=0, y=0)
+        self.assertTrue(agent.move_adjacent_to(target.entity_id))
+        for _ in range(10):
+            engine.run_simulation_step()
+        self.assertEqual(agent.last_result()["status"], "completed")
+        x, y = agent.position()
+        self.assertNotEqual((x, y), (4, 5))
+        self.assertLessEqual(max(abs(x - 5), abs(y - 5)), 1)
+
     def test_busy_agent_rejects_second_intent(self):
         engine = make_engine(tiles_per_second=0.1)
         agent = AgentInterface(engine, "a1", x=0, y=0)
@@ -148,6 +168,22 @@ class TestInteraction(unittest.TestCase):
         agent.use(fridge.entity_id, "sleep")
         engine.run_simulation_step()
         self.assertEqual(agent.last_result()["reason"], "no_such_affordance")
+
+    def test_contention_winner_is_deterministic(self):
+        # Same-tick contention must resolve by spawn order (insertion order),
+        # not by set-iteration order, so seeded runs replay identically
+        def contend():
+            engine, fridge = self._world_with_fridge()
+            first = AgentInterface(engine, "first", x=4, y=5)
+            second = AgentInterface(engine, "second", x=6, y=5)
+            first.use(fridge.entity_id, "eat")
+            second.use(fridge.entity_id, "eat")
+            engine.run_simulation_step()
+            interactable = engine.registry.get_component(fridge, Interactable)
+            return interactable.in_use_by
+
+        winners = {contend() for _ in range(5)}
+        self.assertEqual(winners, {"first"})
 
 
 class TestNeeds(unittest.TestCase):
