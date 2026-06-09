@@ -208,7 +208,6 @@ class TestNeeds(unittest.TestCase):
 
 class TestDeterminism(unittest.TestCase):
     def _run_day(self):
-        sys.path.insert(0, str(WORLD_ENGINE_ROOT))
         from demo import UtilityAgent
         engine = engine_for_spec(DEFAULT_HOME_SPEC, seed=42,
                                  seconds_per_tick=60.0)
