@@ -47,6 +47,8 @@ class UtilityAgent:
 
         best, best_gain = None, 0.0
         for thing in surroundings:
+            if not thing.get("affordances"):
+                continue
             effects = thing.get("need_effects") or {}
             gain = effects.get(pressing, 0.0)
             if gain > best_gain and not thing.get("in_use"):

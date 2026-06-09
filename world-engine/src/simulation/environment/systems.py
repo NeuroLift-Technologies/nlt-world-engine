@@ -145,8 +145,8 @@ class InteractionSystem(EngineSystem):
 
         my_pos = self.registry.get_component(entity, Position)
         target_pos = self.registry.get_component(target, Position)
-        if target_pos and max(abs(my_pos.x - target_pos.x),
-                              abs(my_pos.y - target_pos.y)) > 1:
+        if target_pos is None or max(abs(my_pos.x - target_pos.x),
+                                     abs(my_pos.y - target_pos.y)) > 1:
             controller.finish_intent("failed", reason="not_adjacent")
             return
 

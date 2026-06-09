@@ -130,6 +130,18 @@ class TestInteraction(unittest.TestCase):
         engine.run_simulation_step()
         self.assertEqual(second.last_result()["reason"], "occupied")
 
+    def test_positionless_target_is_not_adjacent(self):
+        # A target without a Position must not be usable from any distance
+        engine = make_engine(seconds_per_tick=1.0)
+        ghost = engine.spawn_entity()
+        engine.registry.add_component(ghost, Interactable(
+            affordances=["eat"], use_duration_s=1.0))
+        agent = AgentInterface(engine, "a1", x=0, y=0)
+        agent.use(ghost.entity_id, "eat")
+        engine.run_simulation_step()
+        self.assertEqual(agent.last_result()["status"], "failed")
+        self.assertEqual(agent.last_result()["reason"], "not_adjacent")
+
     def test_unknown_affordance_fails(self):
         engine, fridge = self._world_with_fridge()
         agent = AgentInterface(engine, "a1", x=4, y=5)
