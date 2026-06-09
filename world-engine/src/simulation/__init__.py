@@ -1,8 +1,7 @@
 """
-Simulation package - Training environment and orchestration.
+Simulation package - the environment AI agents live in.
 
 Contains:
-- Session orchestration (training loop coordination)
-- Training session management
-- Environment (world engine, ECS, scenarios, NPCs)
+- environment/: world engine, ECS, world map, systems, world builder, scenarios
+- npcs/: NPC base classes
 """
