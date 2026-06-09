@@ -157,6 +157,8 @@ class AgentInterface:
         if (my_x, my_y) == (-1, -1):
             return False
         if max(abs(my_x - target_pos.x), abs(my_y - target_pos.y)) <= 1:
+            # Deliberately submit a trivial move rather than returning early:
+            # controllers wait on a fresh last_result to advance their plan
             return self.submit_intent("move_to", data={"x": my_x, "y": my_y})
 
         candidates = []
