@@ -133,8 +133,11 @@ def main() -> None:
 
     ticks_per_day = int(24 * 3600 / engine.time_per_tick.total_seconds())
     for _ in range(ticks_per_day):
-        agent.step()                  # cognition (outside the tick)
-        engine.run_simulation_step()  # physics/needs/intents (inside the tick)
+        agent.step()  # cognition (outside the tick)
+        # physics/needs/intents (inside the tick)
+        if not engine.run_simulation_step():
+            print(f"\nSimulation stopped at {engine.simulation_time}")
+            break
 
     print("\nWorld at 08:00 next day:")
     print(render_map(engine, DEFAULT_HOME_SPEC))
