@@ -65,6 +65,6 @@
       "python3 demo.py (manual: agent lives a believable day - eat, chat, 7h sleep, shower, tv)"
     ],
     "tests_passing": true,
-    "pr_url": "[to be filled after PR creation]"
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-fusion/pull/11"
   }
 }
