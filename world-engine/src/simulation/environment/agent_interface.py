@@ -45,9 +45,11 @@ class PerceptionMap:
             interactable = registry.get_component(e, Interactable)
             descriptor = registry.get_component(e, Descriptor)
 
+            # Positionless entities sort last, not first
             desc: Dict[str, Any] = {
                 "entity_id": e.entity_id,
-                "distance": abs(pos.x - self.my_pos.x) + abs(pos.y - self.my_pos.y) if pos else -1,
+                "distance": (abs(pos.x - self.my_pos.x) + abs(pos.y - self.my_pos.y)
+                             if pos else float("inf")),
             }
             if pos:
                 desc["position"] = [pos.x, pos.y]
