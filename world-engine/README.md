@@ -1,4 +1,33 @@
-# World Engine — Frontend Prototype
+# World Engine
+
+The Sims-like environment AI agents live in. This repo owns the **environment
+only** — world state, space, time, objects, needs, NPCs. Avatar/Aide
+intelligence, ADHD trait modeling, and fusion mechanics live in
+`neurolift-ai-fusion` and connect through the agent interface.
+
+## Python environment engine (`src/`)
+
+A deterministic ECS simulation: tick loop, seeded RNG, spatial grid with A*
+pathfinding, sims-style needs, and movement/interaction systems. AI agents
+plug in through `src/simulation/environment/agent_interface.py` — perceive,
+submit intents, poll results. Decision logic (rule-based or LLM) stays
+outside the tick.
+
+See it run — an agent autonomously living a full day (eat, chat, sleep,
+shower, watch TV):
+
+```bash
+cd world-engine
+python3 demo.py          # a day in the life
+python3 -m unittest discover tests   # 16 tests
+```
+
+`demo.py`'s `UtilityAgent.decide()` is the seam where an LLM controller
+replaces the rule-based one without touching the engine.
+
+---
+
+# Frontend Prototype
 
 A standalone React prototype that visualises the Avatar/Aide/Scenario world. **Not wired** to the Python simulation engine — the sim ticks locally in the browser. See `docs/specs/world-engine-prototype-schema.md` for the full data contract.
 

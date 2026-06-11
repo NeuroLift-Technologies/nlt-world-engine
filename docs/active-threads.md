@@ -2,11 +2,27 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-06-04
+**Last updated:** 2026-06-09
 
 ---
 
 ## Active Threads
+
+### Environment-only scope — engine core implemented 🟢 IN REVIEW
+- **Agent:** Claude Code · **Opened:** 2026-06-09 · **Branch:** `claude/brave-darwin-5hxolo`
+- **Scope decision (Josh, 2026-06-09):** nlt-fusion is the environment-only repo — "put AI
+  in an environment like the Sims game." ADHD traits and fusion mechanics move to
+  `neurolift-ai-fusion`. This also closes the 2026-05-29 escalation's open question: the
+  four "missing modules" belong to the sibling repo, not here.
+- Removed training-side code (`src/avatars|aides|fusion|database`, `session_orchestrator`,
+  `training_session`) — git history preserves it as the starting point for the sibling repo.
+- Implemented the environment core: `Collider`/`Needs`/`Descriptor` components,
+  `NeedsSystem`/`MovementSystem`/`InteractionSystem`, spatial grid index, deterministic
+  clock + seeded RNG, `world_builder` (default home world), richer `AgentInterface`,
+  `demo.py` (utility agent autonomously living a full day), 12 new tests (16 total passing).
+- **Next baton:** review/merge the PR; then NPC behavior (BaseNPC is still abstract),
+  scenario→world instantiation, contracts/v1 snapshot/event emission from the Python
+  engine, and the transport decision for how `neurolift-ai-fusion` agents connect.
 
 ### Repo housekeeping — sync threads, prune duplicates/branches, triage PR #1 🟡 IN PROGRESS
 - **Agent:** Claude Code · **Opened:** 2026-05-29

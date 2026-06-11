@@ -1,0 +1,70 @@
+{
+  "handoff_record": {
+    "session_id":         "claude/brave-darwin-5hxolo",
+    "agent_name":         "Claude Code",
+    "date":               "2026-06-09",
+    "otoi_version":       "ORG-DEV-OTOI-1.0.2",
+    "repo":               "NeuroLift-Technologies/nlt-fusion",
+    "branch":             "claude/brave-darwin-5hxolo",
+    "work_completed": [
+      "Separated training-side code out of world-engine/src per Josh's environment-only scope decision: removed src/avatars, src/aides, src/fusion, src/database, session_orchestrator.py, training_session.py (git history preserves them as the starting point for neurolift-ai-fusion)",
+      "Added ECS components: Collider, Needs (sims-style, decay rates), Descriptor; extended Interactable with use_duration_s and need_effects; AgentController gained finish_intent/last_result",
+      "Implemented the three core systems flagged missing in world_engine.py: NeedsSystem, MovementSystem (A* with re-pathing), InteractionSystem (adjacency, locking, need effects)",
+      "Added positional index to GridManager (queries were linear scans inside A*); replaced the __import__ hack with a proper Collider check",
+      "Made the engine deterministic: fixed default start time (config-overridable), seeded RNG, minimal get_snapshot()",
+      "Added world_builder.py: declarative spec -> populated world; default one-bedroom home (bed/shower/fridge/tv/desk/bookshelf + roommate NPC)",
+      "Upgraded AgentInterface: named perception with affordances and need effects, move_to/move_adjacent_to/use helpers, needs(), last_result()",
+      "Added demo.py: a UtilityAgent autonomously living a full simulated day through AgentInterface only; UtilityAgent.decide() is the documented seam for an LLM controller",
+      "Added tests/test_environment.py: 12 tests covering pathfinding, movement, interaction, needs decay, and run-to-run determinism (16 total passing incl. contract tests)",
+      "Updated README.md, package docstrings, requirements.txt, active-threads.md; logged intent and registration records"
+    ],
+    "work_in_progress": [],
+    "blockers": [],
+    "decisions_made": [
+      "Scope (decided by Josh in-session, 2026-06-09): nlt-fusion owns only the Sims-like environment; ADHD traits and fusion move to neurolift-ai-fusion. Closes the open question from the 2026-05-29 escalation.",
+      "Deterministic-by-default sim clock (fixed epoch, config-overridable) to align with the contracts/v1 replay philosophy.",
+      "v1 NPCs are stationary interactable 'social props'; behavioral NPCs (BaseNPC subclasses + a behavior system) deferred."
+    ],
+    "decisions_pending": [
+      "Transport for how neurolift-ai-fusion agents connect to this environment (in-process import vs. service API vs. contracts/v1 message exchange) - Josh",
+      "Whether the browser prototype should be rewired to render Python-engine snapshots (contracts/v1) or stay a standalone design prototype - Josh"
+    ],
+    "escalations": [
+      "None raised; docs/agent-log/intent/2026-06-09-environment-only-scope.md logged before the restructure (escalation not needed - decision-maker stated direction in-session)"
+    ],
+    "next_agent_notes": "Run `cd world-engine && python3 demo.py` to see the proof-of-concept. Build order for what remains: (1) behavioral NPCs - BaseNPC is still abstract and nothing ticks NPCs; (2) scenario->world instantiation - ScenarioLibrary entries are still metadata-only, world_builder.build_world is the hook; (3) emit contracts/v1-format snapshots/events from the Python engine (get_snapshot is the start); (4) the agent transport decision. The cognitive layer always stays outside engine.run_simulation_step - see demo.py's agent.step()/engine tick split.",
+    "files_modified": [
+      "world-engine/src/simulation/environment/ecs.py",
+      "world-engine/src/simulation/environment/world_map.py",
+      "world-engine/src/simulation/environment/world_engine.py",
+      "world-engine/src/simulation/environment/systems.py",
+      "world-engine/src/simulation/environment/world_builder.py",
+      "world-engine/src/simulation/environment/agent_interface.py",
+      "world-engine/src/simulation/environment/__init__.py",
+      "world-engine/src/simulation/__init__.py",
+      "world-engine/src/__init__.py",
+      "world-engine/demo.py",
+      "world-engine/tests/test_environment.py",
+      "world-engine/README.md",
+      "world-engine/requirements.txt",
+      "world-engine/src/avatars/ (removed)",
+      "world-engine/src/aides/ (removed)",
+      "world-engine/src/fusion/ (removed)",
+      "world-engine/src/database/ (removed)",
+      "world-engine/src/simulation/session_orchestrator.py (removed)",
+      "world-engine/src/simulation/training_session.py (removed)",
+      "docs/active-threads.md",
+      "docs/agent-log/intent/2026-06-09-environment-only-scope.md",
+      "docs/agent-log/registrations/2026-06-09-claude-code.json",
+      "docs/agent-log/handoffs/2026-06-09-claude-brave-darwin-5hxolo.json"
+    ],
+    "tests_run": [
+      "python3 -m unittest discover tests (16 tests: 12 environment + 4 contract)",
+      "python3 -m flake8 --select=E9,F63,F7,F82,F401 src tests demo.py",
+      "python3 -m compileall src demo.py tests",
+      "python3 demo.py (manual: agent lives a believable day - eat, chat, 7h sleep, shower, tv)"
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-fusion/pull/11"
+  }
+}

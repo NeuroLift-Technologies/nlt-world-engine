@@ -8,11 +8,16 @@ handle thousands of objects, spatial queries, and ticking mechanics.
 
 from enum import Enum
 from typing import Dict, List, Any, Optional
+import random
 import uuid
 from datetime import datetime, timedelta
 
-from .ecs import Registry, Entity, System, Position
+from .ecs import Registry, Entity, Position, Needs, AgentController, Descriptor
 from .world_map import GridManager
+
+# Fixed default epoch keeps runs deterministic and replayable by default;
+# pass config["start_time"] (datetime or ISO string) to override.
+DEFAULT_START_TIME = datetime(2026, 1, 1, 8, 0, 0)
 
 
 class SimulationState(Enum):
@@ -46,12 +51,18 @@ class WorldEngine:
         
         # State
         self.current_state = SimulationState.INITIALIZING
-        
-        # Time
-        self.simulation_time = datetime.now()
+
+        # Time — deterministic by default (see DEFAULT_START_TIME)
+        start_time = self.config.get("start_time", DEFAULT_START_TIME)
+        if isinstance(start_time, str):
+            start_time = datetime.fromisoformat(start_time)
+        self.simulation_time = start_time
         self.tick_count = 0
         self.time_per_tick = timedelta(seconds=self.config.get("seconds_per_tick", 1.0))
-        
+
+        # Seeded RNG — anything stochastic in the world must draw from this
+        self.rng = random.Random(self.config.get("seed", 0))
+
         # Architecture
         self.registry = Registry()
         
@@ -68,22 +79,75 @@ class WorldEngine:
     def initialize(self) -> None:
         """Set up initial systems and state."""
         self.current_state = SimulationState.RUNNING
-        
-        # Register Core Systems here. E.g.:
-        # self.registry.register_system(MovementSystem())
-        # self.registry.register_system(InteractionSystem())
-        
+
+        if self.config.get("register_default_systems", True):
+            # Imported here to avoid a circular import at module load
+            from .systems import NeedsSystem, MovementSystem, InteractionSystem
+            self.registry.register_system(NeedsSystem(self))
+            self.registry.register_system(
+                MovementSystem(self, tiles_per_second=self.config.get("tiles_per_second", 2.0)))
+            self.registry.register_system(InteractionSystem(self))
+
     def spawn_entity(self) -> Entity:
         """Create and register a new entity."""
         entity = Entity()
         self.registry.add_entity(entity)
+        self.grid.invalidate_index()
         self.emit_event(EventType.ENTITY_ADDED, {"entity_id": entity.entity_id})
         return entity
-        
+
     def remove_entity(self, entity: Entity) -> None:
         """Remove an entity from the world."""
         self.registry.remove_entity(entity)
+        self.grid.invalidate_index()
         self.emit_event(EventType.ENTITY_REMOVED, {"entity_id": entity.entity_id})
+
+    def emit_move_event(self, entity: Entity, old_x: int, old_y: int,
+                        new_x: int, new_y: int) -> None:
+        """Convenience emitter used by MovementSystem."""
+        self.emit_event(EventType.ENTITY_MOVED, {
+            "entity_id": entity.entity_id,
+            "from": [old_x, old_y],
+            "to": [new_x, new_y],
+        })
+
+    def emit_interaction_event(self, started: bool, entity: Entity,
+                               target: Entity, affordance: str) -> None:
+        """Convenience emitter used by InteractionSystem."""
+        event_type = (EventType.INTERACTION_STARTED if started
+                      else EventType.INTERACTION_COMPLETED)
+        self.emit_event(event_type, {
+            "entity_id": entity.entity_id,
+            "target_id": target.entity_id,
+            "affordance": affordance,
+        })
+
+    def get_snapshot(self) -> Dict[str, Any]:
+        """
+        Minimal serializable view of world state — tick, clock, and every
+        positioned entity with its descriptor, needs, and current intent.
+        Groundwork for the contracts/v1 snapshot format.
+        """
+        entities = {}
+        for entity in self.registry.get_entities_with(Position):
+            pos = self.registry.get_component(entity, Position)
+            record: Dict[str, Any] = {"position": [pos.x, pos.y]}
+            descriptor = self.registry.get_component(entity, Descriptor)
+            if descriptor:
+                record["name"] = descriptor.name
+                record["kind"] = descriptor.kind
+            needs = self.registry.get_component(entity, Needs)
+            if needs:
+                record["needs"] = {k: round(v, 6) for k, v in sorted(needs.levels.items())}
+            controller = self.registry.get_component(entity, AgentController)
+            if controller and controller.current_intent:
+                record["intent_type"] = controller.current_intent.get("type")
+            entities[entity.entity_id] = record
+        return {
+            "tick": self.tick_count,
+            "simulation_time": self.simulation_time.isoformat(),
+            "entities": entities,
+        }
 
     def run_simulation_step(self) -> bool:
         """

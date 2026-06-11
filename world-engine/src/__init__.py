@@ -1,15 +1,16 @@
 """
-World Engine - NeuroLift AI-Fusion Training Simulation
+World Engine - NLT Fusion Environment
 
-Core simulation engine for Avatar-Aide experiential learning.
+A Sims-like simulated world that AI agents can live in. This repo owns the
+environment only: world state, space, time, objects, needs, and NPCs.
+Avatar/Aide intelligence, ADHD trait modeling, and fusion mechanics live in
+the sibling repo (neurolift-ai-fusion) and connect through
+`simulation.environment.agent_interface.AgentInterface`.
 
 Package structure:
-- avatars/: AI entities experiencing ADHD traits
-- aides/: AI coaching systems providing real-time support
-- fusion/: Avatar-Aide fusion algorithms and readiness assessment
 - core/: Event system, state machine, foundational components
-- simulation/: Training environment, scenarios, orchestration
-- database/: Data persistence layer
+- simulation/environment/: World engine, ECS, world map, systems, scenarios
+- simulation/npcs/: NPC base classes
 """
 
-__version__ = "0.1.0-alpha"
+__version__ = "0.2.0-alpha"

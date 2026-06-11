@@ -8,7 +8,7 @@ with entities using rich object-oriented logic.
 """
 
 import uuid
-from typing import Any, Dict, List, Type, TypeVar, Optional, Set, cast
+from typing import Any, Dict, List, Type, TypeVar, Optional, cast
 
 T = TypeVar('T', bound='Component')
 
@@ -53,19 +53,30 @@ class Registry:
     Stores all entities, their components, and runs registered systems.
     """
     def __init__(self):
-        self._entities: Set[Entity] = set()
+        # Insertion-ordered (dict-backed) so iteration — and therefore system
+        # processing order, lock acquisition, and tie-breaking — is
+        # deterministic across runs. A plain set would iterate in UUID-hash
+        # order, which the engine seed does not control.
+        self._entities: Dict[Entity, None] = {}
+        self._by_id: Dict[str, Entity] = {}
         # Dictionary mapping Component Class -> {Entity ID -> Component Instance}
         self._components: Dict[Type[Component], Dict[str, Component]] = {}
         self._systems: List[System] = []
 
     def add_entity(self, entity: Entity) -> None:
         """Add an entity to the registry."""
-        self._entities.add(entity)
+        self._entities[entity] = None
+        self._by_id[entity.entity_id] = entity
+
+    def get_entity(self, entity_id: str) -> Optional[Entity]:
+        """Look up an entity by its ID."""
+        return self._by_id.get(entity_id)
 
     def remove_entity(self, entity: Entity) -> None:
         """Remove an entity and all its associated components."""
         if entity in self._entities:
-            self._entities.remove(entity)
+            del self._entities[entity]
+            self._by_id.pop(entity.entity_id, None)
             for component_type in self._components:
                 if entity.entity_id in self._components[component_type]:
                     del self._components[component_type][entity.entity_id]
@@ -119,15 +130,49 @@ class Position(Component):
         self.x = x
         self.y = y
         self.z = z
-        
+
     def __str__(self):
         return f"Position({self.x}, {self.y}, {self.z})"
 
+class Descriptor(Component):
+    """Human/AI-readable identity for an entity (shown in perception)."""
+    def __init__(self, name: str, kind: str = "object", room: Optional[str] = None):
+        self.name = name
+        self.kind = kind  # "object", "npc", "agent"
+        self.room = room
+
+class Collider(Component):
+    """Marks an entity as solid — it blocks movement through its tile."""
+    pass
+
 class Interactable(Component):
-    """Component that defines what actions an agent can take on this entity."""
-    def __init__(self, affordances: Optional[List[str]] = None):
+    """
+    Component that defines what actions an agent can take on this entity.
+
+    `use_duration_s` is simulated seconds a use takes; `need_effects` are the
+    deltas applied to the user's Needs when the use completes.
+    """
+    def __init__(self, affordances: Optional[List[str]] = None,
+                 use_duration_s: float = 1.0,
+                 need_effects: Optional[Dict[str, float]] = None):
         self.affordances = affordances or []
         self.in_use_by: Optional[str] = None  # Agent ID currently using this
+        self.use_duration_s = use_duration_s
+        self.need_effects = need_effects or {}
+
+class Needs(Component):
+    """
+    Sims-style needs, each normalized 0..1 (1 = fully satisfied).
+    `decay_per_s` maps a need to how much it drains per simulated second.
+    """
+    def __init__(self, levels: Optional[Dict[str, float]] = None,
+                 decay_per_s: Optional[Dict[str, float]] = None):
+        self.levels: Dict[str, float] = dict(levels or {})
+        self.decay_per_s: Dict[str, float] = dict(decay_per_s or {})
+
+    def adjust(self, need: str, delta: float) -> None:
+        current = self.levels.get(need, 0.0)
+        self.levels[need] = max(0.0, min(1.0, current + delta))
 
 class AgentController(Component):
     """
@@ -138,3 +183,15 @@ class AgentController(Component):
         self.agent_id = agent_id
         self.current_intent: Optional[Dict[str, Any]] = None
         self.intent_progress: float = 0.0
+        # Result of the most recently finished intent:
+        # {"intent": {...}, "status": "completed"|"failed", "reason": str|None}
+        self.last_result: Optional[Dict[str, Any]] = None
+
+    def finish_intent(self, status: str, reason: Optional[str] = None) -> None:
+        self.last_result = {
+            "intent": self.current_intent,
+            "status": status,
+            "reason": reason,
+        }
+        self.current_intent = None
+        self.intent_progress = 0.0
