@@ -1,18 +1,7 @@
 # NLT-Fusion World Engine - Python Dependencies
 
-# Note: The current codebase uses only Python standard library modules.
-# These are future dependencies for when the stub implementations are replaced
-# with real functionality.
-
-# Database connectivity (when SupabaseClient is implemented)
-# supabase>=2.0.0
+# The environment engine uses only the Python standard library.
 
 # Development dependencies
 flake8>=6.0.0
 pytest>=7.0.0
-
-# The following would be needed for a production implementation:
-# - Python 3.10+ (required for match/case statements in some modules)
-# - supabase-py for database connectivity
-# - Any LLM provider SDKs for Avatar/Aide AI behavior
-# - Potential UI/visualization libraries for debugging
