@@ -7,7 +7,7 @@
     "entry_date": "2026-06-22",
     "entry_point": "Joshua: design the actual world engine (not the tick loop) for nlt-fusion, with AI agents living in the world and humans watching. Architect-only role; implementation handed to Cursor.",
     "acknowledged_otoi": true,
-    "otoi_version": "ORG-DEV-OTOI-1.0.0",
+    "otoi_version": "ORG-DEV-OTOI-1.0.2",
     "working_repo": "nlt-fusion",
     "working_branch": "docs/world-engine-design",
     "capabilities_self_reported": [
