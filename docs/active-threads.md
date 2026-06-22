@@ -2,11 +2,19 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-06-09
+**Last updated:** 2026-06-22
 
 ---
 
 ## Active Threads
+
+### World Engine — direction set, handed to Cursor 🟢 DECIDED
+- **Agent:** Claude Code (architect) · **Opened:** 2026-06-22 · **Branch:** `docs/world-engine-design`
+- **Decision (Josh, 2026-06-22):** build the actual world engine on the existing **headless, deterministic Python ECS kernel** (`world-engine/src/`) — not the browser tick loop, and not a human-player game engine — because **AI agents live in the world; humans only watch**. The studio (`world-view.jsx`/`hud.jsx`) becomes a **read-only live viewer** fed by a `contracts/v1` snapshot/event stream over SSE.
+- Wrote `docs/world-engine/DESIGN.md`: architecture (scene JSON, existing ECS, headless scheduler w/ pace, A\*/perception reuse, new `ScenarioSystem` wiring the orphaned `scenarios.py`, real `get_snapshot`/`load_snapshot` + SSE/REST transport, studio as projection), the 4 settled follow-on calls (SSE+REST transport, deterministic kernel + recorded controllers, Python scene JSON canonical, v1 = Core Loop slice), v1 acceptance criteria, file layout, traps, and OTOI guardrails.
+- Resolves the **Next baton** of the "Environment-only" thread below (scenario→world instantiation, `contracts/v1` emission, transport decision).
+- **Implementation handed to Cursor** (Cursor = implementation per `senior-dev-hub`); baton + decision recorded in `senior-dev-hub` (`active-thread.md` + `decisions.md`).
+- **Next baton:** Cursor builds the v1 Core Loop slice per the brief — PR-only, `[CURSOR]` commits, escalate architecture/safety to Josh.
 
 ### Environment-only scope — engine core implemented 🟢 IN REVIEW
 - **Agent:** Claude Code · **Opened:** 2026-06-09 · **Branch:** `claude/brave-darwin-5hxolo`
