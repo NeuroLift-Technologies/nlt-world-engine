@@ -24,7 +24,8 @@ DEFAULT_NEEDS = {
     "social":  1.0 / (10 * 3600),
 }
 
-DEFAULT_HOME_SPEC: Dict[str, Any] = {
+# Inline fallback if scene JSON is unavailable (tests, minimal envs).
+_FALLBACK_HOME_SPEC: Dict[str, Any] = {
     "grid": {"width": 20, "height": 14},
     "rooms": {
         "bedroom":     {"x": 0,  "y": 0, "w": 8,  "h": 7},
@@ -60,6 +61,17 @@ DEFAULT_HOME_SPEC: Dict[str, Any] = {
          "effects": {"social": 0.7, "fun": 0.2}},
     ],
 }
+
+
+def _load_default_home_spec() -> Dict[str, Any]:
+    try:
+        from ..scene.loader import DEFAULT_SCENE_PATH, load_scene, scene_to_builder_spec
+        return scene_to_builder_spec(load_scene(DEFAULT_SCENE_PATH))
+    except Exception:
+        return _FALLBACK_HOME_SPEC
+
+
+DEFAULT_HOME_SPEC: Dict[str, Any] = _load_default_home_spec()
 
 
 def build_world(engine: WorldEngine,
