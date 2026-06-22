@@ -2,7 +2,7 @@
 
 **Status:** Approved direction (Joshua W. Dorsey, Sr.) — 2026-06-22
 **For:** Cursor (implementer). Architect/handoff: Claude Code.
-**Governed by:** ORG-DEV-OTOI-1.0.2. This is a design brief, not a license to skip governance — see §8.
+**Governed by:** ORG-DEV-OTOI-1.0.0 (the canonical version in this repo's `NLT-DEV-OTOI.md` + `nltotoi.json`). This is a design brief, not a license to skip governance — see §8.
 
 ---
 
@@ -31,7 +31,7 @@ The hard parts exist. This is **promote + wire + stream**, not greenfield.
 |---|---|---|
 | 1 | Authoritative runtime | **Python kernel** (`world-engine/src/`). TS Cloudflare DO is a *future* deployment target, not the v1 authority. |
 | 2 | Transport (kernel → humans) | **SSE** live stream of snapshots+events for watching, **+ a small REST control endpoint** (pause/resume/step/assign-scenario/reset). WebSocket-ready later for networked controllers. |
-| 3 | Determinism | **Deterministic kernel + recorded controller decisions.** No `Math.random`/unseeded RNG on any kernel path. Controller (incl. future LLM) actions are logged into the replay stream, not re-derived. |
+| 3 | Determinism | **Deterministic kernel + recorded controller decisions.** No unseeded `random` on any Python kernel path — use the seeded rng. Controller (incl. future LLM) actions are logged into the replay stream, not re-derived. |
 | 4 | Source of truth | **Python scene JSON is canonical.** `data.js` is demoted to seed/design data; the studio renders from the contract, not its own world. |
 | 5 | v1 scope | **Core Loop slice** (see §5). Defer the Fusion Readiness gate and full observer/playback modes to v2. |
 
@@ -46,7 +46,7 @@ Each component **builds on existing code** — file references are the starting 
 - **Simulation scheduler (beyond a fixed tick)** — wrap `run_simulation_step()` in a **headless runner** with a fixed-timestep accumulator + a **pace multiplier** (`simulation.pace` already in the snapshot schema) and a **scheduled-event/timer queue** (for scenario stressors firing at sim-times).
 - **Navigation** — reuse the existing **A\*** + `MovementSystem` + `AgentInterface.move_adjacent_to`. No new pathfinder.
 - **Perception** — reuse `AgentInterface.perceive()/describe_surroundings()` verbatim. This is where AI controllers read the world.
-- **Scenario / event system** — **new `ScenarioSystem`** (registered like the other systems) that loads a scenario from the currently-**orphaned `scenarios.py`** (16 ADHD training scenarios) into the world: attach objectives/tasks to entities, route the Avatar, schedule ≥1 stressor, and surface struggle signals as events.
+- **Scenario / event system** — **new `ScenarioSystem`** (registered like the other systems) that loads a scenario from the currently-**orphaned `scenarios.py`** (13 ADHD training scenarios) into the world: attach objectives/tasks to entities, route the Avatar, schedule ≥1 stressor, and surface struggle signals as events.
 - **State + persistence** — make `get_snapshot()` emit the real **`contracts/v1` `snapshot.schema.json`** shape (`contract_version/snapshot_id/simulation{state,tick,sim_time,seed,pace}/avatars/entities/extensions`) and add a matching **`load_snapshot()`**. Validate against the schema in tests.
 - **State contract → studio** — adopt **`contracts/v1`** as the wire format. Refactor `window.useWorldEngine` (`sim.jsx`) so its shape (`avatars/events/interventions/tickCount/simTime/running` + `toggleRun/reset/stepOnce/assignScenario`) is **fed by snapshots+events from the kernel over SSE**, with controls hitting the REST endpoint. The studio becomes a pure projection — no local sim, no `Math.random`.
 
@@ -66,7 +66,7 @@ Smallest thing that is demonstrably a world, not ticks:
 1. **Scene from JSON** — `DEFAULT_HOME_SPEC` lifted to a scene file; solid props carry `Collider` so `is_walkable` blocks them; kernel + studio both load it.
 2. **Real navigation in the studio** — the Avatar visibly walks **around walls** and **up to objects** (A* + `move_adjacent_to`), driven by kernel output, not the browser's `Math.sign` stepper.
 3. **ECS world rendered from truth** — studio avatars/entities are projections of ECS entities delivered via a `contracts/v1` snapshot (positions, needs, `AgentState`).
-4. **One scenario drives behavior** — `ScenarioSystem` loads the **StayAlert "apartment morning routine"** scenario: Avatar gets objectives, navigates, needs decay, **≥1 stressor fires on schedule**, struggle signals emit as events, and **one Aide intervention** is logged in the studio's AideLog.
+4. **One scenario drives behavior** — `ScenarioSystem` loads the **"Morning Routine"** scenario (`scenario_id="pers_4"` in `scenarios.py`) for the StayAlert Avatar: Avatar gets objectives, navigates, needs decay, **≥1 stressor fires on schedule**, struggle signals emit as events, and **one Aide intervention** is logged in the studio's AideLog.
 5. **Real snapshot + transport** — `get_snapshot()` emits the `contracts/v1` shape (+ `load_snapshot()`), schema-validated in tests; the headless kernel **streams it over SSE** and accepts observer controls over REST; the studio watches live.
 
 **Out of scope for v1 (→ v2):** Fusion Readiness gate / Advocate fusion (lives in `neurolift-ai-fusion`), full observer playback/scrubbing, networked/remote controllers (WebSocket), the 19-avatar fleet at scale, LLM controllers.
@@ -101,7 +101,7 @@ Smallest thing that is demonstrably a world, not ticks:
 - **Commit format:** `[CURSOR] type(scope): description` (types: feat/fix/docs/refactor/chore/test/ci).
 - **Session records:** register in `docs/agent-log/registrations/`, write a handoff in `docs/agent-log/handoffs/`, and **add/maintain a `docs/active-threads.md` entry** for this work (don't skip the active-threads update).
 - **Escalate to Joshua** for any architecture change beyond this brief, new external integrations/dependencies, persistence/DB choices, or anything touching safety/affect modeling. This is neurodivergent-support modeling: **behavior must never be presented as clinical ground truth.**
-- **Determinism:** no `Math.random`/unseeded RNG on any kernel path (it breaks replay).
+- **Determinism:** no unseeded `random` on any Python kernel path — use the seeded rng (it breaks replay otherwise). (The JS studio must also stay a pure projection — no local `Math.random` sim.)
 - **Do not edit `.github/workflows/*`** in this environment (the CLI token lacks `workflow` scope; pushes touching CI are rejected). Surface CI needs to Joshua.
 - Keep the build **dependency-light** (kernel is stdlib-only today; new runtime deps need approval).
 
