@@ -2,7 +2,7 @@
 
 **Status:** Approved direction (Joshua W. Dorsey, Sr.) — 2026-06-22
 **For:** Cursor (implementer). Architect/handoff: Claude Code.
-**Governed by:** ORG-DEV-OTOI-1.0.0 (the canonical version in this repo's `NLT-DEV-OTOI.md` + `nltotoi.json`). This is a design brief, not a license to skip governance — see §8.
+**Governed by:** ORG-DEV-OTOI-1.0.2 (the canonical org contract). This PR also syncs this repo's `NLT-DEV-OTOI.md` up to 1.0.2; the rest of nlt-fusion's governance bundle (manifest, validator, SOPs/templates) is still mid-migration from 1.0.0 — see the PR thread. This is a design brief, not a license to skip governance — see §8.
 
 ---
 
