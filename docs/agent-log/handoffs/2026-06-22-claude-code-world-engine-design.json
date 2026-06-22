@@ -1,0 +1,37 @@
+{
+  "handoff_record": {
+    "session_id": "2026-06-22-world-engine-design",
+    "agent_name": "Claude Code",
+    "date": "2026-06-22",
+    "otoi_version": "ORG-DEV-OTOI-1.0.2",
+    "repo": "nlt-fusion",
+    "branch": "docs/world-engine-design",
+    "work_completed": [
+      "Ran a 5-agent survey of the world engine across nlt-fusion (Python ECS kernel, browser studio, design/governance docs) and neurolift-ai-fusion (sibling DO/ECS + canonical world-engine schema + game-engine-vertical-slice).",
+      "Established the decisive constraint with Joshua: no human plays the world; AI agents live in it and humans watch. This rules out a render/input game engine and calls for a headless, deterministic, agent-inhabited simulation.",
+      "Decision (Joshua, 2026-06-22): authoritative engine = the existing headless deterministic Python ECS kernel (world-engine/src/); the browser setInterval tick is retired as a sim; the studio becomes a read-only live viewer fed by a contracts/v1 snapshot/event stream over SSE.",
+      "Wrote docs/world-engine/DESIGN.md: architecture (scene JSON, existing ECS, headless scheduler with pace, A*/perception reuse, new ScenarioSystem wiring the orphaned scenarios.py, real get_snapshot/load_snapshot + SSE/REST transport, studio as projection), the 4 settled follow-on decisions, v1 Core Loop acceptance criteria, file layout, known traps, and OTOI guardrails for the implementer.",
+      "Logged this session (registration + handoff) and added an Active Threads entry."
+    ],
+    "work_in_progress": [],
+    "blockers": [],
+    "decisions_made": [
+      "Python ECS kernel is the v1 authority; TS Cloudflare DO is a future deployment target, not the v1 source of truth.",
+      "Transport = SSE (live watch) + small REST control endpoint; determinism = deterministic kernel + recorded controllers; Python scene JSON canonical (data.js demoted); v1 = Core Loop slice (StayAlert apartment morning routine), fusion gate + full playback deferred to v2."
+    ],
+    "decisions_pending": [],
+    "escalations": [],
+    "next_agent_notes": "Implementation is handed to Cursor (Cursor = implementation role per senior-dev-hub). Build the v1 Core Loop slice per docs/world-engine/DESIGN.md. This resolves the prior 'Environment-only' thread's open Next baton (scenario->world instantiation, contracts/v1 emission, transport). PR-only; [CURSOR] commit format; register + handoff + maintain docs/active-threads.md; escalate architecture/safety changes to Joshua; no Math.random on kernel paths; do not touch .github/workflows. Baton + decision recorded in senior-dev-hub (active-thread.md + decisions.md).",
+    "files_modified": [
+      "docs/world-engine/DESIGN.md",
+      "docs/active-threads.md",
+      "docs/agent-log/registrations/2026-06-22-claude-code-world-engine-design.json",
+      "docs/agent-log/handoffs/2026-06-22-claude-code-world-engine-design.json"
+    ],
+    "tests_run": [
+      "Design/architecture session — no engine code changed; bash .nltotoi/scripts/validate-governance.sh"
+    ],
+    "tests_passing": true,
+    "pr_url": "pending-open"
+  }
+}
