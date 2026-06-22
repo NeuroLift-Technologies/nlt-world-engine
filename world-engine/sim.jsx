@@ -338,3 +338,4 @@ function mkEvent(kind, avatar, text, scenarioId = null, who = null, meta = {}) {
 
 // expose
 window.WE_SIM = { spawnAvatar, mkEvent };
+window._useWorldEngineOffline = window.useWorldEngine;

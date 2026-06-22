@@ -92,7 +92,7 @@ def render_map(engine: WorldEngine, spec: Dict[str, Any]) -> str:
     """Tiny ASCII view of the world grid."""
     width = spec["grid"]["width"]
     height = spec["grid"]["height"]
-    snapshot = engine.get_snapshot()
+    snapshot = engine.get_legacy_snapshot()
     grid = [["." for _ in range(width)] for _ in range(height)]
     for record in snapshot["entities"].values():
         x, y = record["position"]
@@ -115,7 +115,7 @@ def main() -> None:
     agent = UtilityAgent(interface)
 
     names = {}  # entity_id -> display name, for the event log
-    for entity_id, record in engine.get_snapshot()["entities"].items():
+    for entity_id, record in engine.get_legacy_snapshot()["entities"].items():
         names[entity_id] = record.get("name", entity_id[:8])
 
     def log_interaction(event_type, data):
