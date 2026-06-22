@@ -138,11 +138,15 @@ function useLiveWorldEngine(serviceUrl, opts = {}) {
     (async () => {
       try {
         const sceneRes = await fetch(`${serviceUrl}/api/scene`);
+        if (cancelled) return;
         if (sceneRes.ok) {
           const scene = await sceneRes.json();
+          if (cancelled) return;
           window.WE_SCENE = scene;
         }
       } catch (_) { /* offline service */ }
+
+      if (cancelled) return;
 
       source = new EventSource(`${serviceUrl}/api/stream`);
       source.addEventListener('init', (e) => {
@@ -154,7 +158,10 @@ function useLiveWorldEngine(serviceUrl, opts = {}) {
         if (cancelled) return;
         applyBundle(JSON.parse(e.data));
       });
-      source.onerror = () => setConnected(false);
+      source.onerror = () => {
+        if (cancelled) return;
+        setConnected(false);
+      };
     })();
 
     return () => {
