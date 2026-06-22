@@ -8,6 +8,20 @@
 
 ## Active Threads
 
+### World Engine v1 Core Loop — implementation 🟡 IN PROGRESS
+- **Agent:** Cursor · **Opened:** 2026-06-22 · **Branch:** `cursor/world-engine-v1-core-loop`
+- **Scope:** v1 Core Loop slice per `docs/world-engine/DESIGN.md` (Josh-approved 2026-06-22).
+- **Delivered this session:**
+  - Canonical scene JSON at `world-engine/data/scenes/default_home.v1.json` + loader (`src/simulation/scene/`).
+  - `AgentState` ECS component; `get_snapshot()` / `load_snapshot()` emit `contracts/v1` shape (`snapshot_contract.py`).
+  - `ScenarioSystem` wiring `pers_4` Morning Routine with scheduled stressor + Aide intervention.
+  - `ScenarioAgent` + `core_loop.py` bootstrap; headless `WorldRunner` (`runner.py`).
+  - SSE+REST service (`world-engine/service/server.py`) — stream, scene, control endpoints.
+  - Studio live viewer (`sim-live.jsx`) projecting kernel snapshots; `world-view.jsx` reads `WE_SCENE`.
+  - 24 tests passing (incl. new `test_core_loop.py`).
+- **Run:** `python3 world-engine/service/server.py` then open `world-engine/index.html?live=1`.
+- **Next baton:** PR review/merge; v2 items (playback scrubbing, WebSocket controllers, LLM controllers).
+
 ### World Engine — direction set, handed to Cursor 🟢 DECIDED
 - **Agent:** Claude Code (architect) · **Opened:** 2026-06-22 · **Branch:** `docs/world-engine-design`
 - **Decision (Josh, 2026-06-22):** build the actual world engine on the existing **headless, deterministic Python ECS kernel** (`world-engine/src/`) — not the browser tick loop, and not a human-player game engine — because **AI agents live in the world; humans only watch**. The studio (`world-view.jsx`/`hud.jsx`) becomes a **read-only live viewer** fed by a `contracts/v1` snapshot/event stream over SSE.

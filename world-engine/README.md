@@ -19,7 +19,11 @@ shower, watch TV):
 ```bash
 cd world-engine
 python3 demo.py          # a day in the life
-python3 -m unittest discover tests   # 16 tests
+python3 -m unittest discover tests   # 24 tests
+
+# Live studio viewer (kernel authoritative — humans watch only):
+python3 service/server.py              # SSE + REST on :8765
+# then open index.html?live=1 in a static file server
 ```
 
 `demo.py`'s `UtilityAgent.decide()` is the seam where an LLM controller
@@ -29,7 +33,11 @@ replaces the rule-based one without touching the engine.
 
 # Frontend Prototype
 
-A standalone React prototype that visualises the Avatar/Aide/Scenario world. **Not wired** to the Python simulation engine — the sim ticks locally in the browser. See `docs/specs/world-engine-prototype-schema.md` for the full data contract.
+A standalone React prototype that visualises the Avatar/Aide/Scenario world.
+With `?live=1` and the Python service running, the studio is a **read-only
+live viewer** fed by `contracts/v1` snapshots over SSE — no local sim tick.
+Without the service (`?live=0`), the legacy browser tick loop remains for
+offline demos.
 
 The product-facing Claude Design shell lives in [`../studio/`](../studio/) and reuses this prototype's canonical data, simulation hook, and tweaks panel.
 
