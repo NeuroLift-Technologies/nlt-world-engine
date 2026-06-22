@@ -224,7 +224,7 @@ class TestDeterminism(unittest.TestCase):
         for _ in range(1440):
             agent.step()
             engine.run_simulation_step()
-        snapshot = engine.get_snapshot()
+        snapshot = engine.get_legacy_snapshot()
         # Entity IDs are random UUIDs; compare the ID-independent parts
         records = sorted(
             (r.get("name", ""), tuple(r["position"]),

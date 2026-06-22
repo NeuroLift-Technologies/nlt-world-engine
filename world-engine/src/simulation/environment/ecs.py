@@ -174,6 +174,58 @@ class Needs(Component):
         current = self.levels.get(need, 0.0)
         self.levels[need] = max(0.0, min(1.0, current + delta))
 
+class AgentState(Component):
+    """Renderable affect + scenario progress for contract snapshots."""
+
+    def __init__(self,
+                 state: str = "idle",
+                 emotional_state: str = "neutral",
+                 focus: float = 0.65,
+                 cognitive_load: float = 0.2,
+                 stress: float = 0.15,
+                 burnout_risk: float = 0.05,
+                 independence: float = 0.2,
+                 fusion_readiness: float = 0.0,
+                 success_rate: float = 0.5,
+                 scenario_id: Optional[str] = None,
+                 scenario_elapsed: float = 0.0,
+                 scenario_expected: float = 60.0,
+                 target_x: Optional[int] = None,
+                 target_y: Optional[int] = None,
+                 facing: str = "south",
+                 minutes_focused: float = 0.0,
+                 false_starts: int = 0,
+                 interventions: int = 0,
+                 successes: int = 0,
+                 failures: int = 0):
+        self.state = state
+        self.emotional_state = emotional_state
+        self.focus = focus
+        self.cognitive_load = cognitive_load
+        self.stress = stress
+        self.burnout_risk = burnout_risk
+        self.independence = independence
+        self.fusion_readiness = fusion_readiness
+        self.success_rate = success_rate
+        self.scenario_id = scenario_id
+        self.scenario_elapsed = scenario_elapsed
+        self.scenario_expected = scenario_expected
+        self.target_x = target_x
+        self.target_y = target_y
+        self.facing = facing
+        self.minutes_focused = minutes_focused
+        self.false_starts = false_starts
+        self.interventions = interventions
+        self.successes = successes
+        self.failures = failures
+
+    def clamp_metrics(self) -> None:
+        for attr in ("focus", "cognitive_load", "stress", "burnout_risk",
+                     "independence", "fusion_readiness", "success_rate"):
+            value = getattr(self, attr)
+            setattr(self, attr, max(0.0, min(1.0, value)))
+
+
 class AgentController(Component):
     """
     Bridge component connecting an ECS Entity to an external cognitive AI agent.
