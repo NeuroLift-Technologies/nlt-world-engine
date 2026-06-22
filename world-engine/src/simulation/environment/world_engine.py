@@ -12,8 +12,12 @@ import random
 import uuid
 from datetime import datetime, timedelta
 
-from .ecs import Registry, Entity, Position, Needs, AgentController, Descriptor
+from .ecs import Registry, Entity, Position, Needs, AgentController, Descriptor, AgentState
 from .world_map import GridManager
+from .snapshot_contract import (
+    emit_contract_snapshot, load_contract_snapshot,
+    make_contract_event, update_facing_on_move,
+)
 
 # Fixed default epoch keeps runs deterministic and replayable by default;
 # pass config["start_time"] (datetime or ISO string) to override.
@@ -56,12 +60,24 @@ class WorldEngine:
         start_time = self.config.get("start_time", DEFAULT_START_TIME)
         if isinstance(start_time, str):
             start_time = datetime.fromisoformat(start_time)
+        self.start_time = start_time
         self.simulation_time = start_time
         self.tick_count = 0
         self.time_per_tick = timedelta(seconds=self.config.get("seconds_per_tick", 1.0))
 
         # Seeded RNG — anything stochastic in the world must draw from this
-        self.rng = random.Random(self.config.get("seed", 0))
+        self.seed = int(self.config.get("seed", 0))
+        self.rng = random.Random(self.seed)
+        self.pace = float(self.config.get("pace", 1.0))
+        self.scene_id = self.config.get("scene_id", "default_home")
+
+        # Contract stream state
+        self.avatar_profiles: Dict[str, Dict[str, Any]] = {}
+        self.contract_events: List[Dict[str, Any]] = []
+        self.interventions: List[Dict[str, Any]] = []
+        self._event_sequence = 0
+        self._intervention_sequence = 0
+        self._pending_events: List[Dict[str, Any]] = []
 
         # Architecture
         self.registry = Registry()
@@ -105,6 +121,7 @@ class WorldEngine:
     def emit_move_event(self, entity: Entity, old_x: int, old_y: int,
                         new_x: int, new_y: int) -> None:
         """Convenience emitter used by MovementSystem."""
+        update_facing_on_move(self, entity, old_x, old_y, new_x, new_y)
         self.emit_event(EventType.ENTITY_MOVED, {
             "entity_id": entity.entity_id,
             "from": [old_x, old_y],
@@ -122,7 +139,33 @@ class WorldEngine:
             "affordance": affordance,
         })
 
+    def register_avatar_profile(self, agent_id: str, entity: Entity, **profile: Any) -> None:
+        """Register contract metadata for an agent entity."""
+        self.avatar_profiles[agent_id] = {
+            "entity_id": entity.entity_id,
+            **profile,
+        }
+        if not self.registry.has_component(entity, AgentState):
+            self.registry.add_component(entity, AgentState(
+                target_x=profile.get("spawn_x"),
+                target_y=profile.get("spawn_y"),
+            ))
+
+    def drain_contract_events(self) -> List[Dict[str, Any]]:
+        """Return and clear events emitted since the last drain."""
+        pending = self._pending_events[:]
+        self._pending_events.clear()
+        return pending
+
     def get_snapshot(self) -> Dict[str, Any]:
+        """Emit a contracts/v1 snapshot (authoritative wire format)."""
+        return emit_contract_snapshot(self)
+
+    def load_snapshot(self, snapshot: Dict[str, Any]) -> None:
+        """Restore simulation state from a contracts/v1 snapshot."""
+        load_contract_snapshot(self, snapshot)
+
+    def get_legacy_snapshot(self) -> Dict[str, Any]:
         """
         Minimal serializable view of world state — tick, clock, and every
         positioned entity with its descriptor, needs, and current intent.
@@ -173,6 +216,13 @@ class WorldEngine:
                 "tick_count": self.tick_count,
                 "simulation_time": self.simulation_time.isoformat()
             })
+            tick_event = make_contract_event(
+                self,
+                "simulation.tick",
+                "Simulation advanced one tick.",
+                payload={"tick_count": self.tick_count},
+            )
+            self._pending_events.append(tick_event)
             
             return True
             
