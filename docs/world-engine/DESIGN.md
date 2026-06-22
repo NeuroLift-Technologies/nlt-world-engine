@@ -81,6 +81,8 @@ Smallest thing that is demonstrably a world, not ticks:
 - studio (`sim.jsx`, `world-view.jsx`, `hud.jsx`, `studio/`) — refactor to consume the contract; keep the renderer.
 - `data.js` — demoted to seed/design data only.
 
+**Sub-agent fleet (imported in PR #12, `.claude/agents/`):** a broad game-studio agent set is now available. The **generic** roles are usable here — e.g. `systems-designer`, `world-builder`, `ai-programmer`, `tools-programmer`, `ui-programmer`, `ux-designer`, `writer`. The **Unity/Unreal/UE-specific specialists do NOT apply** — this engine is a headless **Python ECS** simulation, not a Unity/Unreal/Godot game engine (see §1). Don't route engine work to the engine-specific specialists.
+
 ---
 
 ## 7. Known traps (from the survey — don't trip these)
@@ -88,7 +90,7 @@ Smallest thing that is demonstrably a world, not ticks:
 - `src/core/` is currently **unimportable** (`State` referenced but undefined in `state_machine.py`) and the unused `core/events.py` EventBus — don't wire kernel logic through `src/core`; use the engine's own event bus.
 - `scenarios.py` is **orphaned** (zero importers) — wiring it in is the point of `ScenarioSystem`, but verify its dataclass shapes against the ECS as you go.
 - `get_snapshot()` keys (`tick/simulation_time/entities`) **structurally differ** from the contract schema — this is real mapping work, not a rename.
-- README still documents a removed full-platform layout — don't trust it for current structure; trust the code + this brief.
+- README was **rescoped to environment-only in PR #13 (2026-06-22)** and now correctly states the training-side code (`src/avatars|aides|advocates|fusion`) lives in `neurolift-ai-fusion`; trust it for scope, but still verify module details against the code.
 - NPCs are stationary/abstract (`BaseNPC` has no concrete subclass) — if a stressor needs an active NPC, that's net-new.
 
 ---
