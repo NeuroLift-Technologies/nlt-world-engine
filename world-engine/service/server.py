@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import sys
 import threading
@@ -16,7 +17,6 @@ if str(WORLD_ENGINE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORLD_ENGINE_ROOT))
 
 from src.simulation.core_loop import build_core_loop_world
-from src.simulation.runner import WorldRunner
 from src.simulation.scene.loader import scene_to_studio_rooms
 
 
@@ -56,8 +56,41 @@ class SimulationService:
             if sub in self.subscribers:
                 self.subscribers.remove(sub)
 
+    def get_status(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "running": self.runner.running,
+                "pace": self.runner.pace,
+                "snapshot": copy.deepcopy(self.latest_snapshot),
+            }
+
+    def get_snapshot_copy(self) -> Dict[str, Any]:
+        with self._lock:
+            return copy.deepcopy(self.latest_snapshot)
+
+    def stream_bundle(self, snapshot: Optional[Dict[str, Any]] = None,
+                      events: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "snapshot": snapshot if snapshot is not None else self.latest_snapshot,
+                "events": events if events is not None else self.latest_events[:20],
+                "interventions": list(self.engine.interventions),
+            }
+
+    def step_if_running(self) -> float:
+        with self._lock:
+            running = self.runner.running
+            pace = self.runner.pace
+            tick_seconds = self.engine.time_per_tick.total_seconds()
+        if running:
+            # step_once triggers _on_update, which acquires _lock — never call
+            # it while holding the lock (non-reentrant; deadlocks HTTP step).
+            self.runner.step_once()
+        return max(0.05, tick_seconds / max(pace, 0.1))
+
     def control(self, action: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         payload = payload or {}
+        do_step = False
         with self._lock:
             if action == "pause":
                 self.runner.pause()
@@ -66,7 +99,7 @@ class SimulationService:
             elif action == "toggle":
                 self.runner.toggle()
             elif action == "step":
-                self.runner.step_once()
+                do_step = True
             elif action == "pace":
                 pace = float(payload.get("pace", self.runner.pace))
                 self.runner.pace = max(0.1, pace)
@@ -85,17 +118,22 @@ class SimulationService:
                 self.latest_snapshot = self.engine.get_snapshot()
             else:
                 return {"ok": False, "error": f"unknown action: {action}"}
-            return {"ok": True, "status": self.runner.status()}
+
+        if do_step:
+            self.runner.step_once()
+
+        return {"ok": True, "status": self.get_status()}
 
     def scene_payload(self) -> Dict[str, Any]:
-        scene = self.meta["scene"]
-        return {
-            "contract_version": scene.get("contract_version", "nlt.world-engine.v1"),
-            "scene_id": scene.get("scene_id", "default_home"),
-            "grid": scene.get("grid", {}),
-            "rooms": scene_to_studio_rooms(scene),
-            "raw": scene,
-        }
+        with self._lock:
+            scene = self.meta["scene"]
+            return {
+                "contract_version": scene.get("contract_version", "nlt.world-engine.v1"),
+                "scene_id": scene.get("scene_id", "default_home"),
+                "grid": scene.get("grid", {}),
+                "rooms": scene_to_studio_rooms(scene),
+                "raw": scene,
+            }
 
 
 def make_handler(service: SimulationService):
@@ -129,9 +167,9 @@ def make_handler(service: SimulationService):
             if parsed.path == "/api/scene":
                 self._json(200, service.scene_payload())
             elif parsed.path == "/api/status":
-                self._json(200, service.runner.status())
+                self._json(200, service.get_status())
             elif parsed.path == "/api/snapshot":
-                self._json(200, service.latest_snapshot)
+                self._json(200, service.get_snapshot_copy())
             elif parsed.path == "/api/stream":
                 self._sse()
             else:
@@ -166,11 +204,7 @@ def make_handler(service: SimulationService):
 
             sub = service.subscribe()
             try:
-                init = {
-                    "snapshot": service.latest_snapshot,
-                    "events": service.latest_events[:20],
-                    "interventions": service.engine.interventions,
-                }
+                init = service.stream_bundle()
                 self.wfile.write(f"event: init\ndata: {json.dumps(init)}\n\n".encode())
                 self.wfile.flush()
 
@@ -181,11 +215,10 @@ def make_handler(service: SimulationService):
                         self.wfile.write(b": keepalive\n\n")
                         self.wfile.flush()
                         continue
-                    chunk = {
-                        "snapshot": update["snapshot"],
-                        "events": update["events"],
-                        "interventions": service.engine.interventions,
-                    }
+                    chunk = service.stream_bundle(
+                        snapshot=update["snapshot"],
+                        events=update["events"],
+                    )
                     self.wfile.write(
                         f"event: update\ndata: {json.dumps(chunk)}\n\n".encode())
                     self.wfile.flush()
@@ -205,10 +238,8 @@ def run_server(host: str = "127.0.0.1", port: int = 8765,
 
     def loop() -> None:
         while True:
-            if service.runner.running:
-                service.runner.step_once()
-            time.sleep(max(0.05, service.engine.time_per_tick.total_seconds()
-                           / max(service.runner.pace, 0.1)))
+            sleep_time = service.step_if_running()
+            time.sleep(sleep_time)
 
     thread = threading.Thread(target=loop, daemon=True)
     thread.start()

@@ -63,15 +63,34 @@ def scene_to_builder_spec(scene: Dict[str, Any]) -> Dict[str, Any]:
 
 def scene_to_studio_rooms(scene: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Map scene JSON into the WE_DATA.ROOMS array shape for the studio."""
+    room_origins: Dict[str, Dict[str, int]] = {}
+    for room_id, room in scene.get("rooms", {}).items():
+        origin = room.get("origin", {})
+        room_origins[room_id] = {
+            "x": origin.get("x", 0),
+            "y": origin.get("y", 0),
+        }
+
     rooms = []
     props_by_room: Dict[str, List[Dict[str, Any]]] = {}
     for prop in scene.get("props", []):
+        origin = room_origins.get(prop["room"], {"x": 0, "y": 0})
         props_by_room.setdefault(prop["room"], []).append({
             "kind": prop.get("kind", _PROP_KINDS.get(prop["name"], "table")),
-            "x": prop["x"],
-            "y": prop["y"],
+            "x": prop["x"] - origin["x"],
+            "y": prop["y"] - origin["y"],
             "w": prop.get("w", 1),
             "h": prop.get("h", 1),
+        })
+
+    for npc in scene.get("npcs", []):
+        origin = room_origins.get(npc["room"], {"x": 0, "y": 0})
+        props_by_room.setdefault(npc["room"], []).append({
+            "kind": "npc",
+            "x": npc["x"] - origin["x"],
+            "y": npc["y"] - origin["y"],
+            "w": 1,
+            "h": 1,
         })
 
     for room_id, room in scene.get("rooms", {}).items():
