@@ -1,0 +1,24 @@
+{
+  "agent_registration": {
+    "agent_name": "Claude Code",
+    "platform": "Claude Code",
+    "version": "claude-opus-4-8",
+    "session_id": "2026-06-22-world-engine-design",
+    "entry_date": "2026-06-22",
+    "entry_point": "Joshua: design the actual world engine (not the tick loop) for nlt-fusion, with AI agents living in the world and humans watching. Architect-only role; implementation handed to Cursor.",
+    "acknowledged_otoi": true,
+    "otoi_version": "ORG-DEV-OTOI-1.0.2",
+    "working_repo": "nlt-fusion",
+    "working_branch": "docs/world-engine-design",
+    "capabilities_self_reported": [
+      "Deep cross-repo codebase exploration",
+      "Architecture/design + governance compliance",
+      "Multi-agent survey orchestration"
+    ],
+    "known_limitations": [
+      "Architect/design + governance role only this session — no engine code; implementation is Cursor's per senior-dev-hub roles.",
+      "Design grounded in a 5-agent survey of nlt-fusion + neurolift-ai-fusion; the canonical Core Loop/fusion specs live in the sibling repo."
+    ],
+    "preferred_handoff_format": "JSON handoff record per OTOI Section 5"
+  }
+}
