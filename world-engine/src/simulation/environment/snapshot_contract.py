@@ -157,6 +157,8 @@ def load_contract_snapshot(engine: "WorldEngine", snapshot: Dict[str, Any]) -> N
     engine.seed = sim["seed"]
     engine.pace = sim["pace"]
     engine.start_time = engine.config.get("start_time", engine.start_time)
+    if isinstance(engine.start_time, str):
+        engine.start_time = datetime.fromisoformat(engine.start_time)
     engine.simulation_time = engine.start_time
     from datetime import timedelta
     engine.simulation_time += timedelta(minutes=sim["sim_time"])
@@ -245,6 +247,7 @@ def make_contract_event(engine: "WorldEngine",
         "extensions": {},
     }
     engine.contract_events.append(event)
+    engine._pending_events.append(event)
     return event
 
 

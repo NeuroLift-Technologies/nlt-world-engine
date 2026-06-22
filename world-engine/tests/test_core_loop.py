@@ -11,7 +11,7 @@ from src.simulation.core_loop import build_core_loop_world  # noqa: E402
 from src.simulation.environment.snapshot_contract import (  # noqa: E402
     validate_snapshot_shape, load_contract_snapshot,
 )
-from src.simulation.scene.loader import load_scene, scene_to_builder_spec, DEFAULT_SCENE_PATH  # noqa: E402
+from src.simulation.scene.loader import load_scene, scene_to_builder_spec, scene_to_studio_rooms, DEFAULT_SCENE_PATH  # noqa: E402
 from src.simulation.runner import WorldRunner  # noqa: E402
 
 
@@ -22,6 +22,14 @@ class TestSceneLoader(unittest.TestCase):
         spec = scene_to_builder_spec(scene)
         self.assertEqual(spec["grid"]["width"], 20)
         self.assertTrue(any(p["name"] == "shower" for p in spec["props"]))
+
+    def test_studio_rooms_use_room_relative_prop_coords(self):
+        scene = load_scene(DEFAULT_SCENE_PATH)
+        rooms = scene_to_studio_rooms(scene)
+        kitchen = next(r for r in rooms if r["id"] == "kitchen")
+        fridge = next(p for p in kitchen["props"] if p["kind"] == "fridge")
+        self.assertEqual(fridge["x"], 2)
+        self.assertEqual(fridge["y"], 2)
 
 
 class TestContractSnapshot(unittest.TestCase):
@@ -56,17 +64,13 @@ class TestMorningRoutineScenario(unittest.TestCase):
     def test_stressor_and_intervention_fire(self):
         engine, runner, scenario_system, _ = build_core_loop_world(
             seed=11, seconds_per_tick=60.0, pace=1.0)
-        saw_drift = False
-        saw_intervention = False
+        captured: list = []
+        runner.on_update(lambda _snap, events: captured.extend(events))
         for _ in range(20):
             runner.step_once()
-            for evt in engine.contract_events:
-                if evt["event_type"] == "struggle.focus_drift":
-                    saw_drift = True
-                if evt["event_type"] == "aide.coaching_delivered":
-                    saw_intervention = True
-        self.assertTrue(saw_drift, "expected scheduled stressor event")
-        self.assertTrue(saw_intervention, "expected aide intervention")
+        types = {evt["event_type"] for evt in captured}
+        self.assertIn("struggle.focus_drift", types)
+        self.assertIn("aide.coaching_delivered", types)
         self.assertTrue(engine.interventions)
 
 
