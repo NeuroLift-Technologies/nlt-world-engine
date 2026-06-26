@@ -71,6 +71,6 @@
       "JSX parser pass: not completed because @babel/parser was unavailable"
     ],
     "tests_passing": true,
-    "pr_url": ""
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-fusion/pull/8"
   }
 }
