@@ -13,7 +13,7 @@ for a model call and nothing in the engine changes; decisions stay outside
 the deterministic tick.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict
 
 from src.simulation.environment.world_engine import WorldEngine, EventType
 from src.simulation.environment.world_builder import (
@@ -21,71 +21,7 @@ from src.simulation.environment.world_builder import (
 )
 from src.simulation.environment.agent_interface import AgentInterface
 from src.simulation.environment.ecs import Needs
-
-
-class UtilityAgent:
-    """
-    Minimal cognitive layer: look at my needs, find the visible object that
-    best restores the most pressing one, walk over, use it.
-
-    This is the seam for real AI — `decide()` receives the same observation
-    dict an LLM would, and returns a plan. Nothing else touches the world.
-    """
-
-    def __init__(self, interface: AgentInterface):
-        self.interface = interface
-        self.plan: Optional[Dict[str, Any]] = None  # {"target_id", "affordance", "phase"}
-
-    def decide(self, needs: Dict[str, float],
-               surroundings: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Pick the (object, affordance) that best restores the lowest need."""
-        if not needs:
-            return None
-        pressing = min(needs, key=lambda need: needs[need])
-        if needs[pressing] > 0.55:
-            return None  # Comfortable; idle
-
-        best, best_gain = None, 0.0
-        for thing in surroundings:
-            if not thing.get("affordances"):
-                continue
-            effects = thing.get("need_effects") or {}
-            gain = effects.get(pressing, 0.0)
-            if gain > best_gain and not thing.get("in_use"):
-                best, best_gain = thing, gain
-        if best is None:
-            return None
-        return {
-            "target_id": best["entity_id"],
-            "target_name": best.get("name", "?"),
-            "affordance": best["affordances"][0],
-            "need": pressing,
-            "phase": "approach",
-        }
-
-    def step(self) -> None:
-        """Advance the agent's plan; called once per tick, outside the engine."""
-        if self.interface.is_busy():
-            return
-
-        if self.plan and self.plan["phase"] == "approach":
-            result = self.interface.last_result()
-            if result and result["status"] == "completed":
-                self.plan["phase"] = "use"
-                self.interface.use(self.plan["target_id"], self.plan["affordance"])
-                return
-            self.plan = None  # Approach failed; re-plan
-
-        if self.plan and self.plan["phase"] == "use":
-            self.plan = None  # Use finished (or failed); re-plan next tick
-
-        if self.plan is None:
-            perception = self.interface.perceive(vision_radius=25)
-            self.plan = self.decide(self.interface.needs(),
-                                    perception.describe_surroundings())
-            if self.plan:
-                if not self.interface.move_adjacent_to(self.plan["target_id"]):
-                    self.plan = None
+from src.simulation.environment.utility_agent import UtilityAgent
 
 
 def render_map(engine: WorldEngine, spec: Dict[str, Any]) -> str:
