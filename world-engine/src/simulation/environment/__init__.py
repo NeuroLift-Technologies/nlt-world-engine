@@ -8,6 +8,7 @@ Contains:
 - systems: NeedsSystem, MovementSystem, InteractionSystem
 - world_builder: declarative spec -> populated world (default home world)
 - agent_interface: the perception/intent boundary AI agents plug into
+- utility_agent: SimSim-style needs-ranking controller for autonomous NPCs
 - scenarios: scenario library and definitions
 
 See `world-engine/demo.py` for an agent living a full day in this world.
