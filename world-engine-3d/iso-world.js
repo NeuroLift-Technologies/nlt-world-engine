@@ -116,10 +116,23 @@ function createFurniture(prop,room){
   } else if(kind==='sofa'){
     const w=prop.w||2;const seat=new THREE.Mesh(new THREE.BoxGeometry(w,0.38,0.75),new THREE.MeshStandardMaterial({color:0x6b4a8b}));seat.position.y=0.28;seat.castShadow=true;group.add(seat);
     const back=new THREE.Mesh(new THREE.BoxGeometry(w,0.55,0.18),new THREE.MeshStandardMaterial({color:0x6b4a8b}));back.position.set(0,0.55,-0.28);back.castShadow=true;group.add(back);
-  } else if(kind==='fridge'){
-    const body=new THREE.Mesh(new THREE.BoxGeometry(0.75,1.9,0.65),new THREE.MeshStandardMaterial({color:0xeeeeee}));body.position.y=0.95;body.castShadow=true;group.add(body);
-  } else if(kind==='counter'){
-    const body=new THREE.Mesh(new THREE.BoxGeometry(prop.w||1.5,0.9,prop.h||0.6),new THREE.MeshStandardMaterial({color:0x888888}));body.position.y=0.45;body.castShadow=true;group.add(body);
+  } else if (kind === 'fridge') {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.9, 0.65), new THREE.MeshStandardMaterial({ color: 0xeeeeee })); body.position.y = 0.95; body.castShadow = true; group.add(body);
+  } else if (kind === 'counter') {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(prop.w || 1.5, 0.9, prop.h || 0.6), new THREE.MeshStandardMaterial({ color: 0x888888 })); body.position.y = 0.45; body.castShadow = true; group.add(body);
+  } else if (kind === 'tv') {
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.75, 0.06), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x1a1a3e, emissiveIntensity: 0.25 }));
+    screen.position.y = 0.85; screen.castShadow = true; group.add(screen);
+  } else if (kind === 'whiteboard') {
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.04), new THREE.MeshStandardMaterial({ color: 0xeeeeee, emissive: 0x333333, emissiveIntensity: 0.05 }));
+    board.position.y = 1.2; board.castShadow = true; group.add(board);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.85, 0.02), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+    frame.position.set(0, 1.2, -0.02); group.add(frame);
+  } else if (kind === 'phone') {
+    const booth = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0x4466aa, transparent: true, opacity: 0.4 }));
+    booth.position.y = 0.9; booth.castShadow = true; group.add(booth);
+    const phoneSet = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.25, 0.08), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    phoneSet.position.set(0, 0.7, 0.25); group.add(phoneSet);
   } else {
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4),new THREE.MeshStandardMaterial({color:0x888888}));mesh.position.y=0.2;mesh.castShadow=true;group.add(mesh);
   }
