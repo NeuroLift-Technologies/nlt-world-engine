@@ -9,6 +9,11 @@ satisfied, then move down the ranking.
 Lives behind the same AgentInterface seam as ScenarioAgent — decisions stay
 outside the deterministic tick, and the controller is swappable for an
 LLM-driven one without touching the engine.
+
+Note: This version extends the original UtilityAgent with configurable
+needs_ranking, threshold, and vision_radius parameters. The original
+min-need behavior (pick the single lowest need) is preserved by default
+via DEFAULT_NEEDS_RANKING, but callers can now customize priority order.
 """
 
 from __future__ import annotations
@@ -44,6 +49,8 @@ class UtilityAgent:
         Unlike a min-need controller, priority order wins: a high-priority
         need at 0.4 beats a low-priority need at 0.1 for attention.
         """
+        if not needs:
+            return None
         for need in self.needs_ranking:
             if needs.get(need, 0.0) >= self.threshold:
                 continue
