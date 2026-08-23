@@ -37,13 +37,17 @@
 ## Quick Start
 
 ```bash
-# Backend
-cd world-engine-backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-
-# Frontend
-cd world-engine
+# Frontend (Babylon.js v2 scene)
+cd world-engine-v2
 npm install
-npm run dev
+npm run dev        # -> http://localhost:5173
+npm run build      # production build (runs tsc && vite build)
+npm run preview    # preview the production build locally
+```
+
+```bash
+# Backend (Python FastAPI + ECS)
+# The backend lives in a separate repository (Phase 1: World Engine core loop).
+# See ARCHITECTURE.md for the component layout and the WebSocket contract
+# (the frontend connects to /ws on the same host).
 ```

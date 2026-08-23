@@ -59,22 +59,6 @@ function hslToColor3(h: number, s: number, l: number): Color3 {
   return new Color3(r + m, g + m, b + m);
 }
 
-function makeLabel(text: string): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  ctx.beginPath();
-  ctx.roundRect(0, 0, 256, 64, 8);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 26px system-ui';
-  ctx.textAlign = 'center';
-  ctx.fillText(text, 128, 42);
-  return canvas.toDataURL();
-}
-
 // ─── Renderer ─────────────────────────────────────────────────────
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement;
 const engine = new Engine(canvas, true);
@@ -111,8 +95,6 @@ const wallMat = new StandardMaterial('wallMat', scene);
 wallMat.diffuseColor = new Color3(0.3, 0.25, 0.5);
 wallMat.alpha = 0.3;
 
-const labelManager = new SpriteManager('labelManager', '', 1, 64, scene);
-
 // ─── Ground ───────────────────────────────────────────────────────
 const ground = MeshBuilder.CreateGround('ground', { width: 60, height: 60 }, scene);
 ground.material = groundMat;
@@ -122,14 +104,17 @@ ground.receiveShadows = true;
 let worldState: PairState | null = null;
 let simMeshes = new Map<string, TransformNode>();
 let labelSprites = new Map<string, Sprite>();
+let labelManagers = new Map<string, SpriteManager>();
 let ws: WebSocket | null = null;
 
 // ─── Build Scene ──────────────────────────────────────────────────
 function buildScene(state: PairState) {
   for (const [, mesh] of simMeshes) mesh.dispose();
   for (const [, sprite] of labelSprites) sprite.dispose();
+  for (const [, mgr] of labelManagers) mgr.dispose();
   simMeshes.clear();
   labelSprites.clear();
+  labelManagers.clear();
 
   for (const room of state.rooms) buildRoom(room);
   for (const av of state.avatars) buildSim(av);
@@ -159,10 +144,12 @@ function buildRoom(room: RoomState) {
   doorMat.diffuseColor = new Color3(0.3, 0.2, 0.1);
   door.material = doorMat;
 
-  const label = new Sprite(`label_${room.id}`, labelManager);
-  label.size = new Vector3(3, 0.75, 1);
-  label.position = new Vector3(room.x + room.w / 2, 4.5, room.y + room.h / 2);
-  // Use dynamic texture for label
+  // Per-room label. A Sprite cannot hold its own texture (a SpriteManager
+  // shares one spritesheet across all of its Sprites), so give this room its
+  // own manager + DynamicTexture. cellSize matches the 256x64 texture so a
+  // single cell covers the whole label; Sprite.size is a scalar (width), and
+  // the 4:1 texture aspect auto-scales the height to 0.75 — matching the old
+  // Vector3(3, 0.75, 1) intent.
   const tex = new DynamicTexture(`tex_${room.id}`, { width: 256, height: 64 }, scene, false);
   const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -170,7 +157,14 @@ function buildRoom(room: RoomState) {
   ctx.fillStyle = '#fff'; ctx.font = 'bold 24px system-ui'; ctx.textAlign = 'center';
   ctx.fillText(room.name, 128, 40);
   tex.update();
-  label.texture = tex;
+
+  const roomLabelManager = new SpriteManager(`labelMgr_${room.id}`, '', 1, { width: 256, height: 64 }, scene);
+  roomLabelManager.texture = tex;
+  const label = new Sprite(`label_${room.id}`, roomLabelManager);
+  label.size = 3;
+  label.position = new Vector3(room.x + room.w / 2, 4.5, room.y + room.h / 2);
+  labelSprites.set(room.id, label);
+  labelManagers.set(room.id, roomLabelManager);
 }
 
 function buildSim(av: SimState) {
@@ -250,11 +244,19 @@ function updateHUD() {
   if (!worldState) return;
   const hud = document.getElementById('pair-info');
   if (hud) {
-    hud.innerHTML = `
-      <div>Tick: ${worldState.tickCount}</div>
-      <div>Sims: ${worldState.avatars.length}</div>
-      <div>Rooms: ${worldState.rooms.length}</div>
-    `;
+    // Build via textContent/DOM (not innerHTML) to avoid a CodeQL-flagged
+    // XSS sink: worldState arrives over WebSocket as JSON.parse(event.data),
+    // i.e. untrusted input.
+    hud.textContent = '';
+    for (const [label, value] of [
+      ['Tick', String(worldState.tickCount)],
+      ['Sims', String(worldState.avatars.length)],
+      ['Rooms', String(worldState.rooms.length)],
+    ]) {
+      const row = document.createElement('div');
+      row.textContent = `${label}: ${value}`;
+      hud.appendChild(row);
+    }
   }
 }
 

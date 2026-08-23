@@ -8,10 +8,13 @@
     <style>
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; font-family: system-ui, sans-serif; color: #fff; }
       #renderCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+      #pair-info { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.55); padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; pointer-events: none; }
+      #pair-info div { color: #fff; }
     </style>
   </head>
-  <body>
-    <canvas id="renderCanvas"></canvas>
-    <script type="module" src="/src/main.ts"></script>
+    <body>
+      <canvas id="renderCanvas"></canvas>
+      <div id="pair-info"></div>
+      <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

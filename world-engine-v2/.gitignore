@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel local config (contains project/org IDs; should not be committed)
+.vercel
