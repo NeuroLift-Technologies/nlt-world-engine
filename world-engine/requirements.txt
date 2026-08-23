@@ -1,0 +1,7 @@
+# NLT-Fusion World Engine - Python Dependencies
+
+# The environment engine uses only the Python standard library.
+
+# Development dependencies
+flake8>=6.0.0
+pytest>=7.0.0

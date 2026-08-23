@@ -401,6 +401,6 @@ function mkEvent(kind, avatar, text, scenarioId = null, who = null, meta = {}) {
   };
 }
 
-window.WE_SIM = {
-  spawnAvatar, mkEvent, getObject, objectForScenario, queueScenario, pathToObject,
-};
+// expose
+window.WE_SIM = { spawnAvatar, mkEvent };
+window._useWorldEngineOffline = window.useWorldEngine;

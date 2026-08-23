@@ -138,9 +138,9 @@ const WE_VIEW = (function () {
   function World({ avatars, selectedId, onSelectAvatar, showLabels = true, scale = 1, panX = 0, panY = 0 }) {
     const selected = avatars.find((av) => av.id === selectedId) || avatars[0];
     const stageRef = React.useRef(null);
-
-    // Compute world bounds
-    const maxX = 24, maxY = 18;
+    const rooms = (window.WE_SCENE && window.WE_SCENE.rooms) || WE.ROOMS;
+    const maxX = rooms.reduce((m, r) => Math.max(m, r.x + r.w), 0) + 2;
+    const maxY = rooms.reduce((m, r) => Math.max(m, r.y + r.h), 0) + 2;
     const { sx: maxSx } = iso(maxX, 0);
     const { sy: maxSy } = iso(0, maxY);
     const minSx = iso(0, maxY).sx;
@@ -154,11 +154,11 @@ const WE_VIEW = (function () {
           width, height, marginLeft: -minSx
         }}>
           {/* Floor tiles per room */}
-          {WE.ROOMS.map(room => (
+          {rooms.map(room => (
             <RoomFloor key={room.id} room={room} />
           ))}
           {/* Props (sorted by y for fake depth) */}
-          {WE.ROOMS.flatMap(room => room.props.map((p, i) => ({
+          {rooms.flatMap(room => room.props.map((p, i) => ({
             p, room, sortKey: (room.y + (p.y || 0)) * 100 + (room.x + (p.x || 0))
           })))
             .sort((a, b) => a.sortKey - b.sortKey)
