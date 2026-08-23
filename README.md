@@ -92,14 +92,35 @@ SensoryBalance - Sensory sensitivity
 SocialSync - Social challenges
 SensorySeeker - Sensory seeking behavior
 ConfidenceCoach - Self-esteem and identity
-🚀 Quick Start
-Prerequisites
-Python 3.10+
-Git
+## Quick Start
+
+### 🌐 World Engine v2 — Babylon.js viewer (this PR)
+
+The **v2 frontend prototype** is a Babylon.js + Vite + TypeScript set of scenes that visualizes a pair's simulated world in real time.
+
+```bash
+cd world-engine-v2
+npm install
+npm run dev          # -> http://localhost:5173
+npm run build        # production build (runs `tsc && vite build`)
+```
+
+Architecture & deployment are documented in [`ARCHITECTURE.md`](./ARCHITECTURE.md) and [`DEPLOYMENT.md`](./DEPLOYMENT.md) (per-pair Durable Objects, WebSocket fan-out, Vercel + Cloudflare split).
+
+### 🐍 v1 Python ECS engine
+
+**Prerequisites:** Python 3.10+, Git
 
 The environment engine uses only the Python standard library; the only `requirements.txt` (in `world-engine/`) lists dev tools (`flake8`, `pytest`).
 
-Installation
+```bash
+cd world-engine
+pip install -r requirements.txt
+python3 demo.py
+python3 -m unittest discover tests
+```
+
+**Installation** (clone):
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -139,6 +160,18 @@ python -m http.server 8765
 ```
 
 The browser prototype and Studio are **visualization shells**: they tick a simulation locally in the browser and are **not wired** to the Python engine yet. See `world-engine/README.md` and `studio/README.md`.
+
+Running the Babylon.js v2 prototype (world-engine-v2)
+A second-generation viewer built with Babylon.js + Vite + TypeScript. Same visualization-shell caveat as above — it is **not wired** to the Python engine yet.
+
+```bash
+cd world-engine-v2
+npm install
+npx tsc --noEmit   # type-check
+npm run dev        # Vite dev server
+```
+
+Design docs for the v2 direction (pair-per-world MMO topology, Cloudflare Workers + Durable Objects backend, deployment split): see `ARCHITECTURE.md` and `DEPLOYMENT.md`.
 
 🔁 CI and Repository Automation Workflows (GitHub Actions)
 Intent and architecture
