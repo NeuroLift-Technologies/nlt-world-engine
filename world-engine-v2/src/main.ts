@@ -260,6 +260,11 @@ function updateHUD() {
   }
 }
 
+// Pair routing is purely hostname-based (see ARCHITECTURE.md): each pair's
+// browser page is served from its own subdomain (e.g. `pair-sa01.<host>`), and
+// the WebSocket is opened against the same host, so the edge/DO selects the
+// pair from the Host header. `pairId` (the subdomain label) is therefore only
+// used for the reconnect retry/logging — it is not sent in the WS URL.
 const pairId = window.location.hostname.split('.')[0];
 connectWebSocket(pairId);
 
