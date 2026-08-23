@@ -92,7 +92,7 @@ function App() {
 
         <nav className="nav">
           <NavTab id="live" active={view === "live"} onClick={setView} icon={ICONS.live} label="Live Sim" sub="one pair, up close" />
-          <NavTab id="fleet" active={view === "fleet"} onClick={setView} icon={ICONS.fleet} label="Fleet" sub="all 19 avatars" />
+          <NavTab id="fleet" active={view === "fleet"} onClick={setView} icon={ICONS.fleet} label="Fleet" sub={WE.ROSTER_MODE === "single" ? "active pair" : "all avatars"} />
           <NavTab id="fusion" active={view === "fusion"} onClick={setView} icon={ICONS.fusion} label="Fusion" sub="avatar → advocate" />
         </nav>
 

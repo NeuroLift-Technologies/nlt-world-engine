@@ -34,6 +34,9 @@
     "action_type": {
       "enum": [
         "assign_scenario",
+        "move_to",
+        "use_object",
+        "rest",
         "advance_tick",
         "pause",
         "resume",

@@ -336,6 +336,33 @@ button { font-family: inherit; }
 .we-char-eyes.facing-west span { transform: translateX(-1px); }
 .we-char-eyes.facing-east span { transform: translateX(1px); }
 
+.we-sim-object {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(245, 166, 35, 0.35);
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0.55;
+}
+.we-sim-object.target {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.75);
+  animation: we-object-pulse 1.2s ease-in-out infinite;
+}
+.we-sim-object.active {
+  opacity: 1;
+  background: var(--good);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.55);
+}
+@keyframes we-object-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
 .we-char-tag {
   position: absolute;
   bottom: -16px; left: 50%;
