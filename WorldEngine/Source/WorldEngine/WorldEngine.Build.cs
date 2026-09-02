@@ -35,13 +35,17 @@ public class WorldEngine : ModuleRules
             "JsonUtilities",
             "WebSockets",
             "Networking",
-            "Sockets"
+            "Sockets",
+            "Niagara",
+            "NiagaraCore"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] {
             "Projects",
             "NavigationSystem",
-            "Navmesh"
+            "Navmesh",
+            "AudioMixer",
+            "AudioMixerCore"
         });
     }
 }

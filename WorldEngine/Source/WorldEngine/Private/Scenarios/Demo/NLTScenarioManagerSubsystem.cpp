@@ -4,6 +4,8 @@
 #include "Agents/NLTAgentSpawnerSubsystem.h"
 #include "Agents/NLTAgentFragments.h"
 #include "Simulation/NLTSimulationSubsystem.h"
+#include "Audio/SoundscapeSubsystem.h"
+#include "World/NLTEnvironmentVariation.h"
 #include "MassEntityManager.h"
 #include "MassEntityQuery.h"
 #include "MassEntitySubsystem.h"
@@ -44,6 +46,9 @@ void UNLTScenarioManagerSubsystem::Initialize(FSubsystemCollectionBase& Collecti
 {
     Super::Initialize(Collection);
     UE_LOG(LogNLTScenarioManager, Log, TEXT("Scenario manager initialized"));
+
+    // Cache the soundscape subsystem for audio control
+    SoundscapeSubsystem = GetWorld()->GetSubsystem<UNLTSoundscapeSubsystem>();
 }
 
 void UNLTScenarioManagerSubsystem::Deinitialize()
@@ -83,12 +88,29 @@ bool UNLTScenarioManagerSubsystem::StartScenarioInternal(const FNLTScenarioParam
     ScenarioTick = 0;
     bScenarioActive = true;
 
+    // Apply seeded micro-variation for environment dressing
+    if (UNLTEnvironmentVariationSubsystem* EnvVar = GetEnvironmentVariationSubsystem())
+    {
+        const FName ScenarioId = Scenario ? Scenario->ScenarioId : NAME_None;
+        EnvVar->ApplyEnvironmentVariation(ScenarioId, Params.Seed);
+    }
+
     if (Params.bAutoStartSimulation)
     {
         if (UNLTSimulationSubsystem* Sim = World->GetSubsystem<UNLTSimulationSubsystem>())
         {
             Sim->StartSimulation();
         }
+    }
+
+    // Activate soundscape (occupied world) — stress-driven audio
+    if (SoundscapeSubsystem)
+    {
+        SoundscapeSubsystem->SetOrigin(Params.SpawnOrigin);
+        SoundscapeSubsystem->Activate();
+        // Initial stress from scenario aversiveness
+        const float InitialStress = Scenario ? (Scenario->Aversiveness * 0.5f + Scenario->CognitiveDemand * 0.5f) : 0.3f;
+        SoundscapeSubsystem->SetStressLevel(InitialStress);
     }
 
     UE_LOG(LogNLTScenarioManager, Log, TEXT("Scenario started: %d agents, seed %d, radius %.0f, scenario=%s, needGrowth=%.2f"),
@@ -110,6 +132,18 @@ void UNLTScenarioManagerSubsystem::StopScenario()
     bHeadlessSelfTest = false;
     ActiveScenario = nullptr;
     ScenarioTick = 0;
+
+    // Deactivate soundscape (dead world)
+    if (SoundscapeSubsystem)
+    {
+        SoundscapeSubsystem->Deactivate();
+    }
+}
+
+UNLTEnvironmentVariationSubsystem* UNLTScenarioManagerSubsystem::GetEnvironmentVariationSubsystem() const
+{
+    UWorld* World = GetWorld();
+    return World ? World->GetSubsystem<UNLTEnvironmentVariationSubsystem>() : nullptr;
 }
 
 void UNLTScenarioManagerSubsystem::TickScenarioManager(float DeltaTime)
@@ -129,6 +163,15 @@ void UNLTScenarioManagerSubsystem::TickScenarioManager(float DeltaTime)
     // One fixed simulation tick per manager tick (drives the decision processor's clock)
     Sim->StepTick();
     ScenarioTick++;
+
+    // Update soundscape stress based on scenario difficulty
+    if (SoundscapeSubsystem && ActiveScenario)
+    {
+        const float BaseStress = (ActiveScenario->Aversiveness + ActiveScenario->CognitiveDemand) * 0.5f;
+        const float TimeStress = FMath::Clamp(static_cast<float>(ScenarioTick) / 3600.0f, 0.0f, 0.3f);
+        SoundscapeSubsystem->SetStressLevel(BaseStress + TimeStress);
+        SoundscapeSubsystem->TickSoundscape(DeltaTime);
+    }
 
     if (bHeadlessSelfTest)
     {
