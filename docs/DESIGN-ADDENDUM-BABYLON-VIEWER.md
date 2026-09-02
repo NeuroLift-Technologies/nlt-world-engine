@@ -3,7 +3,7 @@
 **Status:** Proposed — pending Joshua's sign-off (see §7)
 **Amends:** `docs/world-engine/DESIGN.md` (2026-06-22, approved)
 **For:** whichever agent picks up the `world-engine-v2` rewire.
-**Governed by:** ORG-DEV-OTOI-1.0.2.
+**Governed by:** ORG-DEV-OTOI-1.0.3.
 
 ---
 
