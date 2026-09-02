@@ -1,0 +1,45 @@
+{
+  "handoff_record": {
+    "session_id": "2026-08-28-claude-babylon-viewer-reconciliation",
+    "agent_name": "Claude (Anthropic, claude.ai)",
+    "date": "2026-08-28",
+    "otoi_version": "ORG-DEV-OTOI-1.0.2",
+    "repo": "nlt-fusion",
+    "branch": "none — reviewed a zip export of world-engine-v2-release-pr, no repo write access this session",
+    "work_completed": [
+      "Reviewed nlt-fusion.zip contents against docs/world-engine/DESIGN.md and git log.",
+      "Ran world-engine/tests/ directly: 33 tests passing (prior handoff recorded 24; more added since 2026-06-22).",
+      "Found an undocumented second world engine: world-engine-v2/ (Babylon.js + TypeScript), built by commits attributed to 'HERMES' in trailers, with no registration, handoff, or active-threads.md entry anywhere in the repo.",
+      "Inspected world-engine-v2/src/main.ts and simulation.ts: confirmed it runs a fully independent local simulation (own tick loop, own avatar state) with zero connection to the Python kernel's SSE/REST service — the exact browser-side-simulation pattern DESIGN.md \u00a71/\u00a75 retired.",
+      "Found ~13 branches carrying overlapping variants of the Babylon.js work (babylon-v2, babylon-v2-clean, babylon-world-engine, babylon-world-engine-v2, feat/world-engine-v2-babylon-mmo, hermes/3d-world-engine-v1, hermes/utility-agent-refactor, world-engine-v2-pr(-final)?(-pr)?, world-engine-v2-release(-pr)?).",
+      "Found the checked-out branch (world-engine-v2-release-pr) has uncommitted local changes to world-engine-v2/src/*.ts and index.html not reflected in any commit.",
+      "Confirmed with Joshua: both engines are meant to coexist (Python = simulation authority, Babylon.js = visualization), matching DESIGN.md's original 'studio as projection' principle.",
+      "Wrote docs/world-engine/DESIGN-ADDENDUM-BABYLON-VIEWER.md specifying how to rewire world-engine-v2 to consume the kernel's SSE stream instead of running its own sim, using sim-live.jsx as the reference pattern."
+    ],
+    "work_in_progress": [],
+    "blockers": [
+      "Addendum is pending Joshua's sign-off on 3 open questions (see \u00a77 of the addendum): confirm keep-both-viewers direction, confirm whether HERMES's work was directed or should be treated as unreviewed, confirm OK to prune stale branches."
+    ],
+    "decisions_made": [
+      "Joshua confirmed (this session): Python kernel remains sole simulation authority; Babylon.js world-engine-v2 is retained as a second viewer/projection, not a competing engine."
+    ],
+    "decisions_pending": [
+      "Whether to actually keep Babylon.js (richer demo value) vs. park it and go sim-live.jsx-only for v1 \u2014 addendum \u00a75/\u00a77.",
+      "Whether HERMES's existing Babylon.js code should be trusted as reviewed work or treated as an unreviewed draft given the missing governance trail.",
+      "Branch cleanup authorization for the ~13 stale babylon-*/world-engine-v2-* branches."
+    ],
+    "escalations": [
+      "Flagging (not filing as a formal escalation record, since no repo write access this session): an agent identified as HERMES built and merged a second, independent simulation engine (world-engine-v2) with no registration, handoff, or active-threads.md entry, in apparent tension with the Josh-approved 2026-06-22 architecture decision. Recommend whoever picks up docs/world-engine/DESIGN-ADDENDUM-BABYLON-VIEWER.md also file a proper escalation record under docs/escalations/ once repo access is available, since this is exactly the kind of undocumented architecture divergence the escalation process exists to catch."
+    ],
+    "next_agent_notes": "Read docs/world-engine/DESIGN-ADDENDUM-BABYLON-VIEWER.md in full before touching world-engine-v2/. Do not assume the current Babylon.js code is reviewed/authorized \u2014 it has no paper trail. Get Joshua's answers to the addendum's \u00a77 questions before starting the rewire. The rewire itself is well-scoped: delete simulation.ts's local sim loop, replace with an SSE-consuming KernelStream class, point the renderer at parsed contracts/v1 snapshots instead of local sim state, and load scene geometry from world-engine/data/scenes/default_home.v1.json instead of WorldScene's hardcoded layout.",
+    "files_modified": [
+      "docs/world-engine/DESIGN-ADDENDUM-BABYLON-VIEWER.md",
+      "docs/agent-log/handoffs/2026-08-28-claude-babylon-viewer-reconciliation.json"
+    ],
+    "tests_run": [
+      "python3 -m pytest world-engine/tests/ -q \u2014 33 passed, 0 failed"
+    ],
+    "tests_passing": true,
+    "pr_url": "none \u2014 this session had no repo write access; files produced for Joshua to add to the repo directly"
+  }
+}

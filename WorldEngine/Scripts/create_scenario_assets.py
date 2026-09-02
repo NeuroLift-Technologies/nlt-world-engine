@@ -8,12 +8,52 @@ editor_asset_lib = unreal.EditorAssetLibrary
 
 scenario_class = unreal.load_class(None, "/Script/WorldEngine.ScenarioDataAsset")
 if not scenario_class:
-    scenario_class = unreal.load_class(None, "UScenarioDataAsset")
+    scenario_class = unreal.load_class(None, "ScenarioDataAsset")
 
-# EScenarioCategory: Workplace=0, Personal=1, Social=2, Academic=3 (from UScenarioDataAsset.h)
-# EScenarioComplexity: Low=0, Medium=1, High=2
-CAT = {"Workplace": 0, "Personal": 1, "Social": 2, "Academic": 3}
-COMP = {"Low": 0, "Medium": 1, "High": 2}
+
+def _resolve_enum(enum_candidates, value_name):
+    """Resolve an Unreal enum value across Python reflection naming differences."""
+    for enum_name in enum_candidates:
+        enum_type = getattr(unreal, enum_name, None)
+        if enum_type is None:
+            continue
+
+        # Try common reflected member names first (UPPER_SNAKE in UE Python).
+        for member_name in (value_name.upper(), value_name):
+            member = getattr(enum_type, member_name, None)
+            if member is not None:
+                return member
+
+        # Fallback: iterate enum members and compare normalized names.
+        try:
+            for member in enum_type:
+                if str(member).split(".")[-1].lower() == value_name.lower():
+                    return member
+        except TypeError:
+            pass
+
+    raise RuntimeError(f"Unable to resolve enum value '{value_name}' from {enum_candidates}")
+
+
+# Robust enum handling (works across different UE Python exposures)
+CAT = {
+    "Workplace": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Workplace"),
+    "Personal": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Personal"),
+    "Social": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Social"),
+    "Academic": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Academic"),
+}
+COMP = {
+    "Low": _resolve_enum(["ScenarioComplexity", "EScenarioComplexity"], "Low"),
+    "Medium": _resolve_enum(["ScenarioComplexity", "EScenarioComplexity"], "Medium"),
+    "High": _resolve_enum(["ScenarioComplexity", "EScenarioComplexity"], "High"),
+}
+
+LEVEL_MAP = {
+    "Workplace": "/Game/Scenarios/Levels/Workplace_Level.Workplace_Level",
+    "Personal": "/Game/Scenarios/Levels/Personal_Level.Personal_Level",
+    "Social": "/Game/Scenarios/Levels/Social_Level.Social_Level",
+    "Academic": "/Game/Scenarios/Levels/Academic_Level.Academic_Level",
+}
 
 SCENARIOS = [
     ("Workplace", "wp_1", "Email Processing", "Process and respond to 20 emails", 30.0, "Medium", 0.4, 0.5, 0.7, True,
@@ -58,9 +98,10 @@ else:
         pkg = f"/Game/Scenarios/{cat}/{cat[:3]}_{sid}"
         obj = f"{pkg}.{cat[:3]}_{sid}"
         if editor_asset_lib.does_asset_exist(obj):
-            editor_asset_lib.delete_asset(obj)
-        asset = asset_tools.create_asset(asset_name=f"{cat[:3]}_{sid}", package_path=f"/Game/Scenarios/{cat}",
-                                         asset_class=scenario_class, factory=None)
+            asset = editor_asset_lib.load_asset(obj)
+        else:
+            asset = asset_tools.create_asset(asset_name=f"{cat[:3]}_{sid}", package_path=f"/Game/Scenarios/{cat}",
+                                             asset_class=scenario_class, factory=None)
         if not asset:
             print(f"  FAILED: {cat[:3]}_{sid}")
             continue
@@ -76,6 +117,11 @@ else:
         asset.set_editor_property("bRequiresSustainedFocus", sf)
         ctx_map = {unreal.Name(k): str(v) for k, v in ctx.items()}
         asset.set_editor_property("ContextParams", ctx_map)
+        level_world = unreal.load_object(None, LEVEL_MAP[cat])
+        if level_world:
+            asset.set_editor_property("LevelReference", level_world)
+        else:
+            print(f"  WARN: could not resolve level for {sid}: {LEVEL_MAP[cat]}")
         editor_asset_lib.save_asset(obj)
         print(f"  OK: {sid} ({cat}) -> {pkg}")
         count += 1
