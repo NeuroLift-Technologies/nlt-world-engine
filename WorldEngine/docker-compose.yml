@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  # Unreal Engine headless simulation
+  simulation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nlt-simulation
+    command: >
+      bash -c "
+        echo 'Starting headless simulation...' &&
+        ${UE_ENGINE_DIR}/Engine/Binaries/Linux/UnrealEditor
+          ${UE_PROJECT_DIR}/WorldEngine.uproject
+          -nullrhi
+          -benchmark
+          -deterministic
+          -stdout
+          -FullStdOutLogOutput
+          -NLT.SocketServer.Start=8765
+      "
+    volumes:
+      - .:/home/developer/projects/WorldEngine
+      - ue-engine:/home/developer/engine
+    ports:
+      - "8765:8765"   # WebSocket
+      - "8080:8080"   # Web viewer (optional)
+    environment:
+      - UE_ENGINE_DIR=/home/developer/engine
+      - UE_PROJECT_DIR=/home/developer/projects/WorldEngine
+    networks:
+      - nlt-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16G
+
+  # Web viewer (serves the HTML/JS viewer)
+  web-viewer:
+    image: nginx:alpine
+    container_name: nlt-web-viewer
+    volumes:
+      - ./Content/Web:/usr/share/nginx/html:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - nlt-network
+    depends_on:
+      - simulation
+    restart: unless-stopped
+
+networks:
+  nlt-network:
+    driver: bridge
+
+volumes:
+  ue-engine:
+    driver: local
