@@ -2,10 +2,16 @@
 #include "Engine/AssetManager.h"
 #include "Engine/StreamableManager.h"
 #include "UObject/SoftObjectPath.h"
+#include "AssetRegistry/IAssetRegistry.h"
 
 TArray<UScenarioDataAsset*> UScenarioLibrary::GetAllScenarios()
 {
     TArray<UScenarioDataAsset*> Results;
+
+    if (IAssetRegistry* AssetRegistry = IAssetRegistry::Get())
+    {
+        AssetRegistry->WaitForCompletion();
+    }
 
     UAssetManager& AssetManager = UAssetManager::Get();
     TArray<FAssetData> AssetDataArray;
@@ -37,6 +43,18 @@ UScenarioDataAsset* UScenarioLibrary::GetScenarioById(FName Id)
             return Scenario;
         }
     }
+
+    LoadAllScenariosFromDisk();
+
+    AllScenarios = GetAllScenarios();
+    for (UScenarioDataAsset* Scenario : AllScenarios)
+    {
+        if (Scenario && Scenario->ScenarioId == Id)
+        {
+            return Scenario;
+        }
+    }
+
     return nullptr;
 }
 

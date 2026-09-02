@@ -30,7 +30,16 @@ enum class ENLTSimulationEventType : uint8
 	SocialInteraction   UMETA(DisplayName = "SocialInteraction"),
 	TaskComplete        UMETA(DisplayName = "TaskComplete"),
 	SimulationReset     UMETA(DisplayName = "SimulationReset"),
-	ModeChanged         UMETA(DisplayName = "ModeChanged")
+	ModeChanged         UMETA(DisplayName = "ModeChanged"),
+	// Environment events (environment-only mode)
+	EnvWeatherChanged   UMETA(DisplayName = "EnvWeatherChanged"),
+	EnvLightingChanged  UMETA(DisplayName = "EnvLightingChanged"),
+	EnvTimeOfDayChanged UMETA(DisplayName = "EnvTimeOfDayChanged"),
+	EnvRoomStateChanged UMETA(DisplayName = "EnvRoomStateChanged"),
+	EnvAmbientSound     UMETA(DisplayName = "EnvAmbientSound"),
+	EnvParticleEffect   UMETA(DisplayName = "EnvParticleEffect"),
+	EnvFogChanged       UMETA(DisplayName = "EnvFogChanged"),
+	EnvWindChanged      UMETA(DisplayName = "EnvWindChanged")
 };
 
 USTRUCT(BlueprintType)
@@ -74,10 +83,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "NLT|Simulation")
 	void RaiseSimpleEvent(ENLTSimulationEventType EventType, int32 Tick, FName AgentId, FString Description, FName TargetId = NAME_None, float Value = 0.0f);
 
+	/** Raise an environment event (no agent, environment-only mode). */
+	UFUNCTION(BlueprintCallable, Category = "NLT|Simulation|Environment")
+	void RaiseEnvironmentEvent(ENLTSimulationEventType EventType, int32 Tick, FName RoomId, FString Description, float Value = 0.0f);
+
+	/** Get the most recent N events from the ring buffer (newest first). */
+	UFUNCTION(BlueprintPure, Category = "NLT|Simulation")
+	void GetRecentEvents(int32 Count, TArray<FNLTSimulationEvent>& OutEvents) const;
+
+	/** Get all events of a specific type from the ring buffer. */
+	UFUNCTION(BlueprintPure, Category = "NLT|Simulation")
+	void GetEventsByType(ENLTSimulationEventType EventType, TArray<FNLTSimulationEvent>& OutEvents) const;
+
+	/** Get the total number of events ever raised (including overwritten ones). */
+	UFUNCTION(BlueprintPure, Category = "NLT|Simulation")
+	int32 GetTotalEventCount() const { return TotalEventCount; }
+
 	FOnSimulationEvent OnSimulationEvent;
+	FOnSimulationEvent OnEnvironmentEvent;
 
 private:
 	static constexpr int32 RingBufferCapacity = 256;
 	TArray<FNLTSimulationEvent> EventRingBuffer;
 	int32 RingBufferWriteHead = 0;
+	int32 TotalEventCount = 0;
 };

@@ -7,6 +7,7 @@
 
 class UNLTAgentSpawnerSubsystem;
 class UNLTSimulationSubsystem;
+class UNLTSoundscapeSubsystem;
 class UScenarioDataAsset;
 struct FMassEntityQuery;
 
@@ -92,6 +93,10 @@ public:
     /** Deterministic hash over all agents: identity-sorted (AgentId, Position) pairs. Same seed + same ticks => same hash. */
     uint32 ComputeAgentStateHash() const;
 
+    /** Returns the environment variation subsystem for the active run. */
+    UFUNCTION(BlueprintPure, Category = "NLT|Environment")
+    class UNLTEnvironmentVariationSubsystem* GetEnvironmentVariationSubsystem() const;
+
     // ----- Headless self-test (QA determinism gate) -----
     void BeginHeadlessSelfTest(int32 InMaxTicks);
     bool IsHeadlessSelfTestActive() const { return bHeadlessSelfTest; }
@@ -109,4 +114,6 @@ private:
     bool bHeadlessSelfTest = false;
     int32 HeadlessMaxTicks = 600;
     int32 NextCheckpointTick = 0;
+
+    TObjectPtr<UNLTSoundscapeSubsystem> SoundscapeSubsystem = nullptr;
 };
