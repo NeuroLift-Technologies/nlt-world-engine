@@ -30,32 +30,54 @@ LEVEL_MAP = {
     "Academic":  "/Game/Scenarios/Levels/Academic_Level.Academic_Level",
 }
 
+def _resolve_enum(enum_candidates, value_name):
+    """Resolve Unreal enum value across reflection naming differences."""
+    for enum_name in enum_candidates:
+        enum_type = getattr(unreal, enum_name, None)
+        if enum_type is None:
+            continue
+
+        for member_name in (value_name.upper(), value_name):
+            member = getattr(enum_type, member_name, None)
+            if member is not None:
+                return member
+
+        try:
+            for member in enum_type:
+                if str(member).split(".")[-1].lower() == value_name.lower():
+                    return member
+        except TypeError:
+            pass
+
+    raise RuntimeError(f"Unable to resolve enum value '{value_name}' from {enum_candidates}")
+
+
 SCENARIO_CATEGORY = {
-    "Workplace": unreal.ScenarioCategory.WORKPLACE,
-    "Personal": unreal.ScenarioCategory.PERSONAL,
-    "Social": unreal.ScenarioCategory.SOCIAL,
-    "Academic": unreal.ScenarioCategory.ACADEMIC,
+    "Workplace": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Workplace"),
+    "Personal": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Personal"),
+    "Social": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Social"),
+    "Academic": _resolve_enum(["ScenarioCategory", "EScenarioCategory"], "Academic"),
 }
 SCENARIO_COMPLEXITY = {
-    "Low": unreal.ScenarioComplexity.LOW,
-    "Medium": unreal.ScenarioComplexity.MEDIUM,
-    "High": unreal.ScenarioComplexity.HIGH,
+    "Low": _resolve_enum(["ScenarioComplexity", "EScenarioComplexity"], "Low"),
+    "Medium": _resolve_enum(["ScenarioComplexity", "EScenarioComplexity"], "Medium"),
+    "High": _resolve_enum(["ScenarioComplexity", "EScenarioComplexity"], "High"),
 }
 
 SCENARIOS = [
-    ("Workplace", "EmailProcessing",         "workplace_email_processing",       "Email Processing",     45.0,  "Medium", 0.3, 0.6, 0.7,  True),
-    ("Workplace", "ReportWriting",           "workplace_report_writing",         "Report Writing",       120.0, "High",   0.6, 0.9, 0.6,  True),
-    ("Workplace", "MeetingParticipation",    "workplace_meeting_participation",  "Meeting Participation", 60.0, "Medium", 0.4, 0.5, 0.75, False),
-    ("Workplace", "CodeReview",              "workplace_code_review",            "Code Review",          90.0,  "High",   0.5, 0.8, 0.65, True),
-    ("Workplace", "DeadlineCrunch",          "workplace_deadline_crunch",        "Deadline Crunch",     180.0, "High",   0.9, 0.95, 0.5, True),
-    ("Personal",  "HouseholdCleaning",       "personal_household_cleaning",      "Household Cleaning",   60.0,  "Low",    0.4, 0.2, 0.85, False),
-    ("Personal",  "GroceryShopping",         "personal_grocery_shopping",        "Grocery Shopping",     45.0,  "Medium", 0.3, 0.4, 0.8,  False),
-    ("Personal",  "BillPaying",              "personal_bill_paying",             "Bill Paying",          20.0,  "Low",    0.5, 0.6, 0.9,  False),
-    ("Personal",  "MorningRoutine",          "personal_morning_routine",         "Morning Routine",      30.0,  "Low",    0.1, 0.3, 0.95, False),
-    ("Social",    "PhoneConversation",       "social_phone_conversation",        "Phone Conversation",   15.0,  "Low",    0.7, 0.6, 0.7,  False),
-    ("Social",    "SocialEvent",             "social_event",                     "Social Event",        120.0,  "High",   0.85, 0.5, 0.6, True),
-    ("Academic",  "StudySession",            "academic_study_session",           "Study Session",       90.0,  "Medium", 0.4, 0.8, 0.75, True),
-    ("Academic",  "ProjectWork",             "academic_project_work",            "Project Work",         150.0, "High",   0.5, 0.9, 0.65, True),
+    ("Workplace", "wp_1", "Email Processing", 30.0, "Medium", 0.4, 0.5, 0.7, True),
+    ("Workplace", "wp_2", "Report Writing", 90.0, "High", 0.6, 0.8, 0.5, True),
+    ("Workplace", "wp_3", "Meeting Participation", 60.0, "Medium", 0.3, 0.6, 0.6, True),
+    ("Workplace", "wp_4", "Code Review", 45.0, "High", 0.4, 0.85, 0.6, True),
+    ("Workplace", "wp_5", "Deadline Crunch", 120.0, "High", 0.8, 0.9, 0.4, True),
+    ("Personal", "pers_1", "Household Cleaning", 120.0, "Medium", 0.7, 0.3, 0.5, False),
+    ("Personal", "pers_2", "Grocery Shopping", 90.0, "Medium", 0.5, 0.6, 0.6, False),
+    ("Personal", "pers_3", "Bill Paying", 45.0, "Low", 0.8, 0.7, 0.5, True),
+    ("Personal", "pers_4", "Morning Routine", 60.0, "Medium", 0.4, 0.4, 0.5, False),
+    ("Social", "soc_1", "Phone Conversation", 15.0, "Medium", 0.6, 0.5, 0.6, True),
+    ("Social", "soc_2", "Social Event", 120.0, "High", 0.7, 0.8, 0.5, False),
+    ("Academic", "acad_1", "Study Session", 120.0, "High", 0.5, 0.8, 0.5, True),
+    ("Academic", "acad_2", "Project Work", 180.0, "High", 0.6, 0.9, 0.4, True),
 ]
 
 LEVEL_PATHS = [
@@ -122,28 +144,30 @@ else:
     log("Loaded class: {}".format(scenario_class))
     created_count = 0
 
-    for cat, short_name, scenario_id, display_name, duration, complexity_str, averseness, cognitive, success, sustained in SCENARIOS:
+    for cat, scenario_id, display_name, duration, complexity_str, averseness, cognitive, success, sustained in SCENARIOS:
         dir_path = "/Game/Scenarios/{}".format(cat)
-        asset_name = "{}_{}".format(cat[:3], short_name)
+        asset_name = "{}_{}".format(cat[:3], scenario_id)
         full_path = "{}/{}".format(dir_path, asset_name)
         object_path = "{}.{}".format(full_path, asset_name)
 
-        # Delete if exists
+        # Load existing or create new (commandlet-safe idempotent behavior)
         if editor_asset_lib.does_asset_exist(object_path):
-            editor_asset_lib.delete_asset(object_path)
-
-        # Create asset
-        asset = asset_tools.create_asset(
-            asset_name=asset_name,
-            package_path=dir_path,
-            asset_class=scenario_class,
-            factory=None,
-        )
-
-        if not asset:
-            log("FAILED to create {}".format(asset_name))
-            results["dataasset_creation"]["failed"].append(asset_name)
-            continue
+            asset = editor_asset_lib.load_asset(object_path)
+            if not asset:
+                log("FAILED to load existing {}".format(asset_name))
+                results["dataasset_creation"]["failed"].append(asset_name)
+                continue
+        else:
+            asset = asset_tools.create_asset(
+                asset_name=asset_name,
+                package_path=dir_path,
+                asset_class=scenario_class,
+                factory=None,
+            )
+            if not asset:
+                log("FAILED to create {}".format(asset_name))
+                results["dataasset_creation"]["failed"].append(asset_name)
+                continue
 
         # Set properties
         asset.set_editor_property("ScenarioId", unreal.Name(scenario_id))
@@ -195,29 +219,14 @@ for level_path in LEVEL_PATHS:
         "errors": [],
     }
 
-    # Check if level exists in asset registry first (using correct API)
-    try:
-        # get_assets with a path filter
-        ar_filter = unreal.ARFilter(
-            package_paths=[level_path],
-            recursive_paths=True,
-        )
-        assets = asset_registry.get_assets(ar_filter)
-
-        if len(assets) == 0:
-            level_result["errors"].append("Level not found in asset registry: {}".format(level_path))
-            results["level_validation"][level_name] = level_result
-            log_error("  Level not found in registry: {}".format(level_path))
-            continue
-
-        asset_data = assets[0]
-        log("  Level found in asset registry: {} (class: {})".format(
-            asset_data.object_path, asset_data.asset_class))
-    except Exception as e:
-        level_result["errors"].append("Asset registry lookup error: {}".format(str(e)))
-        log_error("  Asset registry error: {}".format(str(e)))
+    # Check if level exists (commandlet-safe object path check)
+    level_object_path = "{}.{}".format(level_path, level_name)
+    if not editor_asset_lib.does_asset_exist(level_object_path):
+        level_result["errors"].append("Level not found: {}".format(level_object_path))
         results["level_validation"][level_name] = level_result
+        log_error("  Level not found: {}".format(level_object_path))
         continue
+    log("  Level found: {}".format(level_object_path))
 
     # Load the level
     try:
@@ -231,10 +240,7 @@ for level_path in LEVEL_PATHS:
         # Get the editor world
         world = editor_level_lib.get_editor_world()
 
-        if world:
-            actors = unreal.GameplayStatics.get_all_actors(world)
-        else:
-            actors = []
+        actors = editor_level_lib.get_all_level_actors() if world else []
 
         level_result["actors_total"] = len(actors)
         log("  Total actors: {}".format(len(actors)))
@@ -277,11 +283,8 @@ for level_path in LEVEL_PATHS:
             if "NavMeshBoundsVolume" in class_name:
                 level_result["navmesh_present"] = True
 
-        # Check for NavMesh via navigation system
-        if world:
-            nav_data = unreal.NavigationSystemV1.get_current(world)
-            if nav_data:
-                level_result["navmesh_present"] = True
+        # Some UE Python runtimes do not expose NavigationSystemV1.get_current.
+        # We treat explicit NavMeshBoundsVolume detection above as the source of truth.
 
         # Check for spawn point count (requirement: >= 10 per level per SCENARIO_PLAN.md)
         if level_result["player_starts"] < 10:
@@ -313,8 +316,9 @@ for level_path in LEVEL_PATHS:
 
         results["level_validation"][level_name] = level_result
 
-        # Unload the level
-        editor_level_lib.unload_current_level()
+        # Unload level if API is available in this UE Python runtime.
+        if hasattr(editor_level_lib, "unload_current_level"):
+            editor_level_lib.unload_current_level()
 
     except Exception as e:
         level_result["errors"].append("Exception during validation: {}".format(str(e)))
@@ -397,23 +401,23 @@ for asset_data in asset_data_array:
         level_obj_path = level_ref.get_path_name()
         binding_result["level_reference_soft"] = level_obj_path
 
-        # Check if the referenced level exists in the asset registry
-        ar_filter_check = unreal.ARFilter(
-            object_paths=[level_obj_path],
-        )
-        level_assets = asset_registry.get_assets(ar_filter_check)
-
-        if len(level_assets) > 0:
-            level_asset_data = level_assets[0]
+        if editor_asset_lib.does_asset_exist(level_obj_path):
             binding_result["resolves"] = True
-            binding_result["loaded_level_path"] = level_asset_data.object_path
+            binding_result["loaded_level_path"] = level_obj_path
             binding_result["valid"] = True
-            log("  [OK] {} -> {}".format(scenario_id, level_asset_data.object_path))
+            log("  [OK] {} -> {}".format(scenario_id, level_obj_path))
         else:
-            log_warning("  [WARN] {} -> {} (not found in asset registry)".format(scenario_id, level_obj_path))
+            log_warning("  [WARN] {} -> {} (not found as asset)".format(scenario_id, level_obj_path))
 
             # Check if file exists on disk
-            level_filename = LEVEL_MAP.get(category.split(".")[-1], "")
+            category_key = category.split(".")[-1] if category else ""
+            category_key = {
+                "WORKPLACE": "Workplace",
+                "PERSONAL": "Personal",
+                "SOCIAL": "Social",
+                "ACADEMIC": "Academic",
+            }.get(category_key, category_key)
+            level_filename = LEVEL_MAP.get(category_key, "")
             if level_filename:
                 disk_path = level_filename.replace("/Game/", "/home/joshd/Desktop/nlt-repos/nlt-fusion/WorldEngine/Content/").replace(".", "/") + ".umap"
                 if os.path.exists(disk_path):
@@ -448,32 +452,33 @@ for level_path in LEVEL_PATHS:
     start_time = time.time()
 
     try:
-        # Load the level
-        success = editor_level_lib.load_level(level_path)
+        # Load the level (some UE Python runtimes return None here even on success)
+        editor_level_lib.load_level(level_path)
         elapsed = time.time() - start_time
+
+        world = editor_level_lib.get_editor_world()
+        actor_count = len(editor_level_lib.get_all_level_actors()) if world else 0
+        load_ok = world is not None and actor_count > 0
 
         load_result = {
             "level": level_name,
             "load_time_seconds": round(elapsed, 3),
             "target_seconds": 30,
             "within_target": elapsed < 30,
-            "success": success,
+            "success": load_ok,
+            "actors_after_load": actor_count,
         }
 
-        if success:
-            world = editor_level_lib.get_editor_world()
-            actor_count = len(unreal.GameplayStatics.get_all_actors(world)) if world else 0
-            load_result["actors_after_load"] = actor_count
-            log("  Load time: {:.3f}s (target: <30s) - {}".format(
-                elapsed, "PASS" if elapsed < 30 else "FAIL"
-            ))
-            log("  Actors in loaded level: {}".format(actor_count))
-        else:
-            load_result["within_target"] = False
-            log_error("  FAILED to load level")
+        log("  Load time: {:.3f}s (target: <30s) - {}".format(
+            elapsed, "PASS" if elapsed < 30 else "FAIL"
+        ))
+        log("  Actors in loaded level: {}".format(actor_count))
+        if not load_ok:
+            log_warning("  Level loaded but actor inspection returned zero actors")
 
-        # Unload
-        editor_level_lib.unload_current_level()
+        # Unload level if API is available in this UE Python runtime.
+        if hasattr(editor_level_lib, "unload_current_level"):
+            editor_level_lib.unload_current_level()
 
     except Exception as e:
         elapsed = time.time() - start_time
@@ -519,14 +524,8 @@ log("  All bindings valid: {}".format(build_result["all_bindings_valid"]))
 for level_path in LEVEL_PATHS:
     level_name = level_path.split("/")[-1]
     try:
-        ar_filter_lvl = unreal.ARFilter(
-            package_paths=[level_path],
-            recursive_paths=True,
-        )
-        assets = asset_registry.get_assets(ar_filter_lvl)
-        build_result["level_{}_in_registry".format(level_name)] = len(assets) > 0
-        if len(assets) > 0:
-            build_result["level_{}_class".format(level_name)] = assets[0].asset_class
+        level_object_path = "{}.{}".format(level_path, level_name)
+        build_result["level_{}_exists".format(level_name)] = editor_asset_lib.does_asset_exist(level_object_path)
     except Exception as e:
         build_result["level_{}_error".format(level_name)] = str(e)
 
