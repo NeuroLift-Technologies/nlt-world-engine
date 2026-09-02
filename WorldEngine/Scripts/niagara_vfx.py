@@ -5,8 +5,8 @@ Niagara Ambient Motion VFX for Workplace_Level
 Creates 4 Niagara particle system assets:
   1. DustMotes - floating particles in open office
   2. HVACAirflow - subtle air currents from vents
-  3. SteamCoffee - rising vapor in break room
-  4. RainWindows - water droplets on windows
+  3. CoffeeSteam - rising vapor in break room
+  4. RainOnWindow - water droplets on windows
 
 Then spawns Niagara actors in the level at configured locations.
 
@@ -64,7 +64,7 @@ VFX_SYSTEMS = {
             (300, 200, 280, "HVACAirflow_Vent_06"),
         ],
     },
-    "SteamCoffee": {
+    "CoffeeSteam": {
         "description": "Rising steam from coffee in break room",
         "color": (1.0, 1.0, 1.0, 0.2),
         "spawn_rate": 40,
@@ -76,7 +76,7 @@ VFX_SYSTEMS = {
             (-2500, 2400, 50, "SteamCoffee_BreakRoom_Counter"),
         ],
     },
-    "RainWindows": {
+    "RainOnWindow": {
         "description": "Rain droplets streaking down windows",
         "color": (0.7, 0.8, 0.9, 0.25),
         "spawn_rate": 100,
@@ -102,7 +102,7 @@ def create_niagara_system_asset(asset_name, config):
     Create a Niagara system asset with basic particle settings.
     Returns the asset path if successful, None otherwise.
     """
-    asset_path = f"/Game/VFX/Niagara/{asset_name}"
+    asset_path = f"/Game/VFX/Workplace/{asset_name}"
     
     # Check if asset already exists
     existing = unreal.EditorAssetLibrary.load_asset(asset_path)
@@ -162,7 +162,7 @@ def main():
     
     # Create VFX directory
     log("\nSTEP 2: Setting up VFX asset directory")
-    vfx_dir = "/Game/VFX/Niagara"
+    vfx_dir = "/Game/VFX/Workplace"
     if not unreal.EditorAssetLibrary.directory_exists(vfx_dir):
         unreal.EditorAssetLibrary.make_directory(vfx_dir)
         log(f"  Created directory: {vfx_dir}")
@@ -210,8 +210,8 @@ def main():
         "details": {
             "dust_motes": len(VFX_SYSTEMS["DustMotes"]["locations"]),
             "hvac_airflow": len(VFX_SYSTEMS["HVACAirflow"]["locations"]),
-            "steam_coffee": len(VFX_SYSTEMS["SteamCoffee"]["locations"]),
-            "rain_windows": len(VFX_SYSTEMS["RainWindows"]["locations"]),
+            "coffee_steam": len(VFX_SYSTEMS["CoffeeSteam"]["locations"]),
+            "rain_on_window": len(VFX_SYSTEMS["RainOnWindow"]["locations"]),
         }
     }
     
