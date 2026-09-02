@@ -23,8 +23,11 @@ const engine = new Engine(canvas, true, {
 engine.setHardwareScalingLevel(1 / Math.min(window.devicePixelRatio, 2));
 
 const scene = new Scene(engine);
-scene.clearColor = new Color4(0.04, 0.04, 0.1, 1);
-scene.ambientColor = new Color3(0.3, 0.3, 0.4);
+scene.clearColor = new Color4(0.06, 0.1, 0.2, 1);
+scene.ambientColor = new Color3(0.3, 0.32, 0.38);
+scene.fogMode = Scene.FOGMODE_EXP2;
+scene.fogDensity = 0.0035;
+scene.fogColor = new Color3(0.5, 0.65, 0.8);
 
 // ─── Camera & lighting ───────────────────────────────────────────
 const camera = createCamera(scene);
@@ -42,8 +45,7 @@ const sim = new Simulation({
   urgencyThreshold: 0.6,
 });
 
-// Build initial avatar characters
-worldScene.buildAvatars(sim.state.avatars);
+// Avatars currently empty — world is environmental only
 
 // ─── HUD ──────────────────────────────────────────────────────────
 const hud = new HUD();

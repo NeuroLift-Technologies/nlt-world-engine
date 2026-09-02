@@ -1,0 +1,26 @@
+# Build artifacts - fully rebuildable
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+Binaries/
+
+# IDE
+.vscode/
+.swp_storage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large binary/logs
+*.log
+*.tmp
+
+# Docker
+.docker/
+
+# Compressed archives
+*.zip
+*.rar
+*.tar.gz

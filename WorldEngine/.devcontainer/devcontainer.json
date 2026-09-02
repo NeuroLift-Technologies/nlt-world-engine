@@ -1,0 +1,41 @@
+{
+  "name": "NLT Fusion Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "eamodio.gitlens",
+        "github.copilot"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "C_Cpp.default.compilerPath": "/usr/bin/clang",
+        "C_Cpp.default.cppStandard": "c++20"
+      }
+    }
+  },
+  "forwardPorts": [8765, 8080],
+  "portsAttributes": {
+    "8765": { "label": "WebSocket Simulation" },
+    "8080": { "label": "Web Viewer" }
+  },
+  "postCreateCommand": "echo 'NLT Fusion dev container ready!'",
+  "remoteUser": "developer",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/developer/projects/WorldEngine,type=bind",
+  "workspaceFolder": "/home/developer/projects/WorldEngine"
+}

@@ -1,24 +1,224 @@
-// World Engine — static data: avatars, aides, scenarios, world map.
+// World Engine — real-world environment data.
 //
-// Ported from world-engine/data.js to TypeScript.
-// All IDs, names, traits, rooms, props, NPCs, and strategies preserved.
+// Coordinate system: X = east-west, Z = north-south, all in meters.
+// World spans roughly -90..90 on both axes.
 
-export interface AvatarDef {
+export type BuildingKind = 'office' | 'residential' | 'retail' | 'civic' | 'park';
+
+export interface BuildingDef {
   id: string;
   name: string;
-  trait: string;
-  tag: string;
-  hue: number;
-  flavor: string;
-  blurb: string;
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  height: number;
+  floors: number;
+  facade: string;
+  roof: string;
+  windows: string;
+  kind: BuildingKind;
 }
 
-export interface AideDef {
+export interface RoadDef {
+  id: string;
+  x: number;
+  z: number;
+  width: number;
+  length: number;
+  rotation: number; // 0 = N-S (along Z), Math.PI/2 = E-W (along X)
+  kind: 'avenue' | 'street' | 'path';
+}
+
+export interface TreeDef {
+  x: number;
+  z: number;
+  scale: number;
+  kind: 'oak' | 'pine' | 'maple' | 'birch';
+}
+
+export interface WaterDef {
+  id: string;
+  x: number;
+  z: number;
+  radiusX: number;
+  radiusZ: number;
+}
+
+export interface FurnitureDef {
+  x: number;
+  z: number;
+  rotation: number;
+  kind: 'lamp' | 'bench' | 'trash' | 'hydrant' | 'bollard';
+}
+
+export interface VehicleDef {
+  x: number;
+  z: number;
+  rotation: number;
+  kind: 'sedan' | 'suv' | 'truck';
+  color: string;
+}
+
+export interface NpcDef {
+  id: string;
   name: string;
-  style: string;
-  focus: string;
+  x: number;
+  z: number;
+  hue: number;
 }
 
+// ─── Buildings (6 city blocks) ─────────────────────────────────────
+export const BUILDINGS: BuildingDef[] = [
+  {
+    id: 'office', name: 'Meridian Tower', x: -43, z: -60, width: 24, depth: 16,
+    height: 36, floors: 8, facade: '#496173', roof: '#2a3038', windows: '#8ab4d4',
+    kind: 'office',
+  },
+  {
+    id: 'meeting', name: 'Conference Center', x: 43, z: -60, width: 20, depth: 14,
+    height: 14, floors: 3, facade: '#a8b0b8', roof: '#383838', windows: '#90a8c0',
+    kind: 'office',
+  },
+  {
+    id: 'home', name: 'Parkview Apartments', x: -43, z: -15, width: 28, depth: 12,
+    height: 27, floors: 6, facade: '#c4a882', roof: '#5a4030', windows: '#7a90a0',
+    kind: 'residential',
+  },
+  {
+    id: 'phone', name: 'Corner Cafe', x: 43, z: -15, width: 16, depth: 12,
+    height: 8, floors: 2, facade: '#8b4513', roof: '#4a2a10', windows: '#c8b898',
+    kind: 'retail',
+  },
+  {
+    id: 'lounge', name: 'Social Hub', x: -43, z: 45, width: 22, depth: 14,
+    height: 10, floors: 2, facade: '#6a8a6a', roof: '#3a4a3a', windows: '#b0c8d0',
+    kind: 'civic',
+  },
+  {
+    id: 'park', name: 'Riverside Park', x: 43, z: 45, width: 38, depth: 40,
+    height: 0.2, floors: 0, facade: '#3a7a2a', roof: '#3a7a2a', windows: '#3a7a2a',
+    kind: 'park',
+  },
+];
+
+// ─── Roads ────────────────────────────────────────────────────────
+export const ROADS: RoadDef[] = [
+  { id: 'avenue', x: 0, z: 0, width: 14, length: 190, rotation: 0, kind: 'avenue' },
+  { id: 'street1', x: 0, z: -35, width: 10, length: 190, rotation: Math.PI / 2, kind: 'street' },
+  { id: 'street2', x: 0, z: 35, width: 10, length: 190, rotation: Math.PI / 2, kind: 'street' },
+];
+
+// ─── Trees (procedurally placed) ──────────────────────────────────
+function generateTrees(): TreeDef[] {
+  const trees: TreeDef[] = [];
+  let seed = 98765;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed & 0xfffffff) / 0xfffffff; };
+
+  // Along central avenue (edges at x=-7, x=7)
+  for (let z = -80; z <= 80; z += 13) {
+    trees.push({ x: -10.5, z: z + (rnd() - 0.5) * 3, scale: 0.9 + rnd() * 0.5, kind: 'oak' });
+    trees.push({ x: 10.5, z: z + (rnd() - 0.5) * 3, scale: 0.9 + rnd() * 0.5, kind: 'oak' });
+  }
+  // Along cross streets (z=-35, z=35)
+  for (let x = -80; x <= 80; x += 11) {
+    trees.push({ x: x + (rnd() - 0.5) * 3, z: -38.5, scale: 0.8 + rnd() * 0.5, kind: 'maple' });
+    trees.push({ x: x + (rnd() - 0.5) * 3, z: 38.5, scale: 0.8 + rnd() * 0.5, kind: 'maple' });
+  }
+  // In park block (SE: x=6..80, z=5..80) — dense cluster
+  for (let i = 0; i < 30; i++) {
+    const x = 12 + rnd() * 60;
+    const z = 10 + rnd() * 65;
+    const kinds: TreeDef['kind'][] = ['oak', 'maple', 'birch', 'pine'];
+    trees.push({ x, z, scale: 1.0 + rnd() * 0.9, kind: kinds[Math.floor(rnd() * kinds.length)] });
+  }
+  // Scattered in non-building areas
+  for (let i = 0; i < 20; i++) {
+    const x = (rnd() - 0.5) * 160;
+    const z = (rnd() - 0.5) * 160;
+    // Skip if too close to a building
+    const nearBuilding = BUILDINGS.some(b =>
+      Math.abs(x - b.x) < b.width / 2 + 4 && Math.abs(z - b.z) < b.depth / 2 + 4
+    );
+    if (nearBuilding) continue;
+    trees.push({ x, z, scale: 0.8 + rnd() * 0.7, kind: rnd() < 0.5 ? 'oak' : 'pine' });
+  }
+  return trees;
+}
+
+export const TREES: TreeDef[] = generateTrees();
+
+// ─── Water ────────────────────────────────────────────────────────
+export const WATER_BODIES: WaterDef[] = [
+  { id: 'pond', x: 43, z: 50, radiusX: 14, radiusZ: 10 },
+];
+
+// ─── Street furniture (procedurally placed) ───────────────────────
+function generateFurniture(): FurnitureDef[] {
+  const items: FurnitureDef[] = [];
+  let seed = 11111;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed & 0xfffffff) / 0xfffffff; };
+
+  // Lamp posts along avenue
+  for (let z = -78; z <= 78; z += 18) {
+    items.push({ x: -9.5, z: z + (rnd() - 0.5) * 2, rotation: 0, kind: 'lamp' });
+    items.push({ x: 9.5, z: z + (rnd() - 0.5) * 2, rotation: 0, kind: 'lamp' });
+  }
+  // Lamp posts along cross streets
+  for (let x = -78; x <= 78; x += 16) {
+    items.push({ x: x + (rnd() - 0.5) * 2, z: -37, rotation: 0, kind: 'lamp' });
+    items.push({ x: x + (rnd() - 0.5) * 2, z: 37, rotation: 0, kind: 'lamp' });
+  }
+  // Benches and trash cans in park
+  for (let i = 0; i < 8; i++) {
+    items.push({ x: 25 + rnd() * 35, z: 25 + rnd() * 40, rotation: rnd() * Math.PI * 2, kind: 'bench' });
+    items.push({ x: 28 + rnd() * 30, z: 30 + rnd() * 35, rotation: 0, kind: 'trash' });
+  }
+  // Fire hydrants near buildings
+  items.push({ x: -28, z: -48, rotation: 0, kind: 'hydrant' });
+  items.push({ x: 28, z: -48, rotation: 0, kind: 'hydrant' });
+  items.push({ x: -28, z: 3, rotation: 0, kind: 'hydrant' });
+  // Bollards near crossings
+  for (let z = -35; z <= 35; z += 7) {
+    items.push({ x: -7.5, z, rotation: 0, kind: 'bollard' });
+    items.push({ x: 7.5, z, rotation: 0, kind: 'bollard' });
+  }
+  return items;
+}
+
+export const STREET_FURNITURE: FurnitureDef[] = generateFurniture();
+
+// ─── Vehicles ─────────────────────────────────────────────────────
+export const VEHICLES: VehicleDef[] = [
+  { x: -18, z: -55, rotation: 0.1, kind: 'sedan', color: '#2a3a4a' },
+  { x: -22, z: -52, rotation: -0.05, kind: 'suv', color: '#4a2a2a' },
+  { x: 18, z: -58, rotation: 0.05, kind: 'sedan', color: '#3a3a3a' },
+  { x: 22, z: -54, rotation: -0.1, kind: 'truck', color: '#2a2a4a' },
+  { x: -18, z: -10, rotation: 0.08, kind: 'sedan', color: '#4a4a2a' },
+  { x: 18, z: -12, rotation: -0.06, kind: 'suv', color: '#2a4a2a' },
+  { x: -18, z: 50, rotation: 0.12, kind: 'sedan', color: '#3a2a3a' },
+  { x: 20, z: 48, rotation: -0.08, kind: 'sedan', color: '#2a2a2a' },
+  { x: -50, z: -25, rotation: Math.PI / 2, kind: 'sedan', color: '#4a3a2a' },
+  { x: 50, z: -20, rotation: -Math.PI / 2, kind: 'truck', color: '#1a1a3a' },
+  { x: 30, z: 20, rotation: 0.3, kind: 'suv', color: '#3a4a3a' },
+  { x: -35, z: 60, rotation: 0.9, kind: 'sedan', color: '#2a3a2a' },
+];
+
+// ─── NPCs (people in the world) ───────────────────────────────────
+export const NPCS: NpcDef[] = [
+  { id: 'marcus', name: 'Marcus', x: -15, z: -50, hue: 220 },
+  { id: 'priya', name: 'Priya', x: 15, z: -45, hue: 30 },
+  { id: 'jordan', name: 'Jordan', x: 0, z: -20, hue: 320 },
+  { id: 'liana', name: 'Liana', x: -20, z: 10, hue: 160 },
+  { id: 'ren', name: 'Ren', x: 20, z: 5, hue: 100 },
+  { id: 'voice', name: 'Voice', x: 0, z: 55, hue: 280 },
+];
+
+// ─── Avatars (empty for now) ──────────────────────────────────────
+export const AVATARS: never[] = [];
+export const AIDES: Record<string, never> = {};
+
+// ─── Scenarios ────────────────────────────────────────────────────
 export interface ScenarioDef {
   id: string;
   name: string;
@@ -34,230 +234,59 @@ export interface ScenarioDef {
   ctx: Record<string, unknown>;
 }
 
-export interface RoomDef {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  color: string;
-  floor: string;
-  props: PropDef[];
-}
-
-export interface PropDef {
-  kind: string;
-  x: number;
-  y: number;
-  w?: number;
-  h?: number;
-}
-
-export interface NpcDef {
-  id: string;
-  name: string;
-  role: string;
-  room: string;
-  biased: boolean;
-  x: number;
-  y: number;
-  hue: number;
-  invisible?: boolean;
-}
-
-// ─── 19 Avatars ────────────────────────────────────────────────────
-export const AVATARS: AvatarDef[] = [
-  { id: 'stay_alert',      name: 'StayAlert',      trait: 'Sustained Attention',     tag: 'SA', hue: 200, flavor: 'attention',
-    blurb: 'Drifts off long tasks. Vulnerable to hyperfocus.' },
-  { id: 'task_kickstart',  name: 'TaskKickstart',  trait: 'Task Initiation',         tag: 'TK', hue:  36, flavor: 'initiation',
-    blurb: 'Knows what to do — can\'t start.' },
-  { id: 'focus_flow',      name: 'FocusFlow',      trait: 'Hyperfocus / Switching',  tag: 'FF', hue: 168, flavor: 'focus',
-    blurb: 'Tunnel vision. Forgets to switch.' },
-  { id: 'memory_mate',     name: 'MemoryMate',     trait: 'Working Memory',          tag: 'MM', hue: 268, flavor: 'memory',
-    blurb: 'Loses the thread mid-sentence.' },
-  { id: 'time_keeper',     name: 'TimeKeeper',     trait: 'Time Perception',         tag: 'TM', hue: 220, flavor: 'time',
-    blurb: 'Now and not-now. No in-between.' },
-  { id: 'prioritize_it',   name: 'PrioritizeIt',   trait: 'Prioritization',          tag: 'PR', hue:  84, flavor: 'planning',
-    blurb: 'All ideas, no rank order.' },
-  { id: 'emo_steady',      name: 'EmoSteady',      trait: 'Emotional Regulation',    tag: 'ES', hue:  14, flavor: 'emotion',
-    blurb: 'Feels everything at full volume.' },
-  { id: 'impulse_guard',   name: 'ImpulseGuard',   trait: 'Impulse Control',         tag: 'IG', hue: 348, flavor: 'impulse',
-    blurb: 'Knows the stop sign, ignores it.' },
-  { id: 'social_cue',      name: 'SocialCue',      trait: 'Social Cues',             tag: 'SC', hue: 318, flavor: 'social',
-    blurb: 'Loses the social thread quickly.' },
-  { id: 'transition_ease', name: 'TransitionEase', trait: 'Task Switching',          tag: 'TE', hue: 290, flavor: 'transition',
-    blurb: 'Sticky between contexts.' },
-  { id: 'organize_well',   name: 'OrganizeWell',   trait: 'Organization',            tag: 'OW', hue: 188, flavor: 'planning',
-    blurb: 'Visual zones blur fast.' },
-  { id: 'follow_through',  name: 'FollowThrough',  trait: 'Task Completion',         tag: 'FT', hue: 138, flavor: 'initiation',
-    blurb: 'Starts strong, fades at the finish.' },
-  { id: 'listen_in',       name: 'ListenIn',       trait: 'Active Listening',        tag: 'LI', hue:  48, flavor: 'monitor',
-    blurb: 'Mind walks during conversations.' },
-  { id: 'fidget_flow',     name: 'FidgetFlow',     trait: 'Physical Restlessness',   tag: 'FX', hue: 322, flavor: 'sensory',
-    blurb: 'Needs motion to think.' },
-  { id: 'restore_calm',    name: 'RestoreCalm',    trait: 'Stress Recovery',         tag: 'RC', hue: 142, flavor: 'stress',
-    blurb: 'Spikes early, recovers slow.' },
-  { id: 'boundary_set',    name: 'BoundarySet',    trait: 'Boundary Setting',        tag: 'BS', hue:  24, flavor: 'social',
-    blurb: 'Says yes when meaning no.' },
-  { id: 'plan_ahead',      name: 'PlanAhead',      trait: 'Forward Planning',        tag: 'PA', hue: 186, flavor: 'planning',
-    blurb: 'Future-blind under load.' },
-  { id: 'self_monitor',    name: 'SelfMonitor',    trait: 'Self-Awareness',          tag: 'SM', hue: 280, flavor: 'monitor',
-    blurb: 'Can\'t tell if it\'s working.' },
-  { id: 'motivate_me',     name: 'MotivateMe',     trait: 'Motivation',              tag: 'MV', hue:  52, flavor: 'effort',
-    blurb: 'Why-power is low. Reward feels distant.' },
-];
-
-// ─── Aides (1:1 with avatars) ────────────────────────────────────
-export const AIDES: Record<string, AideDef> = {
-  stay_alert:      { name: 'Dr. Vance',    style: 'supportive skill-building', focus: 'pomodoro · anchoring · mental-fatigue mgmt' },
-  task_kickstart:  { name: 'Coach Reyes',  style: 'gentle activation',         focus: 'two-minute starts · ladder steps · momentum' },
-  focus_flow:      { name: 'Coach Mei',    style: 'gentle boundary',           focus: 'externally-paced exits · transition rituals' },
-  memory_mate:     { name: 'Dr. Liang',    style: 'scaffolded',                focus: 'external memory · chunking · loop-backs' },
-  time_keeper:     { name: 'Coach Patel',  style: 'time-anchored',             focus: 'visible clocks · time-blocking · before/after' },
-  prioritize_it:   { name: 'Coach Olsen',  style: 'task scaffolding',          focus: 'Eisenhower sort · MIT method · one-thing rule' },
-  emo_steady:      { name: 'Dr. Aronson',  style: 'DBT-informed',              focus: 'name-the-wave · grounding · co-regulation' },
-  impulse_guard:   { name: 'Dr. Okafor',   style: 'CBT-flavored',              focus: 'pause-name-choose · response delay · cues' },
-  social_cue:      { name: 'Coach Brand',  style: 'social skills',             focus: 'thread-tracking · cue-cards · graceful exits' },
-  transition_ease: { name: 'Dr. Holst',    style: 'transition coaching',       focus: 'warning windows · soft cuts · landing pads' },
-  organize_well:   { name: 'Coach Olsen',  style: 'environmental design',      focus: 'container method · visual zones · single-touch' },
-  follow_through:  { name: 'Coach Reyes',  style: 'completion ritual',         focus: 'finish-before-new · done lists · last-mile' },
-  listen_in:       { name: 'Coach Brand',  style: 'metacognitive',             focus: 'active recap · note-anchors · question prompts' },
-  fidget_flow:     { name: 'Coach Mei',    style: 'stim channeling',           focus: 'movement breaks · stim objects · stand-desk' },
-  restore_calm:    { name: 'Dr. Aronson',  style: 'arousal regulation',        focus: 'down-regulation · sensory reset · walk breaks' },
-  boundary_set:    { name: 'Dr. Okafor',   style: 'assertion training',        focus: 'script rehearsal · pre-approved no · time-bound yes' },
-  plan_ahead:      { name: 'Coach Olsen',  style: 'forward planning',          focus: 'tomorrow lists · calendar blocks · if-then plans' },
-  self_monitor:    { name: 'Coach Brand',  style: 'metacognitive',             focus: 'check-in chimes · mood logs · 5-min retros' },
-  motivate_me:     { name: 'Dr. Vance',    style: 'energy management',         focus: 'reward stacking · why-anchor · body-double' },
-};
-
-// ─── Scenarios ────────────────────────────────────────────────────
 export const SCENARIOS: ScenarioDef[] = [
-  { id: 'wp_1', name: 'Email Processing',     cat: 'workplace', room: 'office',
-    desc: 'Process and respond to 20 emails',  minutes: 30,  complexity: 'medium', aversive: 0.4, cog: 0.5,  base: 0.7,
-    sustained: true,  ctx: { interruptions: true, priority: 5 } },
-  { id: 'wp_2', name: 'Report Writing',       cat: 'workplace', room: 'office',
-    desc: 'Write a 2000-word project report',  minutes: 90,  complexity: 'high',   aversive: 0.6, cog: 0.8,  base: 0.5,
-    sustained: true,  ctx: { deadline: true, research: true } },
+  { id: 'wp_1', name: 'Email Processing', cat: 'workplace', room: 'office',
+    desc: 'Process and respond to 20 emails', minutes: 30, complexity: 'medium', aversive: 0.4, cog: 0.5, base: 0.7,
+    sustained: true, ctx: { interruptions: true, priority: 5 } },
+  { id: 'wp_2', name: 'Report Writing', cat: 'workplace', room: 'office',
+    desc: 'Write a 2000-word project report', minutes: 90, complexity: 'high', aversive: 0.6, cog: 0.8, base: 0.5,
+    sustained: true, ctx: { deadline: true, research: true } },
   { id: 'wp_3', name: 'Meeting Participation', cat: 'workplace', room: 'meeting',
-    desc: 'Active 1-hour team meeting',        minutes: 60,  complexity: 'medium', aversive: 0.3, cog: 0.6,  base: 0.6,
-    sustained: true,  ctx: { participants: 8 } },
-  { id: 'wp_4', name: 'Code Review',          cat: 'workplace', room: 'office',
-    desc: 'Review 500 lines of code',          minutes: 45,  complexity: 'high',   aversive: 0.4, cog: 0.85, base: 0.6,
-    sustained: true,  ctx: { timeLimit: true } },
-  { id: 'wp_5', name: 'Deadline Crunch',      cat: 'workplace', room: 'office',
-    desc: 'Critical task before end-of-day',   minutes: 120, complexity: 'high',   aversive: 0.8, cog: 0.9,  base: 0.4,
-    sustained: true,  ctx: { urgency: 'critical' } },
-  { id: 'pers_1', name: 'Household Cleaning', cat: 'personal',  room: 'home',
-    desc: 'Clean and organize bedroom',        minutes: 120, complexity: 'medium', aversive: 0.7, cog: 0.3,  base: 0.5,
+    desc: 'Active 1-hour team meeting', minutes: 60, complexity: 'medium', aversive: 0.3, cog: 0.6, base: 0.6,
+    sustained: true, ctx: { participants: 8 } },
+  { id: 'wp_4', name: 'Code Review', cat: 'workplace', room: 'office',
+    desc: 'Review 500 lines of code', minutes: 45, complexity: 'high', aversive: 0.4, cog: 0.85, base: 0.6,
+    sustained: true, ctx: { timeLimit: true } },
+  { id: 'wp_5', name: 'Deadline Crunch', cat: 'workplace', room: 'office',
+    desc: 'Critical task before end-of-day', minutes: 120, complexity: 'high', aversive: 0.8, cog: 0.9, base: 0.4,
+    sustained: true, ctx: { urgency: 'critical' } },
+  { id: 'pers_1', name: 'Household Cleaning', cat: 'personal', room: 'home',
+    desc: 'Clean and organize bedroom', minutes: 120, complexity: 'medium', aversive: 0.7, cog: 0.3, base: 0.5,
     sustained: false, ctx: { motivation: 'low' } },
-  { id: 'pers_2', name: 'Grocery & Cooking',  cat: 'personal',  room: 'home',
-    desc: 'Plan, shop, prepare dinner',        minutes: 90,  complexity: 'medium', aversive: 0.5, cog: 0.6,  base: 0.6,
+  { id: 'pers_2', name: 'Grocery & Cooking', cat: 'personal', room: 'home',
+    desc: 'Plan, shop, prepare dinner', minutes: 90, complexity: 'medium', aversive: 0.5, cog: 0.6, base: 0.6,
     sustained: false, ctx: { ingredients: 8 } },
-  { id: 'pers_3', name: 'Bill Paying',        cat: 'personal',  room: 'home',
-    desc: 'Review and pay 8 bills',            minutes: 45,  complexity: 'low',    aversive: 0.8, cog: 0.7,  base: 0.5,
-    sustained: true,  ctx: { avoidance: true } },
-  { id: 'soc_1', name: 'Phone Conversation',  cat: 'social',    room: 'phone',
-    desc: 'Important phone call',              minutes: 15,  complexity: 'medium', aversive: 0.6, cog: 0.5,  base: 0.6,
-    sustained: true,  ctx: { anxiety: 0.6 } },
-  { id: 'soc_2', name: 'Social Event',        cat: 'social',    room: 'lounge',
-    desc: 'Attend social gathering',           minutes: 120, complexity: 'high',   aversive: 0.7, cog: 0.8,  base: 0.5,
+  { id: 'pers_3', name: 'Bill Paying', cat: 'personal', room: 'home',
+    desc: 'Review and pay 8 bills', minutes: 45, complexity: 'low', aversive: 0.8, cog: 0.7, base: 0.5,
+    sustained: true, ctx: { avoidance: true } },
+  { id: 'soc_1', name: 'Phone Conversation', cat: 'social', room: 'phone',
+    desc: 'Important phone call', minutes: 15, complexity: 'medium', aversive: 0.6, cog: 0.5, base: 0.6,
+    sustained: true, ctx: { anxiety: 0.6 } },
+  { id: 'soc_2', name: 'Social Event', cat: 'social', room: 'lounge',
+    desc: 'Attend social gathering', minutes: 120, complexity: 'high', aversive: 0.7, cog: 0.8, base: 0.5,
     sustained: false, ctx: { groupSize: 'large', anxiety: 0.7 } },
-  { id: 'acad_1', name: 'Study Session',      cat: 'academic',  room: 'office',
-    desc: 'Study for exam',                    minutes: 120, complexity: 'high',   aversive: 0.5, cog: 0.8,  base: 0.5,
-    sustained: true,  ctx: { volume: 'large' } },
-];
-
-// ─── Event vocabulary ─────────────────────────────────────────────
-export const EVENT_KINDS = [
-  'TASK_START', 'FOCUS_DRIFT', 'FOCUS_RECOVER', 'HYPERFOCUS_ENTER', 'HYPERFOCUS_EXIT',
-  'NPC_INTERRUPT', 'NPC_REACTION', 'COACHING_INTERVENTION', 'STRATEGY_APPLIED',
-  'STRESS_SPIKE', 'COGNITIVE_LOAD_HIGH', 'BURNOUT_RISK', 'CHECKPOINT_PASSED',
-  'TASK_COMPLETE', 'TASK_FAIL', 'TICK', 'ENTITY_MOVED', 'INDEPENDENCE_GAIN',
-] as const;
-
-// ─── Rooms ────────────────────────────────────────────────────────
-export const ROOMS: RoomDef[] = [
-  { id: 'office',  name: 'Workplace',     x:  1, y:  1, w: 10, h:  7, color: '#1f6fb2', floor: '#173855',
-    props: [
-      { kind: 'desk',       x: 2, y: 2, w: 3, h: 1 },
-      { kind: 'monitor',    x: 3, y: 2 },
-      { kind: 'plant',      x: 1, y: 6 },
-      { kind: 'desk',       x: 6, y: 2, w: 3, h: 1 },
-      { kind: 'monitor',    x: 7, y: 2 },
-      { kind: 'chair',      x: 3, y: 4 },
-      { kind: 'chair',      x: 7, y: 4 },
-      { kind: 'whiteboard', x: 9, y: 1 },
-    ]},
-  { id: 'meeting', name: 'Meeting Room',  x: 12, y:  1, w:  8, h:  5, color: '#7a4ec2', floor: '#332254',
-    props: [
-      { kind: 'longtable', x: 2, y: 1, w: 5, h: 2 },
-      { kind: 'chair',     x: 1, y: 1 },
-      { kind: 'chair',     x: 1, y: 2 },
-      { kind: 'chair',     x: 6, y: 1 },
-      { kind: 'chair',     x: 6, y: 2 },
-      { kind: 'screen',    x: 3, y: 0 },
-    ]},
-  { id: 'home',    name: 'Home',          x:  1, y:  9, w:  9, h:  6, color: '#2d8f6e', floor: '#173f30',
-    props: [
-      { kind: 'sofa',    x: 1, y: 1, w: 3, h: 1 },
-      { kind: 'tv',      x: 2, y: 3 },
-      { kind: 'counter', x: 6, y: 1, w: 2, h: 3 },
-      { kind: 'fridge',  x: 6, y: 1 },
-      { kind: 'plant',   x: 8, y: 4 },
-    ]},
-  { id: 'phone',   name: 'Phone Booth',   x: 11, y:  7, w:  3, h:  3, color: '#c2884a', floor: '#5a3b1d',
-    props: [{ kind: 'phone', x: 1, y: 1 }] },
-  { id: 'lounge',  name: 'Social Lounge', x: 15, y:  7, w:  7, h:  8, color: '#b25577', floor: '#4d2236',
-    props: [
-      { kind: 'sofa',  x: 1, y: 2, w: 3, h: 1 },
-      { kind: 'sofa',  x: 1, y: 5, w: 3, h: 1 },
-      { kind: 'plant', x: 5, y: 1 },
-      { kind: 'plant', x: 5, y: 6 },
-      { kind: 'table', x: 3, y: 3 },
-    ]},
-];
-
-// ─── NPCs ─────────────────────────────────────────────────────────
-export const NPCS: NpcDef[] = [
-  { id: 'boss',     name: 'Marcus', role: 'manager',      room: 'meeting', biased: false, x: 3, y: 1, hue: 220 },
-  { id: 'coworker', name: 'Priya',  role: 'coworker',     room: 'office',  biased: true,  x: 8, y: 4, hue:  30 },
-  { id: 'friend',   name: 'Jordan', role: 'friend',       room: 'lounge',  biased: false, x: 3, y: 5, hue: 320 },
-  { id: 'stranger', name: 'Ren',    role: 'stranger',     room: 'lounge',  biased: true,  x: 6, y: 3, hue: 100 },
-  { id: 'parent',   name: 'Liana',  role: 'family',       room: 'home',    biased: false, x: 5, y: 4, hue: 160 },
-  { id: 'caller',   name: 'Voice',  role: 'phone caller', room: 'phone',   biased: false, x: 1, y: 1, hue: 280, invisible: true },
+  { id: 'acad_1', name: 'Study Session', cat: 'academic', room: 'office',
+    desc: 'Study for exam', minutes: 120, complexity: 'high', aversive: 0.5, cog: 0.8, base: 0.5,
+    sustained: true, ctx: { volume: 'large' } },
 ];
 
 // ─── Coaching strategies ──────────────────────────────────────────
 export const STRATEGIES: Record<string, string[]> = {
-  attention:   ['Pomodoro 25/5', 'Attention anchor', 'Distraction immunize', 'Task chunking', 'Mindful refocus'],
-  initiation:  ['Two-minute start', 'Ladder step', 'Body double', 'Implementation intent', 'Shrink the task'],
-  impulse:     ['Pause-name-choose', 'Response delay', 'If-then plan', 'Cue swap'],
-  memory:      ['External memory', 'Loop-back', 'Chunking', 'Visual scaffold'],
-  time:        ['Visible clock', 'Time-block', 'Estimate-then-measure', 'Backwards plan'],
-  emotion:     ['Name the wave', 'Grounding 5-4-3', 'Co-regulate', 'Window check'],
-  focus:       ['Soft cut', 'External exit cue', 'Transition ritual'],
+  attention: ['Pomodoro 25/5', 'Attention anchor', 'Distraction immunize', 'Task chunking', 'Mindful refocus'],
+  initiation: ['Two-minute start', 'Ladder step', 'Body double', 'Implementation intent', 'Shrink the task'],
+  impulse: ['Pause-name-choose', 'Response delay', 'If-then plan', 'Cue swap'],
+  memory: ['External memory', 'Loop-back', 'Chunking', 'Visual scaffold'],
+  time: ['Visible clock', 'Time-block', 'Estimate-then-measure', 'Backwards plan'],
+  emotion: ['Name the wave', 'Grounding 5-4-3', 'Co-regulate', 'Window check'],
+  focus: ['Soft cut', 'External exit cue', 'Transition ritual'],
   frustration: ['Breath-down', 'Reframe', 'Checkpoint return'],
-  planning:    ['Reverse engineer', 'Single next action', 'Decision board'],
-  transition:  ['Warning window', 'Soft cut', 'Landing pad'],
-  monitor:     ['Notice prompt', 'Weekly review', 'Self check-in'],
-  fatigue:     ['Micro-rest', 'Load shed', 'Energy audit'],
-  effort:      ['Estimate vs actual', 'Effort budget', 'Reward stacking'],
-  stress:      ['Pre-load check', 'Down-regulate', 'Co-regulate'],
-  sensory:     ['Sensory budget', 'Safe cave', 'Headphones / shade'],
-  social:      ['Thread anchor', 'Clarifying question', 'Graceful exit'],
-  identity:    ['Values check-in', 'Self-compassion script'],
-};
-
-// ─── Prop visual config ───────────────────────────────────────────
-export const PROP_COLORS: Record<string, string> = {
-  desk: '#5a4a3a', monitor: '#23272e', plant: '#3a8a4a', chair: '#3a3a4a',
-  whiteboard: '#f0eee8', longtable: '#5a4a3a', screen: '#1a1a22',
-  sofa: '#6a4a6a', tv: '#23272e', counter: '#6a5a4a', fridge: '#d8d4c8',
-  phone: '#c2884a', table: '#5a4a3a',
-};
-
-export const PROP_HEIGHTS: Record<string, number> = {
-  desk: 0.5, monitor: 1.5, plant: 2.0, chair: 0.7, whiteboard: 2.5, longtable: 0.5,
-  screen: 2.2, sofa: 0.8, tv: 1.5, counter: 0.9, fridge: 2.0, phone: 1.0, table: 0.5,
+  planning: ['Reverse engineer', 'Single next action', 'Decision board'],
+  transition: ['Warning window', 'Soft cut', 'Landing pad'],
+  monitor: ['Notice prompt', 'Weekly review', 'Self check-in'],
+  fatigue: ['Micro-rest', 'Load shed', 'Energy audit'],
+  effort: ['Estimate vs actual', 'Effort budget', 'Reward stacking'],
+  stress: ['Pre-load check', 'Down-regulate', 'Co-regulate'],
+  sensory: ['Sensory budget', 'Safe cave', 'Headphones / shade'],
+  social: ['Thread anchor', 'Clarifying question', 'Graceful exit'],
+  identity: ['Values check-in', 'Self-compassion script'],
 };
