@@ -16,9 +16,9 @@ This file defines the canonical format for agent-conducted reviews in NLT reposi
 
 **Reviewer:** [Agent name / platform]
 **Review Date:** [ISO 8601 date]
-**Review Type:** [Code / Content / Governance / Security]
+**Review Type:** [Code | Content | Governance | Security]
 **Scope:** [Files, pages, or sections reviewed]
-**OTOI Version:** ORG-DEV-OTOI-1.0.3
+**OTOI Version:** ORG-DEV-OTOI-1.0.2
 
 ---
 
@@ -49,13 +49,17 @@ This file defines the canonical format for agent-conducted reviews in NLT reposi
 
 | # | File:Line | Issue | Recommended Fix |
 |---|-----------|-------|-----------------|
-| 1 | `path/to/file.ext:NN` | [Description] | [Specific fix] |
+| — | — | _No critical issues_ | — |
+
+> 💡 **Note:** Remove all placeholder rows from the tables below before submitting a final review. Placeholder rows (marked with `_No ... issues_` or similar) must not be treated as real findings. If no issues exist at a severity level, leave the table with a single "No issues" row or omit the table entirely.
 
 #### 🟡 High Priority (should fix soon)
 
 | # | File:Line | Issue | Recommended Fix |
 |---|-----------|-------|-----------------|
-| 1 | `path/to/file.ext:NN` | [Description] | [Specific fix] |
+| — | — | _No high-priority issues_ | — |
+
+> 💡 **Note:** See above — remove placeholder rows before final submission.
 
 #### 🟢 Low Priority / Observations
 
@@ -95,4 +99,4 @@ This file defines the canonical format for agent-conducted reviews in NLT reposi
 
 ---
 
-*This review was conducted following the format defined in `REVIEW.md` under ORG-DEV-OTOI-1.0.3.*
+*This review was conducted following the format defined in `REVIEW.md` under ORG-DEV-OTOI-1.0.2.*
