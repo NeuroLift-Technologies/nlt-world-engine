@@ -14,7 +14,7 @@ A Sims/RPG-style **simulation environment** — the deterministic runtime that A
 
 ## ℹ️ What nlt-fusion is / is not
 
-**nlt-fusion IS** the **World Engine**: a deterministic, Sims-style Python ECS simulation environment (tick loop, seeded RNG, spatial grid with A* pathfinding, sims-style needs, movement/interaction systems, NPCs, scenario instantiation), a provider-neutral transport + deterministic replay contract (`world-engine/contracts/v1/`), an agent interface (perceive → submit intent → poll result), and browser/Studio prototypes that visualize the world. Decision logic (rule-based or LLM) stays **outside** the tick and outside this repo.
+**nlt-fusion IS** the **World Engine**: a deterministic, Sims-style simulation environment, a provider-neutral transport + deterministic replay contract (`world-engine/contracts/v1/`), an agent interface (perceive → submit intent → poll result), browser/Studio prototypes that visualize the world, and the **Unreal Engine 5.8 physical substrate** that renders the world at human scale.
 
 **nlt-fusion is NOT** the Avatar/Aide/Advocate AI stack. ADHD trait modeling, Aide coaching intelligence, the experiential-learning training loop, and fusion-into-Advocate mechanics are **not** implemented here.
 
@@ -94,7 +94,77 @@ SensorySeeker - Sensory seeking behavior
 ConfidenceCoach - Self-esteem and identity
 ## Quick Start
 
-### 🌐 World Engine v2 — Babylon.js viewer (this PR)
+### 🎮 Unreal Engine 5.8 World Engine (physical substrate)
+
+The UE 5.8 project is the physical substrate for the NLT Fusion simulation. It renders the world at human scale with deterministic simulation.
+
+**Prerequisites:** UE 5.8 installed at `~/Documents/NLT/Engine/`, Linux (Clang 20.1.8)
+
+```bash
+cd WorldEngine
+
+# Build editor target (85s)
+make WorldEngineEditor
+
+# Build game target (22s)
+make WorldEngine
+
+# Run headless sim (no GPU needed)
+~/Documents/NLT/Engine/Binaries/Linux/UnrealEditor-Cmd \
+  -project=WorldEngine.uproject \
+  -nullrhi -game -unattended -log \
+  -MAP=/Game/Scenarios/Levels/Workplace_Level.Workplace_Level
+```
+
+**Project structure:**
+```
+WorldEngine/
+├── Source/WorldEngine/          # All C++ source (Public + Private)
+│   ├── Public/                  # Headers for all NLT subsystems
+│   │   ├── Agents/              # NLTAgentTrait, NLTAgentSpawnerSubsystem
+│   │   ├── Core/                # NLTEventBus, NLTFusionCore, NLTSimulationClock
+│   │   ├── Simulation/          # NLTSimulationSubsystem, NLTDeterministicSeedSubsystem
+│   │   ├── Scenarios/           # UScenarioDataAsset, UScenarioManagerSubsystem
+│   │   ├── Audio/               # SoundscapeSubsystem
+│   │   └── World/               # NLTSmartObjectWorldSubsystem, NLTWorldGenerator
+│   └── Private/                 # Implementation files
+├── Content/
+│   ├── Scenarios/
+│   │   ├── Levels/              # Workplace_Level, Personal_Level, Social_Level, Academic_Level
+│   │   ├── Workplace/           # 5 scenario DataAssets (Wor_wp_1..5)
+│   │   ├── Personal/            # 4 scenario DataAssets (Per_pers_1..4)
+│   │   ├── Social/              # 2 scenario DataAssets (Soc_soc_1..2)
+│   │   └── Academic/            # 2 scenario DataAssets (Aca_acad_1..2)
+│   ├── Environment/Materials/   # 12 shared materials (MI_Wood_Desk, MI_Chair_Teal, etc.)
+│   ├── Audio/Soundscape/        # Ambient WAV beds (HVAC, Fridge, Clock, Murmur)
+│   ├── Kits/Workplace/          # Blender-exported FBX kits
+│   └── Web/                     # 2D canvas viewer
+├── Config/                      # DefaultEngine.ini, DefaultGame.ini, MCP settings
+├── Scripts/                     # Python scripts for scenario creation, QA, lighting
+├── Skills/                      # Skill definitions
+└── docs/                        # WEB_VIEWER.md, SCENARIO_PLAN.md, DEMO_SETUP.md
+```
+
+**Key subsystems (C++):**
+- `NLTSimulationClockSubsystem` — authoritative clock, timestep, time-of-day
+- `UNLTEventBus` — 256-entry ring buffer, multicast delegates, env events
+- `NLTDeterministicSeedSubsystem` — per-category RNG streams from master seed
+- `NLTRoomStateSubsystem` — room-state persistence + serialize
+- `UNLTAgentSpawnerSubsystem` — Mass Entity agent spawning
+- `UScenarioManagerSubsystem` — scenario runtime manager
+- `SoundscapeSubsystem` — 4 ambient audio beds tied to scenario stress
+
+**Environment-only work completed:**
+- 4 human-scale observation cameras (160cm) per map + CaptureViewport QA pipeline
+- Time-of-day lighting: 08:00 (fluorescents + monitor glow) vs 21:00 (evening practicals)
+- Soundscape beds: HVAC hum, fridge murmur, clock tick, distant murmur
+- Niagara ambient VFX: dust motes, HVAC airflow, steam, rain (22 systems)
+- Environmental storytelling: 128 props + 11 stateful systems
+- Seeded micro-variation: 8 moods, per-domain sub-seeds
+- Per-map polish: 98 items, NavMesh updated, 80 furniture pieces
+- Blender desk kit: 3 visual states (clean/cluttered/after-hours)
+
+### 🌐 World Engine v2 — Babylon.js viewer
 
 The **v2 frontend prototype** is a Babylon.js + Vite + TypeScript set of scenes that visualizes a pair's simulated world in real time.
 
@@ -254,7 +324,7 @@ PR cleanup verification checklist:
 
 Confirm the run used the expected days_before_stale and days_before_close values.
 In stale-prs logs, verify labels/actions align with the current policy (stale, auto-closed, draft PR exemption).
-In delete-merged-branches logs, verify each skip/delete outcome is expected (fork PR, protected branch, or already deleted branch).
+In delete-merged-branches logs, verify each skip/delete outcome is expected (fork PR, protected branch, or already deleted).
 If merged branches remain, check whether the relevant PRs fall outside the current per_page: 100 query window.
 To reproduce python-app.yml locally:
 
@@ -310,6 +380,28 @@ nlt-fusion/
 ├── PULL_REQUEST_TEMPLATE/        # GitHub PR templates
 ├── .github/                      # GitHub workflows + custom agent prompt definitions
 │
+├── WorldEngine/                  # ★ UE 5.8 PHYSICAL SUBSTRATE
+│   ├── WorldEngine.uproject      # UE 5.8 project file
+│   ├── Makefile                  # UBT build config
+│   ├── Source/WorldEngine/       # All C++ source
+│   │   ├── Public/               # Headers (Agents, Core, Simulation, Scenarios, Audio, World)
+│   │   └── Private/              # Implementation files
+│   ├── Content/
+│   │   ├── Scenarios/
+│   │   │   ├── Levels/           # 4 level templates (.umap)
+│   │   │   ├── Workplace/        # 5 DataAssets (Wor_wp_1..5)
+│   │   │   ├── Personal/         # 4 DataAssets (Per_pers_1..4)
+│   │   │   ├── Social/           # 2 DataAssets (Soc_soc_1..2)
+│   │   │   └── Academic/         # 2 DataAssets (Aca_acad_1..2)
+│   │   ├── Environment/Materials/ # 12 shared materials
+│   │   ├── Audio/Soundscape/     # Ambient WAV beds
+│   │   ├── Kits/Workplace/       # Blender-exported FBX kits
+│   │   └── Web/                  # 2D canvas viewer
+│   ├── Config/                   # DefaultEngine.ini, MCP settings
+│   ├── Scripts/                  # Python scripts (scenario creation, QA, lighting)
+│   ├── Skills/                   # Skill definitions
+│   └── docs/                     # WEB_VIEWER.md, SCENARIO_PLAN.md, DEMO_SETUP.md
+│
 ├── world-engine/                 # ★ THE ENGINE — deterministic Sims-style runtime
 │   ├── README.md                 # Engine + prototype docs (scope: environment only)
 │   ├── demo.py                   # "A day in the life" utility-agent demo
@@ -361,16 +453,26 @@ This repo's deliverable is the **environment**. The phases below describe the br
 
 Phase 1: Foundation ✅
  Repository structure
- Documentation framework
- Base classes implementation
- Configuration schemas
+Documentation framework
+Base classes implementation
+Configuration schemas
 Phase 2: Simulation Core ✅ *(owned by THIS repo)*
  World engine (deterministic ECS tick loop, seeded RNG, A* pathfinding)
  Time, needs, and consequence systems
  NPC base classes
  Agent interface (perceive → intent → result)
  Provider-neutral transport + deterministic replay contract (`contracts/v1/`)
-Phase 3+: Avatar/Aide/Fusion *(owned by `neurolift-ai-fusion`, not this repo)*
+ **UE 5.8 physical substrate** (headless sim, Mass Entity, scenario levels)
+Phase 3: Environment-Only Work ✅ *(owned by THIS repo)*
+ Human-scale observation cameras + CaptureViewport QA
+ Time-of-day lighting (08:00 vs 21:00)
+ Soundscape beds (HVAC, fridge, clock, murmur)
+ Niagara ambient VFX (dust, steam, rain, airflow)
+ Environmental storytelling props + stateful systems
+ Seeded micro-variation (8 moods)
+ Per-map polish (circulation, NavMesh, furniture kits)
+ Blender desk kit (3 visual states)
+Phase 4: Avatar/Aide/Fusion *(owned by `neurolift-ai-fusion`, not this repo)*
  First Avatar-Aide pair prototype, remaining pairs, training loop, scenario library
  RRT burnout response, fusion engine, Advocate validation
  Real-world testing with the neurodivergent community
@@ -392,7 +494,8 @@ Anyone committed to authentic representation
 Formal CONTRIBUTING.md guidance is being drafted; for now, follow the CI workflow and documentation standards in this README, and the OTOI governance contract (`NLT-DEV-OTOI.md`). Note the scope boundary: environment changes belong here; Avatar/Aide/Advocate intelligence changes belong in `neurolift-ai-fusion`.
 
 📚 Documentation
-World Engine overview & scope: `world-engine/README.md`
+World Engine overview & scope: `worldEngine/docs/WEB_VIEWER.md`
+UE 5.8 build & run: `WorldEngine/docs/DEMO_SETUP.md`
 Transport + replay contract: `world-engine/contracts/v1/README.md`
 Studio shell: `studio/README.md`
 Active threads (incl. environment-only scope decision): `docs/active-threads.md`
@@ -413,6 +516,8 @@ Scenarios Instantiate: The environment authentically represents ADHD challenges 
 Agent Interface Stable: A controller can perceive, submit intents, and poll results without touching the tick — and an LLM controller can swap in at the `decide()` seam
 Contracts Hold: The provider-neutral transport + replay contract round-trips snapshots, actions, events, and interventions
 Documented for Contributors: Any neurodivergent developer can run `demo.py` and the test suite and understand the engine
+Human-Scale Rendering: The world is viewable at human eye-height (160cm) with time-of-day lighting, ambient sound, and motion
+Environment Feels Occupied: Empty world with no agents still feels lived-in through lighting, sound, VFX, and storytelling props
 
 (Avatar-Aide training success, Avatar learning, and validated fusion/Advocate empathy are success criteria of `neurolift-ai-fusion`, not this engine.)
 
@@ -432,6 +537,6 @@ Values authentic neurodivergent representation
 This repository is the **environment engine** for a new paradigm in AI training — learning through experience, not just data. The world is here; the learner and the coach connect from `neurolift-ai-fusion`.
 
 🎯 Current Status
-Scope: World Engine (environment only). Last Updated: June 2026.
-Current focus: deterministic ECS environment, agent interface, and the v1 transport/replay contract.
+Scope: World Engine (environment only). Last Updated: September 2026.
+Current focus: UE 5.8 physical substrate with human-scale rendering, time-of-day lighting, ambient soundscape, Niagara VFX, environmental storytelling, and seeded micro-variation. All environment-only work is in progress across 6 agents (Pi, OpenCode, Cline, Kilo, Pool, NLT Agent).
 Note: Avatar/Aide/Advocate intelligence, the training loop, and fusion mechanics live in `neurolift-ai-fusion` per the 2026-06-09 environment-only scope decision (`docs/active-threads.md`).
