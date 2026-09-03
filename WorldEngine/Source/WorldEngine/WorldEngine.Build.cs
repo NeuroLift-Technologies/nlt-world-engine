@@ -45,7 +45,10 @@ public class WorldEngine : ModuleRules
             "NavigationSystem",
             "Navmesh",
             "AudioMixer",
-            "AudioMixerCore"
+            "AudioMixerCore",
+            "HTTPServer",
+            "HTTP",
+            "Sockets"
         });
     }
 }

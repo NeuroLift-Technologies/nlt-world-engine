@@ -14,11 +14,25 @@ ANLTAgentVisualizer::ANLTAgentVisualizer()
     ISMComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("ISMComponent"));
     RootComponent = ISMComponent;
 
-    // Default mesh (simple cube)
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube"));
-    if (CubeMesh.Succeeded())
+    // Default mesh: low-poly stylized sim body (already authored at ~179.5cm,
+    // feet flat at Z=0). Falls back to the engine cube if the kit asset is
+    // missing so the visualizer still renders something.
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> SimBodyMesh(TEXT("/Game/Kits/SimBody/SM_SimBody_Base"));
+    if (SimBodyMesh.Succeeded())
     {
-        AgentMesh = CubeMesh.Object;
+        AgentMesh = SimBodyMesh.Object;
+    }
+    else
+    {
+        static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube"));
+        if (CubeMesh.Succeeded())
+        {
+            AgentMesh = CubeMesh.Object;
+        }
+    }
+
+    if (AgentMesh)
+    {
         ISMComponent->SetStaticMesh(AgentMesh);
     }
 
@@ -71,7 +85,8 @@ void ANLTAgentVisualizer::UpdateVisuals()
     TArray<FTransform> InstanceTransforms;
 
     FMassExecutionContext Context(EntityManager);
-    EntityQuery.ForEachEntityChunk(EntityManager, Context, [&InstanceTransforms](FMassExecutionContext& Context)
+    const float LocalAgentScale = AgentScale;
+    EntityQuery.ForEachEntityChunk(EntityManager, Context, [&InstanceTransforms, LocalAgentScale](FMassExecutionContext& Context)
     {
         const int32 NumEntities = Context.GetNumEntities();
         const TConstArrayView<FNLTAgentLocationFragment> Locations = Context.GetFragmentView<FNLTAgentLocationFragment>();
@@ -80,7 +95,9 @@ void ANLTAgentVisualizer::UpdateVisuals()
         {
             FTransform T;
             T.SetLocation(Locations[i].Position);
-            T.SetScale3D(FVector(100.0f)); // 100cm cube per agent
+            // AgentMesh is authored at real-world scale (cm), so use AgentScale
+            // directly (1.0 = life size) rather than the old 100x cube hack.
+            T.SetScale3D(FVector(LocalAgentScale));
             InstanceTransforms.Add(T);
         }
     });

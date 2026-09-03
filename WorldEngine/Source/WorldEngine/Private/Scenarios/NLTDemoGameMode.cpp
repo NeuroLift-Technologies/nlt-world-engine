@@ -11,6 +11,10 @@ void ANLTDemoGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
+    // The NLT web server is hosted at engine boot by UEngineSubsystem so the
+    // shared HTTP listeners (including the ModelContextProtocol MCP endpoint on
+    // port 8000) are not coupled to any single PIE world lifecycle.
+
     if (UNLTScenarioManagerSubsystem* ScenarioManager = GetWorld()->GetSubsystem<UNLTScenarioManagerSubsystem>())
     {
         // Resolve the default scenario asset from the asset registry.
