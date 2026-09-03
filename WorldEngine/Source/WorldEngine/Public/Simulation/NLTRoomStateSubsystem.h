@@ -6,7 +6,6 @@
 #include "NLTRoomStateSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTRoomState, Log, All);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRoomStateChanged, FName, RoomId, const FNLRoomState&, NewState);
 
 /**
  * Represents a room's dynamic state at a point in time.
@@ -53,6 +52,8 @@ struct FNLRoomState
 	UPROPERTY(BlueprintReadWrite, Category = "NLT|RoomState")
 	int32 LastUpdateTick = 0;
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRoomStateChanged, FName, RoomId, const FNLRoomState&, NewState);
 
 /**
  * Room-state persistence for environment-only mode.
