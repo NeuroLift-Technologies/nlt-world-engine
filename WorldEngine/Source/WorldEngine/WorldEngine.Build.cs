@@ -13,6 +13,8 @@ public class WorldEngine : ModuleRules
             "Engine",
             "InputCore",
             "EnhancedInput",
+            "AIModule",
+            "AITestSuite",
             "MassEntity",
             "MassCore",
             "MassSignals",

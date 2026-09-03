@@ -1,4 +1,4 @@
-# NLT Fusion — World Engine
+# NLT World Engine — UE 5.8 Authoritative Simulation
 
 NeuroLift Technologies Simulation Environment (the game/simulation **engine**)
 
@@ -12,11 +12,15 @@ ai_assistant_directive:
 
 A Sims/RPG-style **simulation environment** — the deterministic runtime that AI Avatars (with ADHD traits) and AI Aides live inside. This repo owns the **environment only**: world state, space, time, objects, sims-style needs, NPCs, and scenario instantiation. The Avatar/Aide/Advocate *intelligence* — ADHD trait modeling, Aide coaching expertise, the training loop, and fusion into Advocates — lives in the sibling platform `neurolift-ai-fusion` and connects to this engine through the agent interface.
 
-## ℹ️ What nlt-fusion is / is not
+## ℹ️ What nlt-world-engine is / is not
 
-**nlt-fusion IS** the **World Engine**: a deterministic, Sims-style simulation environment, a provider-neutral transport + deterministic replay contract (`world-engine/contracts/v1/`), an agent interface (perceive → submit intent → poll result), browser/Studio prototypes that visualize the world, and the **Unreal Engine 5.8 physical substrate** that renders the world at human scale.
+| **nlt-world-engine IS** the **World Engine**: a deterministic, Sims-style simulation environment, a provider-neutral transport + deterministic replay contract (`world-engine/contracts/v1/`), an agent interface (perceive → submit intent → poll result), browser/Studio prototypes that visualize the world, and the **Unreal Engine 5.8 authoritative simulation** that renders the world at human scale and trains AI agents via the Learning Agents plugin. |
 
-**nlt-fusion is NOT** the Avatar/Aide/Advocate AI stack. ADHD trait modeling, Aide coaching intelligence, the experiential-learning training loop, and fusion-into-Advocate mechanics are **not** implemented here.
+The UE WorldEngine is the **final world** — the authoritative simulation where AI agents (Avatars) live, move, and are trained. The Python kernel was the original approach; UE is the final world.
+
+**nlt-world-engine is NOT** the Avatar/Aide ML models or their logic. The UE project owns the **physical simulation + training infrastructure**: characters (bodies), world environment, RL training (PPO), movement, interaction, and the runtime that executes learned behavior. The **ML models themselves** (Avatar/Aide policies) and their **intelligence logic** (ADHD trait modeling, coaching expertise, decision-making) live in `neurolift-ai-fusion`. This repo controls characters and trains them; the sibling platform defines *how* they think.
+
+> **Note:** The Python kernel (`world-engine/src/`) was the original simulation approach. The UE WorldEngine is now the authoritative simulation — the Python kernel is retained for reference and data pipeline use.
 
 **For the full platform built around this engine** — the web (Next.js), mobile (Expo), and API (FastAPI) surfaces plus the Cloudflare Worker and Supabase backend that turn the Avatar → Aide → Advocate simulation into a deployable product — see the **`neurolift-ai-fusion`** repository, NeuroLift's Full-Stack Avatar-Aide-Advocate Training Platform. (The platform embeds its own self-contained simulation engine; this repo is the standalone engine implementation of the same concept.)
 
@@ -30,7 +34,7 @@ Nobody else is training AI this way. While the industry has solved infrastructur
 
 User preference enforcement: UNSOLVED ← OTOI addresses this
 AI capability reliability: UNSOLVED (38.1% computer use accuracy, 85% agentic AI failure rate)
-The broader simulation approach addresses both gaps through authentic experiential learning. nlt-fusion's role in that approach is the environment layer: it produces the realistic, consequence-bearing scenarios that learning depends on. The learning/coaching/fusion logic itself lives in `neurolift-ai-fusion`.
+The broader simulation approach addresses both gaps through authentic experiential learning. nlt-world-engine's role in that approach is the environment layer: it produces the realistic, consequence-bearing scenarios that learning depends on. The learning/coaching/fusion logic itself lives in `neurolift-ai-fusion`.
 
 🏗️ Architecture Overview
 This repo implements the **environment** layer of the Avatar-Aide-Advocate process. The full four-phase process below is documented here for context, but only the simulation environment (Phase 3's world, and the seams that connect to it) is owned by this repo. Avatar creation, Aide intelligence, and fusion live in `neurolift-ai-fusion`.
@@ -50,7 +54,7 @@ Real-World Feedback - Input from people with ADHD who've mastered that specific 
 Role: Coach, therapist, and assistant operating IN the simulation environment alongside the Avatar
 
 Phase 3: Simulation Training *(the environment is owned by THIS repo; the training/learning logic is owned by `neurolift-ai-fusion`)*
-Environment: Sims/RPG-style virtual world with realistic consequences — **this is what nlt-fusion provides.**
+Environment: Sims/RPG-style virtual world with realistic consequences — **this is what nlt-world-engine provides.**
 
 Scenario Categories:
 
@@ -96,7 +100,7 @@ ConfidenceCoach - Self-esteem and identity
 
 ### 🎮 Unreal Engine 5.8 World Engine (physical substrate)
 
-The UE 5.8 project is the physical substrate for the NLT Fusion simulation. It renders the world at human scale with deterministic simulation.
+The UE 5.8 project is the **authoritative simulation engine** and physical substrate for NLT Fusion. AI agents (Avatars) live in this world — they move, interact, and are trained via the Learning Agents plugin. Humans only watch.
 
 **Prerequisites:** UE 5.8 installed at `~/Documents/NLT/Engine/`, Linux (Clang 20.1.8)
 
@@ -153,6 +157,24 @@ WorldEngine/
 - `UNLTAgentSpawnerSubsystem` — Mass Entity agent spawning
 - `UScenarioManagerSubsystem` — scenario runtime manager
 - `SoundscapeSubsystem` — 4 ambient audio beds tied to scenario stress
+- `AAvatarCharacter` — AI-controlled character with SimBody skeletal mesh, CharacterMovementComponent, auto-possess AI
+- `AAvatarAIController` — navmesh-based wandering: picks random point → moves → waits → repeats; foundation for Learning Agents RL training
+
+**UE plugins enabled:**
+- `LearningAgents` — RL training (PPO) for Avatar behavior
+- `LearningCore` — core ML infrastructure
+- `MLAdapter` — Python ↔ UE ML bridge
+- `MassAI` — Mass Entity steering, avoidance, navigation
+- `MassCrowd` — crowd simulation for multiple agents
+- `StateTree` — hierarchical state machines for complex AI behavior
+- `SmartObjects` — interactive objects Avatars can use
+- `ModelContextProtocol` — MCP server for external tool control (Hermes, studio)
+- `AllToolsets` — editor toolsets for scene building
+
+**Character & mesh:**
+- `BP_AvatarCharacter` — Blueprint character (Character class + SimBody skeletal mesh)
+- `SM_SimBody_Base` — low-poly humanoid mesh (~179.5cm tall, Nanite off)
+- `AAvatarAIController` — default AI controller for wandering/navigation
 
 **Environment-only work completed:**
 - 4 human-scale observation cameras (160cm) per map + CaptureViewport QA pipeline
@@ -163,6 +185,7 @@ WorldEngine/
 - Seeded micro-variation: 8 moods, per-domain sub-seeds
 - Per-map polish: 98 items, NavMesh updated, 80 furniture pieces
 - Blender desk kit: 3 visual states (clean/cluttered/after-hours)
+- AI navigation: A* pathfinding, navmesh wandering, SimBody walks on ground
 
 ### 🌐 World Engine v2 — Babylon.js viewer
 
@@ -194,7 +217,7 @@ python3 -m unittest discover tests
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd nlt-fusion
+cd nlt-world-engine
 
 # (Optional) install dev tooling used by tests/lint
 pip install -r world-engine/requirements.txt
@@ -339,7 +362,7 @@ Update Python version in both CI workflows together to avoid drift:
 .github/workflows/shared-ci.yml -> with.python-version
 .github/workflows/python-app.yml -> with.python-version
 Keep branch trigger filters aligned in both CI files when changing branch policy.
-Treat shared-ci.yml behavior as externally defined: it calls reusable workflows from nlt-fusion at @main.
+Treat shared-ci.yml behavior as externally defined: it calls reusable workflows from nlt-world-engine at @main.
 Do not remove security-events: write from shared-ci.yml unless the reusable security workflow no longer needs upload permissions.
 When changing PR retention policy, update both code and docs together:
 .github/workflows/pr-cleanup.yml (days-before-stale, days-before-close)
@@ -360,13 +383,13 @@ Local runtime troubleshooting (engine)
 For the deterministic smoke path, run from `world-engine/`:
 `python3 -m unittest discover tests` (engine test suite) and `python3 demo.py` (a-day-in-the-life agent).
 The engine uses only the Python standard library; `world-engine/requirements.txt` adds dev tooling (`flake8`, `pytest`) only.
-Note: the training-side scripts (e.g. an interactive training loop / coaching-context runner) are **not part of this repo** — that code lives in `neurolift-ai-fusion`. The 2026-06-09 environment-only scope decision (`docs/active-threads.md`) removed training-side code from nlt-fusion. If you are looking for the training loop, fusion engine, or Avatar/Aide implementations, work in `neurolift-ai-fusion`.
+Note: the training-side scripts (e.g. an interactive training loop / coaching-context runner) are **not part of this repo** — that code lives in `neurolift-ai-fusion`. The 2026-06-09 environment-only scope decision (`docs/active-threads.md`) removed training-side code from nlt-world-engine. If you are looking for the training loop, fusion engine, or Avatar/Aide implementations, work in `neurolift-ai-fusion`.
 
 📁 Repository Structure
 The real top-level layout of **this** repo (environment engine + visualization shells + governance scaffolding):
 
 ```
-nlt-fusion/
+nlt-world-engine/
 ├── README.md                     # This file
 ├── NLT-DEV-OTOI.md               # Canonical OTOI governance contract (read first)
 ├── AGENTS.md                     # Agent guidance
@@ -446,7 +469,7 @@ nlt-fusion/
     └── intent-log.md
 ```
 
-The Avatar/Aide/Advocate intelligence directories (`src/avatars/`, `src/aides/`, `src/advocates/`, `src/fusion/`), the business-agent framework, and Cloudflare deploy tooling are **not** in this repo — they live in `neurolift-ai-fusion` (and related platform repos). They were deliberately removed from nlt-fusion in the environment-only refactor (see `docs/active-threads.md`).
+The Avatar/Aide/Advocate intelligence directories (`src/avatars/`, `src/aides/`, `src/advocates/`, `src/fusion/`), the business-agent framework, and Cloudflare deploy tooling are **not** in this repo — they live in `neurolift-ai-fusion` (and related platform repos). They were deliberately removed from nlt-world-engine in the environment-only refactor (see `docs/active-threads.md`).
 
 🔬 Development Phases
 This repo's deliverable is the **environment**. The phases below describe the broader Avatar-Aide-Advocate effort for context; only the environment items are owned here.
