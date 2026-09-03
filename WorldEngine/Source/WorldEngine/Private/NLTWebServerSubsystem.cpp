@@ -27,14 +27,14 @@ void UNLTWebServerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	// including the ModelContextProtocol MCP endpoint on port 8000) are not tied
 	// to any single PIE world lifecycle. Engine subsystems initialize before the
 	// HTTP module is guaranteed to be loaded, so defer the start to post-engine-init.
-	FCoreDelegates::OnPostEngineInit.AddUObject(this, &UNLTWebServerSubsystem::StartServer, 8765);
+	PostEngineInitHandle = FCoreDelegates::GetOnPostEngineInit().AddUObject(this, &UNLTWebServerSubsystem::OnPostEngineInit);
 	UE_LOG(LogNLTWebServer, Log, TEXT("WebServer subsystem initialized"));
 }
 
 void UNLTWebServerSubsystem::Deinitialize()
 {
 	StopServer();
-	FCoreDelegates::OnPostEngineInit.RemoveAll(this);
+	FCoreDelegates::GetOnPostEngineInit().Remove(PostEngineInitHandle);
 	Super::Deinitialize();
 }
 
@@ -71,6 +71,11 @@ UWorld* UNLTWebServerSubsystem::GetSimulationWorld() const
 	return nullptr;
 }
 
+void UNLTWebServerSubsystem::OnPostEngineInit()
+{
+	StartServer(Port);
+}
+
 void UNLTWebServerSubsystem::StartServer(int32 InPort)
 {
 	if (bRunning)
@@ -95,8 +100,8 @@ void UNLTWebServerSubsystem::StartServer(int32 InPort)
 	}
 
 	// Register routes
-	HttpRouter->BindRoute(FHttpPath(TEXT("/api/stream")), EHttpServerRequestVerbs::VERB_GET,
-		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleStreamRequest));
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/snapshot")), EHttpServerRequestVerbs::VERB_GET,
+		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleSnapshotRequest));
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/scene")), EHttpServerRequestVerbs::VERB_GET,
 		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleSceneRequest));
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/status")), EHttpServerRequestVerbs::VERB_GET,
@@ -114,7 +119,7 @@ void UNLTWebServerSubsystem::StartServer(int32 InPort)
 		return true;
 	});
 
-	HttpRouter->BindRoute(FHttpPath(TEXT("/api/stream")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/snapshot")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/scene")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/status")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/control")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
@@ -135,18 +140,14 @@ void UNLTWebServerSubsystem::StopServer()
 	UE_LOG(LogNLTWebServer, Log, TEXT("Server stopped"));
 }
 
-bool UNLTWebServerSubsystem::HandleStreamRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+bool UNLTWebServerSubsystem::HandleSnapshotRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 {
 	TUniquePtr<FHttpServerResponse> Response = MakeUnique<FHttpServerResponse>();
-	Response->Headers.Add(TEXT("Content-Type"), {TEXT("text/event-stream")});
-	Response->Headers.Add(TEXT("Cache-Control"), {TEXT("no-cache")});
-	Response->Headers.Add(TEXT("Connection"), {TEXT("keep-alive")});
+	Response->Headers.Add(TEXT("Content-Type"), {TEXT("application/json")});
 	Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 
 	FString SnapshotJson = JsonToStr(BuildSnapshotObject());
-	FString EventData = FString::Printf(TEXT("{\"snapshot\":%s,\"events\":[]}"), *SnapshotJson);
-	FString SSEData = FString::Printf(TEXT("event: init\ndata: %s\n\n"), *EventData);
-	FTCHARToUTF8 Converter(*SSEData);
+	FTCHARToUTF8 Converter(*SnapshotJson);
 	Response->Body = TArray<uint8>((const uint8*)Converter.Get(), Converter.Length());
 
 	OnComplete(MoveTemp(Response));
@@ -194,52 +195,66 @@ bool UNLTWebServerSubsystem::HandleControlRequest(const FHttpServerRequest& Requ
 		JsonObject->TryGetStringField(TEXT("action"), Action);
 	}
 
-	FString ResultJson = TEXT("{\"ok\":true}");
+	if (Action.IsEmpty())
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			TEXT("{\"ok\":false,\"error\":\"missing action\"}"), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
 
 	UWorld* World = GetSimulationWorld();
 	UNLTSimulationSubsystem* SimSub = World ? World->GetSubsystem<UNLTSimulationSubsystem>() : nullptr;
 
+	if (!SimSub)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			TEXT("{\"ok\":false,\"error\":\"simulation not ready\"}"), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	bool bHandled = true;
+
 	if (Action == TEXT("pause"))
 	{
-		if (SimSub) SimSub->PauseSimulation();
+		SimSub->PauseSimulation();
 	}
 	else if (Action == TEXT("resume"))
 	{
-		if (SimSub) SimSub->ResumeSimulation();
+		SimSub->ResumeSimulation();
 	}
 	else if (Action == TEXT("step"))
 	{
-		if (SimSub) SimSub->StepTick();
+		SimSub->StepTick();
 	}
 	else if (Action == TEXT("toggle"))
 	{
-		if (SimSub)
-		{
-			if (SimSub->IsRunning()) SimSub->PauseSimulation();
-			else SimSub->ResumeSimulation();
-		}
+		if (SimSub->IsRunning()) SimSub->PauseSimulation();
+		else SimSub->ResumeSimulation();
 	}
 	else if (Action == TEXT("pace"))
 	{
 		float NewPace = 1.0f;
 		JsonObject->TryGetNumberField(TEXT("pace"), NewPace);
-		if (SimSub) SimSub->SetSimulationRate(NewPace);
+		SimSub->SetSimulationRate(NewPace);
 	}
-	else if (Action == TEXT("assign_scenario"))
+	else
 	{
-		FString AgentId, ScenarioId;
-		JsonObject->TryGetStringField(TEXT("agent_id"), AgentId);
-		JsonObject->TryGetStringField(TEXT("scenario_id"), ScenarioId);
-	}
-	else if (Action == TEXT("reset"))
-	{
+		bHandled = false;
 	}
 
-	TUniquePtr<FHttpServerResponse> Response = MakeUnique<FHttpServerResponse>();
-	Response->Headers.Add(TEXT("Content-Type"), {TEXT("application/json")});
-	Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
-	FTCHARToUTF8 Converter(*ResultJson);
-	Response->Body = TArray<uint8>((const uint8*)Converter.Get(), Converter.Length());
+	FString ResultJson;
+	if (bHandled)
+	{
+		ResultJson = TEXT("{\"ok\":true}");
+	}
+	else
+	{
+		ResultJson = FString::Printf(TEXT("{\"ok\":false,\"error\":\"unknown action: %s\"}"), *Action);
+	}
+
+	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(ResultJson, TEXT("application/json"));
 	OnComplete(MoveTemp(Response));
 	return true;
 }
@@ -269,14 +284,14 @@ TSharedPtr<FJsonObject> UNLTWebServerSubsystem::BuildSnapshotObject()
 	auto* MassSub = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
 	if (MassSub)
 	{
-		FMassEntityManager& EntityManager = MassSub->GetMutableEntityManager();
+		const FMassEntityManager& EntityManager = MassSub->GetEntityManager();
 		FMassEntityQuery Query;
 		Query.AddRequirement<FNLTAgentIdentityFragment>(EMassFragmentAccess::ReadOnly);
 		Query.AddRequirement<FNLTAgentLocationFragment>(EMassFragmentAccess::ReadOnly);
 		Query.AddRequirement<FNLTAgentCognitiveFragment>(EMassFragmentAccess::ReadOnly);
 
 		FMassExecutionContext ExecutionContext(EntityManager);
-		Query.ForEachEntityChunk(EntityManager, ExecutionContext, [this, &AvatarsObject](FMassExecutionContext& Context)
+		Query.ForEachEntityChunk(ExecutionContext, [this, &AvatarsObject](FMassExecutionContext& Context)
 		{
 			const TArrayView<const FNLTAgentIdentityFragment>& Identities = Context.GetFragmentView<FNLTAgentIdentityFragment>();
 			const TArrayView<const FNLTAgentLocationFragment>& Locations = Context.GetFragmentView<FNLTAgentLocationFragment>();

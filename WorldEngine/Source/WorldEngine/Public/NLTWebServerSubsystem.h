@@ -42,7 +42,11 @@ private:
 	// no suitable world exists (e.g. editor with no open world).
 	UWorld* GetSimulationWorld() const;
 
-	bool HandleStreamRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
+	// Called by FCoreDelegates::GetOnPostEngineInit() after the engine is
+	// fully initialized. Reads the Port member and delegates to StartServer(int32).
+	void OnPostEngineInit();
+
+	bool HandleSnapshotRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
 	bool HandleControlRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
 	bool HandleSceneRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
 	bool HandleStatusRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
@@ -65,4 +69,5 @@ private:
 	int32 EventBufferSize = 200;
 	int32 RequestCounter = 0;
 	FCriticalSection EventMutex;
+	FDelegateHandle PostEngineInitHandle;
 };
