@@ -8,6 +8,17 @@
 
 ## Active Threads
 
+### M2/M3 Follow-up — VFX alignment + security fix 🟡 IN PROGRESS
+- **Agent:** OpenCode · **Opened:** 2026-09-02 · **Branch:** `feat/world-engine-m1-timeoflight-m6-circulation`
+- **Scope:** Follow-up to commit `177cc6a` (M1 lighting + M6 polish + VFX + soundscape + sim infra). Resolves uncommitted changes and script/asset consistency gaps.
+- **Delivered:**
+  - Removed `SecurityToken` from `DefaultEngine.ini` (🔴 credential guardrail violation — was removed in `3dea023` but re-added as uncommitted change; now reverted to clean state)
+  - Fixed `niagara_vfx.py` (M2) naming/path alignment: `SteamCoffee`→`CoffeeSteam`, `RainWindows`→`RainOnWindow`, `/Game/VFX/Niagara`→`/Game/VFX/Workplace` to match actual on-disk `.uasset` filenames
+  - Refined `NS_HVACAirflow.uasset` (+56 bytes, particle tuning from previous session)
+  - Verified M3 (soundscape) end-to-end: `generate_workplace_soundscape.py` → 4 WAV beds → `SoundscapeDataAsset` (4 layers: HVAC/Fridge/Clock/Murmur) → `SoundscapeSubsystem` (stress-modulated volume/pitch, fade in/out, mute/unmute), all names consistent
+- **Commit:** `a1a9768` `[OPENCODE] fix(world-engine): M2 ambient VFX asset name/path alignment + NS_HVACAirflow refinement`
+- **Next baton:** If opening a PR, verify the PR Review Hermes bot passes all checks (OSSAR-Scan, credential scan, governance validation) before requesting review.
+
 ### PR #24 Review — world-engine-v2-release-pr 🟡 IN REVIEW
 - **Agent:** Codex Agent (Poolside) · **Opened:** 2026-09-02 · **Branch:** `world-engine-v2-release-pr`
 - **Scope:** Full code/governance/security review of PR #24 (100 text files + 36 binary assets, 6 commits from `102d344` through `5850786`).
