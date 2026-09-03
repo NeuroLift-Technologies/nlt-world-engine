@@ -15,6 +15,7 @@ public:
 
     virtual void OnPossess(APawn* InPawn) override;
     virtual void Tick(float DeltaTime) override;
+    virtual void OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result) override;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     float WanderRadius = 1000.0f;

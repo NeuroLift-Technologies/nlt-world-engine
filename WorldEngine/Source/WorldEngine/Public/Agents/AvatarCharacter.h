@@ -29,19 +29,6 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     float InteractionRange = 200.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-    TSubclassOf<AAIController> MyAIControllerClass;
-
 protected:
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-private:
-    void Wander();
-    void Wait();
-    void Interact();
-
-    FVector HomeLocation;
-    FTimerHandle WaitTimer;
-    bool bIsWaiting = false;
-    int32 InteractCooldown = 0;
 };

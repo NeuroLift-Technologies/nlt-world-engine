@@ -1,10 +1,16 @@
 // AvatarAIController.cpp
 #include "Agents/AvatarAIController.h"
 #include "NavigationSystem.h"
+#include "GameFramework/Pawn.h"
 
 AAvatarAIController::AAvatarAIController()
 {
     PrimaryActorTick.bCanEverTick = true;
+    WanderRadius = 1000.0f;
+    WaitTimeMin = 2.0f;
+    WaitTimeMax = 5.0f;
+    AcceptanceRadius = 50.0f;
+    bIsWaiting = false;
 }
 
 void AAvatarAIController::OnPossess(APawn* InPawn)
@@ -13,16 +19,24 @@ void AAvatarAIController::OnPossess(APawn* InPawn)
     if (InPawn)
     {
         HomeLocation = InPawn->GetActorLocation();
+        // Start initial wander
+        Wander();
     }
 }
 
 void AAvatarAIController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    if (!bIsWaiting)
-    {
-        Wander();
-    }
+}
+
+void AAvatarAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result)
+{
+    Super::OnMoveCompleted(RequestID, Result);
+
+    // Start wait timer when move completes (success, blocked, or aborted)
+    bIsWaiting = true;
+    float WaitTime = FMath::FRandRange(WaitTimeMin, WaitTimeMax);
+    GetWorldTimerManager().SetTimer(WaitTimer, this, &AAvatarAIController::Wait, WaitTime, false);
 }
 
 void AAvatarAIController::Wander()
@@ -59,14 +73,12 @@ void AAvatarAIController::Wander()
     }
 
     MoveToLocation(TargetLocation, AcceptanceRadius, true, true, true, true);
-
-    bIsWaiting = true;
-    float WaitTime = FMath::FRandRange(WaitTimeMin, WaitTimeMax);
-    GetWorldTimerManager().SetTimer(WaitTimer, this, &AAvatarAIController::Wait, WaitTime, false);
 }
 
 void AAvatarAIController::Wait()
 {
     bIsWaiting = false;
     GetWorldTimerManager().ClearTimer(WaitTimer);
+    // Pick next destination
+    Wander();
 }

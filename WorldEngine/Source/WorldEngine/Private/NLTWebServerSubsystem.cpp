@@ -284,8 +284,9 @@ TSharedPtr<FJsonObject> UNLTWebServerSubsystem::BuildSnapshotObject()
 	auto* MassSub = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
 	if (MassSub)
 	{
-		const FMassEntityManager& EntityManagerConst = MassSub->GetEntityManager();
-		FMassEntityManager& EntityManager = const_cast<FMassEntityManager&>(EntityManagerConst);
+		// TODO (H3): PR #28 fixed this via read-only GetEntityManager() but UE 5.8 
+		// FMassExecutionContext requires non-const — revert when Mass API is updated
+		FMassEntityManager& EntityManager = const_cast<FMassEntityManager&>(MassSub->GetEntityManager());
 		FMassEntityQuery Query;
 		Query.AddRequirement<FNLTAgentIdentityFragment>(EMassFragmentAccess::ReadOnly);
 		Query.AddRequirement<FNLTAgentLocationFragment>(EMassFragmentAccess::ReadOnly);
