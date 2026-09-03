@@ -1,0 +1,56 @@
+{
+  "kit_name": "SK_Desk_01",
+  "kit_type": "Workplace_Desk_Workstation",
+  "description": "Modular desk/workstation kit with 3 visual states for NLT World Engine workplace scenarios.",
+  "author": "Pool (art) + Kilo (pipeline)",
+  "ue_version": "5.8",
+  "scale": "1 Blender unit = 100 UE units (cm)",
+  "states": [
+    {
+      "name": "Clean",
+      "folder": "Clean",
+      "fbx": "SK_Desk_01_Clean.fbx",
+      "objects": 6,
+      "description": "Minimalist desk setup: desktop, legs, monitor (screen ON), keyboard, mouse, chair, pen holder, notebook, small plant."
+    },
+    {
+      "name": "Cluttered",
+      "folder": "Cluttered",
+      "fbx": "SK_Desk_01_Cluttered.fbx",
+      "objects": 18,
+      "description": "Busy workday desk: base + scattered papers, coffee mug, book stack, cables, sticky notes, phone, earbuds."
+    },
+    {
+      "name": "AfterHours",
+      "folder": "AfterHours",
+      "fbx": "SK_Desk_01_AfterHours.fbx",
+      "objects": 13,
+      "description": "Late-night desk: monitor screen OFF, desk lamp, wine glass, open book, reading glasses, jacket draped over chair, energy drink can."
+    }
+  ],
+  "materials": [
+    { "name": "M_DeskWood", "type": "Principled BSDF", "base_color": [0.45, 0.29, 0.14], "metallic": 0.0, "roughness": 0.6 },
+    { "name": "M_DeskMetal", "type": "Principled BSDF", "base_color": [0.35, 0.35, 0.38], "metallic": 0.9, "roughness": 0.3 },
+    { "name": "M_Monitor", "type": "Principled BSDF", "base_color": [0.05, 0.05, 0.06], "metallic": 0.1, "roughness": 0.4 },
+    { "name": "M_ScreenOn", "type": "Emissive", "base_color": [0.2, 0.4, 0.8], "emission": [0.2, 0.4, 0.8], "emission_strength": 1.0 },
+    { "name": "M_ScreenOff", "type": "Principled BSDF", "base_color": [0.02, 0.02, 0.02], "metallic": 0.0, "roughness": 0.9 },
+    { "name": "M_Keyboard", "type": "Principled BSDF", "base_color": [0.1, 0.1, 0.1], "metallic": 0.2, "roughness": 0.5 },
+    { "name": "M_Chair", "type": "Principled BSDF", "base_color": [0.15, 0.15, 0.17], "metallic": 0.0, "roughness": 0.8 },
+    { "name": "M_Paper", "type": "Principled BSDF", "base_color": [0.9, 0.9, 0.85], "metallic": 0.0, "roughness": 0.9 },
+    { "name": "M_Mug", "type": "Principled BSDF", "base_color": [0.6, 0.2, 0.2], "metallic": 0.0, "roughness": 0.5 },
+    { "name": "M_Book", "type": "Principled BSDF", "base_color": [0.2, 0.3, 0.5], "metallic": 0.0, "roughness": 0.8 },
+    { "name": "M_Lamp", "type": "Principled BSDF", "base_color": [0.8, 0.7, 0.4], "metallic": 0.3, "roughness": 0.4 },
+    { "name": "M_Cable", "type": "Principled BSDF", "base_color": [0.05, 0.05, 0.05], "metallic": 0.0, "roughness": 0.9 },
+    { "name": "M_Plant", "type": "Principled BSDF", "base_color": [0.15, 0.5, 0.15], "metallic": 0.0, "roughness": 0.8 },
+    { "name": "M_Pot", "type": "Principled BSDF", "base_color": [0.5, 0.3, 0.2], "metallic": 0.0, "roughness": 0.6 }
+  ],
+  "ue_import_path": "/Game/Kits/Workplace/SK_Desk_01",
+  "collision": "auto_convex",
+  "notes": [
+    "Import each state FBX into UE as a separate Static Mesh or Level Instance.",
+    "Assign corresponding UE material instances from M_ list above.",
+    "ScreenOn and ScreenOff materials should use emissive for the display surface.",
+    "Base collection (desk, chair, monitor, keyboard, mouse) is shared across states; reuse a single mesh asset and swap prop visibility/materials at runtime for efficiency.",
+    "Clutter objects are additive; after-hours objects replace clean-state props where appropriate."
+  ]
+}

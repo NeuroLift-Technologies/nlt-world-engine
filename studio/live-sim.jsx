@@ -122,8 +122,10 @@ function LiveSim({ world, t, WE, selectedId, onSelect }) {
           <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
             <span className="chip" style={{ background: room.color, color: "#fff", flex: "none" }}>{room.name}</span>
             {scenario
-              ? <span style={{ fontSize: 12.5, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b style={{ color: "var(--ink)" }}>{scenario.name}</b> · {scenario.desc}</span>
-              : <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>between tasks — picking what's next…</span>}
+              ? <span style={{ fontSize: 12.5, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><b style={{ color: "var(--ink)" }}>{scenario.name}</b>{activeObj ? ` · at ${activeObj.name}` : ""} · {scenario.desc}</span>
+              : targetObj
+                ? <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>walking to <b style={{ color: "var(--ink)" }}>{targetObj.name}</b>…</span>
+                : <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>between tasks — picking what's next…</span>}
           </div>
           {scenario && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, width: 168, flex: "none" }}>

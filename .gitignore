@@ -63,3 +63,24 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# --- WorldEngine / Unreal Engine transient files ---
+# Old test projects
+MyProject/
+MyProject2/
+MyProject3/
+
+# UE editor session data
+__ExternalActors__/
+__ExternalObjects__/
+Template_Default.umap
+Untitled.umap
+Untitled_HLOD0_Instancing.uasset
+worldengine.umap
+worldengine_HLOD0_Instancing.uasset
+
+# UE editor workspace
+*.code-workspace
+
+# Scratch/compressed
+files.zip

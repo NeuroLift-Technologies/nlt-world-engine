@@ -177,4 +177,4 @@ This repo has two runnable components — the React frontend prototype and the g
 
 ---
 
-*Internal governance document — NeuroLift Technologies | ORG-DEV-OTOI-1.0.0*
+*Internal governance document — NeuroLift Technologies | ORG-DEV-OTOI-1.0.3*

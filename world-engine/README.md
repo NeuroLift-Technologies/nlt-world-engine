@@ -1,6 +1,43 @@
-# World Engine — Frontend Prototype
+# World Engine
 
-A standalone React prototype that visualises the Avatar/Aide/Scenario world. **Not wired** to the Python simulation engine — the sim ticks locally in the browser. See `docs/specs/world-engine-prototype-schema.md` for the full data contract.
+The Sims-like environment AI agents live in. This repo owns the **environment
+only** — world state, space, time, objects, needs, NPCs. Avatar/Aide
+intelligence, ADHD trait modeling, and fusion mechanics live in
+`neurolift-ai-fusion` and connect through the agent interface.
+
+## Python environment engine (`src/`)
+
+A deterministic ECS simulation: tick loop, seeded RNG, spatial grid with A*
+pathfinding, sims-style needs, and movement/interaction systems. AI agents
+plug in through `src/simulation/environment/agent_interface.py` — perceive,
+submit intents, poll results. Decision logic (rule-based or LLM) stays
+outside the tick.
+
+See it run — an agent autonomously living a full day (eat, chat, sleep,
+shower, watch TV):
+
+```bash
+cd world-engine
+python3 demo.py          # a day in the life
+python3 -m unittest discover tests   # 24 tests
+
+# Live studio viewer (kernel authoritative — humans watch only):
+python3 service/server.py              # SSE + REST on :8765
+# then open index.html?live=1 in a static file server
+```
+
+`demo.py`'s `UtilityAgent.decide()` is the seam where an LLM controller
+replaces the rule-based one without touching the engine.
+
+---
+
+# Frontend Prototype
+
+A standalone React prototype that visualises the Avatar/Aide/Scenario world.
+With `?live=1` and the Python service running, the studio is a **read-only
+live viewer** fed by `contracts/v1` snapshots over SSE — no local sim tick.
+Without the service (`?live=0`), the legacy browser tick loop remains for
+offline demos.
 
 The product-facing Claude Design shell lives in [`../studio/`](../studio/) and reuses this prototype's canonical data, simulation hook, and tweaks panel.
 
@@ -25,7 +62,8 @@ The page boots React 18 + Babel from a CDN and loads the `.jsx` files in-browser
 | `index.html` | Entry point, CDN loaders, script order |
 | `data.js` | Static data — 19 avatars, paired aides, 11 scenarios, 5 rooms, NPCs, strategies, event vocabulary |
 | `app.jsx` | Top-level composition, layout, theme/zoom/pan, tweaks panel mount |
-| `sim.jsx` | Tick loop, avatar runtime state, event emission, flavor-bias tables |
+| `sim.jsx` | Life-sim tick loop: objects, walking, interactions, motives, events |
+| `data.js` | `OBJECTS` catalog, scenarios linked to `objectId`, single-pair roster mode |
 | `world-view.jsx` | Isometric CSS/SVG renderer (32×16 tile diamond, rooms, props, avatars, NPCs) |
 | `hud.jsx` | HUD panels — `TopBar`, `AvatarStateCard`, `EventStream`, `AideLog`, `FleetRoster`, `ScenarioControls`, `ProgressPanel` |
 | `tweaks-panel.jsx` | Live-tuning shell with the `__activate_edit_mode` host protocol |

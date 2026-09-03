@@ -1,4 +1,4 @@
-// fleet.jsx — World Engine fleet dashboard. All 19 avatars at a glance,
+// fleet.jsx — World Engine fleet dashboard. Active roster at a glance,
 // reskinned bright/game-UI. Grid of "character tiles" + a global event ticker.
 
 function FleetView({ world, WE, selectedId, onSelect, t }) {

@@ -1,0 +1,26 @@
+{
+  "agent_registration": {
+    "agent_name":         "Claude Code",
+    "platform":           "Claude Code",
+    "version":            "Claude (Anthropic), remote execution environment",
+    "session_id":         "claude/brave-darwin-5hxolo",
+    "entry_date":         "2026-06-09",
+    "entry_point":        "Josh asked what is needed to finish the sims-like game world engine, then clarified scope: nlt-fusion is the environment-only repo (AI living in a Sims-like world); ADHD traits and fusion move to neurolift-ai-fusion. This session implements the environment core (movement, interaction, needs systems, world builder, demo agent) and separates training-side code.",
+    "acknowledged_otoi":  true,
+    "otoi_version":       "ORG-DEV-OTOI-1.0.2",
+    "working_repo":       "NeuroLift-Technologies/nlt-fusion",
+    "working_branch":     "claude/brave-darwin-5hxolo",
+    "capabilities_self_reported": [
+      "Python implementation (ECS systems, pathfinding, simulation loops)",
+      "Test authoring (pytest)",
+      "Repository archaeology and scope analysis",
+      "Governance record keeping (registration, intent, handoff)"
+    ],
+    "known_limitations": [
+      "No browser runtime for visual smoke-testing the React prototype",
+      "Cannot delete remote branches (HTTP 403 in this environment)",
+      "No access to the neurolift-ai-fusion sibling repo from this session"
+    ],
+    "preferred_handoff_format": "Structured JSON handoff record plus narrative summary in docs/active-threads.md"
+  }
+}

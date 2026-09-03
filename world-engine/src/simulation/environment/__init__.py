@@ -1,10 +1,15 @@
 """
-Simulation environment - World engine, scenarios, and NPCs.
+Simulation environment - the Sims-like world AI agents live in.
 
 Contains:
-- World engine and world map
-- Entity-Component-System (ECS) for entity management
-- Scenario library and definitions
-- Agent interface for world interaction
-- NPC base classes
+- world_engine: tick loop, deterministic clock/RNG, event bus, snapshots
+- ecs: Entity-Component-System (Position, Collider, Interactable, Needs, ...)
+- world_map: spatial grid index and A* pathfinding
+- systems: NeedsSystem, MovementSystem, InteractionSystem
+- world_builder: declarative spec -> populated world (default home world)
+- agent_interface: the perception/intent boundary AI agents plug into
+- utility_agent: SimSim-style needs-ranking controller for autonomous NPCs
+- scenarios: scenario library and definitions
+
+See `world-engine/demo.py` for an agent living a full day in this world.
 """

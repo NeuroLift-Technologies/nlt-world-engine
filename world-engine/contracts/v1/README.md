@@ -30,10 +30,18 @@ LLM provider, or learned world model.
 6. A replay hash is SHA-256 over the canonical expected final snapshot:
    sorted object keys, no insignificant whitespace, and UTF-8 encoding.
 
+## Life sim v1 (2026-06)
+
+- **Objects:** Interactive lot objects (`move_to`, `use_object`) map to `world-engine/data.js` `OBJECTS`.
+- **Avatar state:** `walking` is used while pathing to a target object before `working`.
+- **Energy motive:** Runtime energy is `0..1` in the browser and headless engine (`world-engine/src/simulation/life_sim/`). Replays may store it under `avatars.<id>.extensions.energy` until metrics schema gains a first-class field.
+- **Actions:** `move_to`, `use_object`, and `rest` complement `assign_scenario` for object-first flows.
+
 ## Compatibility Targets
 
 - Browser prototype: `world-engine/data.js` and `world-engine/sim.jsx`
 - Product shell: `studio/`
+- Python headless life sim: `world-engine/src/simulation/life_sim/`
 - Python event bus and session concepts: `world-engine/src/`
 
 The contract intentionally captures their shared surface while leaving richer ECS,

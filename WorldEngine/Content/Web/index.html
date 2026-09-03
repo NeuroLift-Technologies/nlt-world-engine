@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLT Fusion World Engine — Live View</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0a; color: #e0e0e0; font-family: monospace; overflow: hidden; }
+#canvas { display: block; width: 100vw; height: 100vh; }
+#hud {
+  position: fixed; top: 10px; left: 10px;
+  background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 6px;
+  font-size: 12px; line-height: 1.6; pointer-events: none;
+}
+#hud .label { color: #888; }
+#hud .value { color: #0f0; }
+#hud .status { color: #ff0; }
+#hud .error { color: #f44; }
+#controls {
+  position: fixed; bottom: 10px; left: 10px;
+  background: rgba(0,0,0,0.7); padding: 10px 14px; border-radius: 6px;
+  font-size: 12px;
+}
+#controls input {
+  background: #222; color: #0f0; border: 1px solid #444;
+  padding: 4px 8px; font-family: monospace; width: 80px;
+}
+#controls button {
+  background: #333; color: #0f0; border: 1px solid #555;
+  padding: 4px 10px; cursor: pointer; font-family: monospace;
+}
+#controls button:hover { background: #444; }
+#controls button.active { background: #0f0; color: #000; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="hud">
+  <div><span class="label">Status:</span> <span id="status" class="status">Disconnected</span></div>
+  <div><span class="label">Tick:</span> <span id="tick" class="value">0</span></div>
+  <div><span class="label">Sim Time:</span> <span id="simtime" class="value">0.0</span>s</div>
+  <div><span class="label">Agents:</span> <span id="agents" class="value">0</span></div>
+  <div><span class="label">FPS:</span> <span id="fps" class="value">0</span></div>
+</div>
+<div id="controls">
+  <input type="text" id="wsUrl" value="ws://localhost:8765">
+  <button id="connectBtn">Connect</button>
+  <button id="demoBtn">Demo Mode</button>
+  <button id="pauseBtn">Pause</button>
+  <button id="resetBtn">Reset</button>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const tickEl = document.getElementById('tick');
+const simTimeEl = document.getElementById('simtime');
+const agentsEl = document.getElementById('agents');
+const fpsEl = document.getElementById('fps');
+const wsUrlEl = document.getElementById('wsUrl');
+const connectBtn = document.getElementById('connectBtn');
+const demoBtn = document.getElementById('demoBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let ws = null;
+let connected = false;
+let paused = false;
+let demoMode = false;
+let world = { tick: 0, simTime: 0, agents: [] };
+let camera = { x: 0, y: 0, zoom: 0.5 };
+let frameCount = 0;
+let lastFpsUpdate = 0;
+let demoAgents = [];
+let demoTick = 0;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Demo mode: simulate agents locally
+function initDemo() {
+  demoAgents = [];
+  const intents = ['Idle', 'FindQuietPlace', 'Work', 'Socialize', 'Rest', 'Study', 'Coached', 'Overwhelmed', 'Drifting', 'Hyperfocus'];
+  for (let i = 0; i < 20; i++) {
+    demoAgents.push({
+      id: 'Agent_' + i,
+      px: (Math.random() - 0.5) * 4000,
+      py: (Math.random() - 0.5) * 4000,
+      vx: (Math.random() - 0.5) * 20,
+      vy: (Math.random() - 0.5) * 20,
+      intent: intents[Math.floor(Math.random() * intents.length)],
+      focus: Math.random(),
+      stress: Math.random() * 0.5,
+      cogLoad: Math.random() * 0.5
+    });
+  }
+}
+
+function updateDemo() {
+  if (!demoMode || paused) return;
+  demoTick++;
+  world.tick = demoTick;
+  world.simTime += 0.1;
+
+  for (const agent of demoAgents) {
+    // Move
+    agent.px += agent.vx * 0.1;
+    agent.py += agent.vy * 0.1;
+
+    // Bounce off walls
+    if (Math.abs(agent.px) > 2000) agent.vx *= -1;
+    if (Math.abs(agent.py) > 2000) agent.vy *= -1;
+
+    // Random direction changes
+    if (Math.random() < 0.01) {
+      agent.vx = (Math.random() - 0.5) * 30;
+      agent.vy = (Math.random() - 0.5) * 30;
+    }
+
+    // Fluctuate stats
+    agent.focus = Math.max(0, Math.min(1, agent.focus + (Math.random() - 0.5) * 0.05));
+    agent.stress = Math.max(0, Math.min(1, agent.stress + (Math.random() - 0.5) * 0.03));
+    agent.cogLoad = Math.max(0, Math.min(1, agent.cogLoad + (Math.random() - 0.5) * 0.02));
+  }
+
+  world.agents = demoAgents;
+}
+
+function connect() {
+  if (ws) { ws.close(); ws = null; }
+  if (demoMode) {
+    demoMode = false;
+    demoBtn.classList.remove('active');
+  }
+  const url = wsUrlEl.value;
+  statusEl.textContent = 'Connecting...';
+  statusEl.className = 'status';
+
+  try {
+    ws = new WebSocket(url);
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+    statusEl.className = 'error';
+    return;
+  }
+
+  ws.onopen = () => {
+    connected = true;
+    statusEl.textContent = 'Connected';
+    statusEl.className = 'value';
+    connectBtn.textContent = 'Disconnect';
+  };
+
+  ws.onclose = () => {
+    connected = false;
+    statusEl.textContent = 'Disconnected';
+    statusEl.className = 'status';
+    connectBtn.textContent = 'Connect';
+  };
+
+  ws.onerror = () => {
+    statusEl.textContent = 'Connection Error';
+    statusEl.className = 'error';
+  };
+
+  ws.onmessage = (event) => {
+    if (paused) return;
+    try {
+      const data = JSON.parse(event.data);
+      if (data.tick !== undefined) world.tick = data.tick;
+      if (data.simTime !== undefined) world.simTime = data.simTime;
+      if (data.agents) world.agents = data.agents;
+    } catch (e) {}
+  };
+}
+
+function toggleDemo() {
+  demoMode = !demoMode;
+  if (demoMode) {
+    if (connected) ws.close();
+    statusEl.textContent = 'Demo Mode';
+    statusEl.className = 'value';
+    demoBtn.classList.add('active');
+    initDemo();
+  } else {
+    statusEl.textContent = 'Disconnected';
+    statusEl.className = 'status';
+    demoBtn.classList.remove('active');
+    world = { tick: 0, simTime: 0, agents: [] };
+  }
+}
+
+function worldToScreen(wx, wy) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  return {
+    x: cx + (wx - camera.x) * camera.zoom,
+    y: cy + (wy - camera.y) * camera.zoom
+  };
+}
+
+function drawGrid() {
+  const gridSize = 500;
+  const startX = Math.floor((camera.x - canvas.width / 2 / camera.zoom) / gridSize) * gridSize;
+  const endX = Math.ceil((camera.x + canvas.width / 2 / camera.zoom) / gridSize) * gridSize;
+  const startY = Math.floor((camera.y - canvas.height / 2 / camera.zoom) / gridSize) * gridSize;
+  const endY = Math.ceil((camera.y + canvas.height / 2 / camera.zoom) / gridSize) * gridSize;
+
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = startX; x <= endX; x += gridSize) {
+    const s = worldToScreen(x, 0);
+    ctx.moveTo(s.x, 0);
+    ctx.lineTo(s.x, canvas.height);
+  }
+  for (let y = startY; y <= endY; y += gridSize) {
+    const s = worldToScreen(0, y);
+    ctx.moveTo(0, s.y);
+    ctx.lineTo(canvas.width, s.y);
+  }
+  ctx.stroke();
+}
+
+function drawAgents() {
+  for (const agent of world.agents) {
+    const s = worldToScreen(agent.px, agent.py);
+    const size = 15 * camera.zoom;
+
+    let color = '#0f0';
+    switch (agent.intent) {
+      case 'Idle': color = '#0f0'; break;
+      case 'FindQuietPlace': color = '#48f'; break;
+      case 'Work': color = '#fa0'; break;
+      case 'Socialize': color = '#f0f'; break;
+      case 'Rest': color = '#0ff'; break;
+      case 'Study': color = '#ff0'; break;
+      case 'Coached': color = '#f80'; break;
+      case 'Overwhelmed': color = '#f00'; break;
+      case 'Drifting': color = '#888'; break;
+      case 'Hyperfocus': color = '#0f8'; break;
+      default: color = '#0f0';
+    }
+
+    if (agent.stress > 0.6) {
+      ctx.strokeStyle = '#f00';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, size + 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, size, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, size * (1 - agent.focus), 0, Math.PI * 2);
+    ctx.fill();
+
+    if (camera.zoom > 0.3) {
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.max(10, 12 * camera.zoom)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(agent.id, s.x, s.y - size - 6);
+    }
+  }
+}
+
+function drawOverlay() {
+  ctx.fillStyle = '#666';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Camera: (${camera.x.toFixed(0)}, ${camera.y.toFixed(0)}) Zoom: ${camera.zoom.toFixed(2)}`, 10, canvas.height - 10);
+}
+
+function render() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
+  drawAgents();
+  drawOverlay();
+
+  tickEl.textContent = world.tick;
+  simTimeEl.textContent = world.simTime.toFixed(1);
+  agentsEl.textContent = world.agents.length;
+
+  frameCount++;
+  const now = performance.now();
+  if (now - lastFpsUpdate > 1000) {
+    fpsEl.textContent = frameCount;
+    frameCount = 0;
+    lastFpsUpdate = now;
+  }
+
+  updateDemo();
+  requestAnimationFrame(render);
+}
+
+connectBtn.addEventListener('click', () => {
+  if (connected) {
+    ws.close();
+  } else {
+    connect();
+  }
+});
+
+demoBtn.addEventListener('click', toggleDemo);
+
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+});
+
+resetBtn.addEventListener('click', () => {
+  world = { tick: 0, simTime: 0, agents: [] };
+  camera = { x: 0, y: 0, zoom: 0.5 };
+  if (demoMode) initDemo();
+});
+
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+let camStart = { x: 0, y: 0 };
+
+canvas.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+  camStart = { x: camera.x, y: camera.y };
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  camera.x = camStart.x - (e.clientX - dragStart.x) / camera.zoom;
+  camera.y = camStart.y - (e.clientY - dragStart.y) / camera.zoom;
+});
+
+canvas.addEventListener('mouseup', () => { isDragging = false; });
+canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+  camera.zoom = Math.max(0.05, Math.min(5, camera.zoom * zoomFactor));
+}, { passive: false });
+
+document.addEventListener('keydown', (e) => {
+  const moveSpeed = 50 / camera.zoom;
+  switch (e.key) {
+    case 'w': case 'ArrowUp': camera.y -= moveSpeed; break;
+    case 's': case 'ArrowDown': camera.y += moveSpeed; break;
+    case 'a': case 'ArrowLeft': camera.x -= moveSpeed; break;
+    case 'd': case 'ArrowRight': camera.x += moveSpeed; break;
+    case '+': case '=': camera.zoom *= 1.2; break;
+    case '-': camera.zoom *= 0.8; break;
+    case 'r': camera = { x: 0, y: 0, zoom: 0.5 }; break;
+  }
+});
+
+render();
+</script>
+</body>
+</html>
