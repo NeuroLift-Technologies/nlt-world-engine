@@ -19,6 +19,14 @@
 - **Bot corroboration:** CodeRabbit="Merge Ready, minimal risk"; GitGuardian="no secrets"; Kilo Code flagged same OTOI mismatch
 - **Next baton:** Resolve 2 🔴 blockers + 3 🟡 high items, then PR ready for approval
 
+### PR #28 — Web server (SSE/REST) subsystem + real-world SimBody kit 🟡 IN REVIEW
+- **Agent:** OpenCode · **Opened:** 2026-09-03 · **Branch:** `feat/world-engine-webserver-simbody`
+- **Scope:** Adds the v1 Core Loop SSE/REST transport (DESIGN.md §3) as an engine-subsystem-hosted HTTP server, plus a real-world cm-scale SimBody kit.
+- **Adds:** `UNLTWebServerSubsystem` (EngineSubsystem) with `/api/stream` (SSE), `/api/scene`, `/api/status`, `/api/control`; CORS enabled; hosted at engine boot (decoupled from PIE; same host carries the MCP endpoint on :8000). SimBody kit assets under `WorldEngine/Content/Kits/SimBody/`.
+- **Changes:** NLTAgentVisualizer → SimBody mesh at `AgentScale` (1.0 = life size), engine-cube fallback; Build.cs + HTTPServer/HTTP/Sockets deps; WorldEngine.uproject + WebSocketNetworking & MetaHuman plugins; NLTRoomStateSubsystem.h forward-decl ordering fix; NLTDemoGameMode.cpp comment; Workplace_Level.umap update.
+- **Security note:** A `SecurityToken` was re-added to `DefaultEngine.ini` as an uncommitted change (credential-guardrail violation per NLT-DEV-OTOI / earlier `3dea023`); **excluded** from this PR — reverted from the branch.
+- **Next baton:** review/merge PR #28; stub `/api/control` assign_scenario + reset handlers (currently parse input but no-op); follow-ups on the NVIDIA/CrossRFID visualizer seam to go to `neurolift-ai-fusion`.
+
 ### World Engine v1 Core Loop — implementation 🟡 IN PROGRESS
 - **Agent:** Cursor · **Opened:** 2026-06-22 · **Branch:** `cursor/world-engine-v1-core-loop`
 - **Scope:** v1 Core Loop slice per `docs/world-engine/DESIGN.md` (Josh-approved 2026-06-22).
