@@ -17,6 +17,12 @@ Thumbs.db
 *.log
 *.tmp
 
+# Local UE config - Android File Server session token (auto-generated per-machine, do not commit)
+# SecurityToken in Config/DefaultEngine.ini is a local UE session ID, not a credential - kept out of repo (CEO-approved 2026-09-03)
+# UE will regenerate it locally; use Config/DefaultEngine.ini.local for local overrides
+Config/DefaultEngine.ini.local
+Saved/Config/
+
 # Docker
 .docker/
 

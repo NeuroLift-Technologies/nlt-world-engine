@@ -198,7 +198,7 @@ bool UNLTWebServerSubsystem::HandleControlRequest(const FHttpServerRequest& Requ
 	if (Action.IsEmpty())
 	{
 		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
-			TEXT("{\"ok\":false,\"error\":\"missing action\"}"), TEXT("application/json"));
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"missing action\"}")), TEXT("application/json"));
 		OnComplete(MoveTemp(Response));
 		return true;
 	}
@@ -209,7 +209,7 @@ bool UNLTWebServerSubsystem::HandleControlRequest(const FHttpServerRequest& Requ
 	if (!SimSub)
 	{
 		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
-			TEXT("{\"ok\":false,\"error\":\"simulation not ready\"}"), TEXT("application/json"));
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"simulation not ready\"}")), TEXT("application/json"));
 		OnComplete(MoveTemp(Response));
 		return true;
 	}
@@ -254,7 +254,7 @@ bool UNLTWebServerSubsystem::HandleControlRequest(const FHttpServerRequest& Requ
 		ResultJson = FString::Printf(TEXT("{\"ok\":false,\"error\":\"unknown action: %s\"}"), *Action);
 	}
 
-	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(ResultJson, TEXT("application/json"));
+	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FUtf8String(ResultJson), TEXT("application/json"));
 	OnComplete(MoveTemp(Response));
 	return true;
 }
@@ -284,7 +284,9 @@ TSharedPtr<FJsonObject> UNLTWebServerSubsystem::BuildSnapshotObject()
 	auto* MassSub = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
 	if (MassSub)
 	{
-		const FMassEntityManager& EntityManager = MassSub->GetEntityManager();
+		// TODO (H3): PR #28 fixed this via read-only GetEntityManager() but UE 5.8 
+		// FMassExecutionContext requires non-const — revert when Mass API is updated
+		FMassEntityManager& EntityManager = const_cast<FMassEntityManager&>(MassSub->GetEntityManager());
 		FMassEntityQuery Query;
 		Query.AddRequirement<FNLTAgentIdentityFragment>(EMassFragmentAccess::ReadOnly);
 		Query.AddRequirement<FNLTAgentLocationFragment>(EMassFragmentAccess::ReadOnly);

@@ -84,3 +84,7 @@ worldengine_HLOD0_Instancing.uasset
 
 # Scratch/compressed
 files.zip
+
+# UE local session - Android File Server token (per-machine, do not commit)
+# SecurityToken in WorldEngine/Config/DefaultEngine.ini is a UE session ID, not a secret - removed from repo per CEO 2026-09-03
+# Local overrides use WorldEngine/Config/DefaultEngine.ini.local or Saved/Config/ (both ignored)
