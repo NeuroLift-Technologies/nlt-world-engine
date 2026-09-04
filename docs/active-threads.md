@@ -2,11 +2,21 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-04
 
 ---
 
 ## Active Threads
+
+### 🔐 Secret-purge + code-scanning fixes 🟡 AWAITING MERGE
+- **Agent:** Codex (Poolside) · **Opened:** 2026-09-04 · **Branch:** `fix/security-code-scanning`
+- **Scope:** Purge 3 leaked API keys (Cloudflare/OpenRouter/Groq) from the committed `Makefile.bin` build artifact + resolve the 7 open code-scanning alerts.
+- **Delivered:**
+  - Purged `WorldEngine/Intermediate/Build/Linux/x64/WorldEngine/Development/Makefile.bin` (commit `908defd` on the v2 build branch) from git history via `git filter-repo`; `git gc --aggressive --prune=now` dropped packed blob `fb05a89b…` from all objects. Remote v2 branch force-pushed (purged tip `3476f75c`); since it was later deleted, no reachable ref holds the secret. All 3 provider keys revoked; GitHub secret-scanning alerts #1–#3 dismissed as `revoked`.
+  - PR #36: added `permissions: contents: read` to both CI workflows; added same-origin guard + replaced `*` postMessage targets with `window.location.origin` in 5 `world-engine/_drafts/*.jsx` handlers. Branch from `origin/main`; disjoint from PR #33's C++ graphics work (no conflicts).
+- **Verification:** `validate-governance.sh` 29/29 (fix branch + PR #33); PR #33 & #36 checks SUCCESS (CodeQL + GitGuardian + Governance + CodeRabbit). No secret prefixes in tree; blob `fb05a89b…` returns `fatal`.
+- **WIP backups:** 3 secret-free WIP snapshots preserved as local branches `bkp-wip-babylon`, `bkp-wip-char-gfx`, `bkp-wip-worldv2pr`.
+- **Next baton:** A human (Josh or reviewer) must approve + merge PR #36 to clear the 7 code-scanning alerts on `main`. Decide whether to keep the `bkp-wip-*` branches.
 
 ### M2/M3 Follow-up — VFX alignment + security fix 🟡 IN PROGRESS
 - **Agent:** OpenCode · **Opened:** 2026-09-02 · **Branch:** `feat/world-engine-m1-timeoflight-m6-circulation`
