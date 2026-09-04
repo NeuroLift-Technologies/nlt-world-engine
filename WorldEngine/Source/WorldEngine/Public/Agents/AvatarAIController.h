@@ -29,6 +29,13 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     float AcceptanceRadius = 50.0f;
 
+    // Learning Agents integration
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
+    bool bLearningAgentsActive = false;
+
+    UFUNCTION(BlueprintCallable, Category = "LearningAgents")
+    void SetLearningAgentsActive(bool bActive);
+
 private:
     void Wander();
     void Wait();

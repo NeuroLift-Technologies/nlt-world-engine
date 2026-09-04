@@ -11,6 +11,23 @@ AAvatarAIController::AAvatarAIController()
     WaitTimeMax = 5.0f;
     AcceptanceRadius = 50.0f;
     bIsWaiting = false;
+    bLearningAgentsActive = false;
+}
+
+void AAvatarAIController::SetLearningAgentsActive(bool bActive)
+{
+    bLearningAgentsActive = bActive;
+    if (bActive)
+    {
+        // Stop wandering when LA takes control
+        StopMovement();
+        GetWorldTimerManager().ClearTimer(WaitTimer);
+    }
+    else
+    {
+        // Resume wandering when LA relinquishes control
+        Wander();
+    }
 }
 
 void AAvatarAIController::OnPossess(APawn* InPawn)
@@ -19,8 +36,11 @@ void AAvatarAIController::OnPossess(APawn* InPawn)
     if (InPawn)
     {
         HomeLocation = InPawn->GetActorLocation();
-        // Start initial wander
-        Wander();
+        // Only start wandering if LA is not active
+        if (!bLearningAgentsActive)
+        {
+            Wander();
+        }
     }
 }
 
@@ -33,14 +53,20 @@ void AAvatarAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFol
 {
     Super::OnMoveCompleted(RequestID, Result);
 
-    // Start wait timer when move completes (success, blocked, or aborted)
-    bIsWaiting = true;
-    float WaitTime = FMath::FRandRange(WaitTimeMin, WaitTimeMax);
-    GetWorldTimerManager().SetTimer(WaitTimer, this, &AAvatarAIController::Wait, WaitTime, false);
+    // Only continue wandering if LA is not active
+    if (!bLearningAgentsActive)
+    {
+        bIsWaiting = true;
+        float WaitTime = FMath::FRandRange(WaitTimeMin, WaitTimeMax);
+        GetWorldTimerManager().SetTimer(WaitTimer, this, &AAvatarAIController::Wait, WaitTime, false);
+    }
 }
 
 void AAvatarAIController::Wander()
 {
+    // Don't wander if LA is controlling
+    if (bLearningAgentsActive) return;
+
     APawn* MyPawn = GetPawn();
     if (!MyPawn) return;
 

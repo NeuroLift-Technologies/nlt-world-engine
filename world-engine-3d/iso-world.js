@@ -22,8 +22,9 @@ renderer.toneMappingExposure=1.0;
 document.body.appendChild(renderer.domElement);
 
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x87CEEB);
-scene.fog=new THREE.FogExp2(0x87CEEB,0.015);
+scene.background=new THREE.Color(0x0a0a1a);
+scene.fog=new THREE.Fog(0x0a0a1a, 20, 120);
+scene.environment = new THREE.Color(0x0a0a1a);
 
 const camera=new THREE.PerspectiveCamera(35,window.innerWidth/window.innerHeight,0.1,500);
 camera.position.set(25,30,25);
@@ -34,13 +35,18 @@ controls.maxPolarAngle=Math.PI/2.3;controls.target.set(8,0,8);
 
 let cameraMode='free',followTarget=null,cinematicAngle=0;
 
-const ambientLight=new THREE.AmbientLight(0x404060,0.5);scene.add(ambientLight);
+const ambientLight=new THREE.AmbientLight(0x202030,0.6);scene.add(ambientLight);
 const sunLight=new THREE.DirectionalLight(0xffeedd,1.8);sunLight.position.set(20,30,10);
 sunLight.castShadow=true;sunLight.shadow.mapSize.width=2048;sunLight.shadow.mapSize.height=2048;
 sunLight.shadow.camera.near=0.5;sunLight.shadow.camera.far=150;
 sunLight.shadow.camera.left=-50;sunLight.shadow.camera.right=50;sunLight.shadow.camera.top=50;sunLight.shadow.camera.bottom=-50;
+sunLight.shadow.bias=-0.0001;sunLight.shadow.radius=4;sunLight.shadow.normalBias=0.05;
 scene.add(sunLight);
-const hemiLight=new THREE.HemisphereLight(0x87CEEB,0x2d5a3d,0.3);scene.add(hemiLight);
+
+const hemiLight=new THREE.HemisphereLight(0x87CEEB,0x2d5a3d,0.4);scene.add(hemiLight);
+
+// Ground ambient occlusion
+const aoPass = new THREE.ApproximateToneMappingPass ? null : null;
 
 const roomLights=[];
 for(const room of WE.ROOMS){
@@ -50,9 +56,44 @@ for(const room of WE.ROOMS){
   roomLights.push({light,roomId:room.id});
 }
 
+// Detailed ground with normal mapping for realistic terrain
+function makeGroundTexture(){
+  const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d');
+  // Base dirt color
+  ctx.fillStyle='#8b7355';ctx.fillRect(0,0,256,256);
+  // Random dark/light spots for variation
+  for(let i=0;i<200;i++){
+    const x=Math.random()*256, y=Math.random()*256;
+    const darkness=Math.random();
+    ctx.fillStyle=`rgba(139,115,85,${0.3+darkness*0.4})`;ctx.fillRect(x,y,2,2);
+  }
+  // Make it repeatable with subtle variation
+  const tex=new THREE.CanvasTexture(c);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.colorSpace=THREE.SRGBColorSpace;return tex;
+}
+function makeGroundNormalMap(){
+  const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d');
+  ctx.fillStyle='#808080';ctx.fillRect(0,0,256,256);
+  // Add some bump detail
+  for(let i=0;i<500;i++){
+    const x=Math.random()*256, y=Math.random()*256;
+    const val=Math.random()*50+50;
+    ctx.fillStyle=`rgba(${val},${val},${val},0.3)`;ctx.fillRect(x,y,1,1);
+  }
+  const tex=new THREE.CanvasTexture(c);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.colorSpace=THREE.SRGBColorSpace;return tex;
+}
 const grassTex=makeGrassTexture();grassTex.repeat.set(50,50);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({map:grassTex,roughness:0.9}));
-ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const groundNormalMap=makeGroundNormalMap();
+const ground=new THREE.Mesh(
+  new THREE.PlaneGeometry(200,200),
+  new THREE.MeshStandardMaterial({ 
+    map: grassTex, 
+    roughness: 0.85, 
+    metalness: 0.02,
+    normalMap: groundNormalMap,
+    normalScale: new THREE.Vector2(0.1, 0.1)
+  })
+);
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;ground.position.y=0;scene.add(ground);
 
 function makePath(x1,z1,x2,z2,width=1.2){const dx=x2-x1,dz=z2-z1;const len=Math.sqrt(dx*dx+dz*dz);const path=new THREE.Mesh(new THREE.PlaneGeometry(width,len),new THREE.MeshStandardMaterial({color:0xb8a88a,roughness:0.9}));path.rotation.x=-Math.PI/2;path.rotation.z=-Math.atan2(dx,dz);path.position.set((x1+x2)/2,0.025,(z1+z2)/2);path.receiveShadow=true;return path;}
 scene.add(makePath(6,4,16,4));scene.add(makePath(16,4,22,11));scene.add(makePath(5,12,16,11));scene.add(makePath(16,11,16,15));

@@ -282,18 +282,24 @@ TSharedPtr<FJsonObject> UNLTWebServerSubsystem::BuildSnapshotObject()
 	// Avatars - get from Mass Entity system
 	TSharedPtr<FJsonObject> AvatarsObject = MakeShareable(new FJsonObject());
 	auto* MassSub = World ? World->GetSubsystem<UMassEntitySubsystem>() : nullptr;
-	if (MassSub)
+	if (MassSub && World->bIsWorldInitialized)
 	{
-		// TODO (H3): PR #28 fixed this via read-only GetEntityManager() but UE 5.8 
-		// FMassExecutionContext requires non-const — revert when Mass API is updated
 		FMassEntityManager& EntityManager = const_cast<FMassEntityManager&>(MassSub->GetEntityManager());
-		FMassEntityQuery Query;
-		Query.AddRequirement<FNLTAgentIdentityFragment>(EMassFragmentAccess::ReadOnly);
-		Query.AddRequirement<FNLTAgentLocationFragment>(EMassFragmentAccess::ReadOnly);
-		Query.AddRequirement<FNLTAgentCognitiveFragment>(EMassFragmentAccess::ReadOnly);
+		// Use a pre-constructed shared query to avoid re-adding requirements at runtime
+		// (FMassFragmentRequirements::AddRequirement fails after MassEntity initialization)
+		static FMassEntityQuery AvatarQuery;
+		static bool bQueryInitialized = false;
+		if (!bQueryInitialized)
+		{
+			AvatarQuery.Initialize(MassSub->GetMutableEntityManager().AsShared());
+			AvatarQuery.AddRequirement<FNLTAgentIdentityFragment>(EMassFragmentAccess::ReadOnly);
+			AvatarQuery.AddRequirement<FNLTAgentLocationFragment>(EMassFragmentAccess::ReadOnly);
+			AvatarQuery.AddRequirement<FNLTAgentCognitiveFragment>(EMassFragmentAccess::ReadOnly);
+			bQueryInitialized = true;
+		}
 
 		FMassExecutionContext ExecutionContext(EntityManager);
-		Query.ForEachEntityChunk(ExecutionContext, [this, &AvatarsObject](FMassExecutionContext& Context)
+		AvatarQuery.ForEachEntityChunk(ExecutionContext, [this, &AvatarsObject](FMassExecutionContext& Context)
 		{
 			const TArrayView<const FNLTAgentIdentityFragment>& Identities = Context.GetFragmentView<FNLTAgentIdentityFragment>();
 			const TArrayView<const FNLTAgentLocationFragment>& Locations = Context.GetFragmentView<FNLTAgentLocationFragment>();

@@ -38,7 +38,11 @@ public class WorldEngine : ModuleRules
             "Networking",
             "Sockets",
             "Niagara",
-            "NiagaraCore"
+            "NiagaraCore",
+            "LearningAgents",
+            "LearningAgentsTraining",
+            "Learning",
+            "LearningTraining"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] {
