@@ -22,7 +22,7 @@ void UNLTAideInteractor::SpecifyAgentObservation(
     ULearningAgentsObservationSchema* InObservationSchema)
 {
     TMap<FName, FLearningAgentsObservationSchemaElement> ObsElements;
-    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 3));
+    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema));
     ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 3));
     ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 7));
     
@@ -58,15 +58,13 @@ void UNLTAideInteractor::GatherAgentObservation(
     ULTCognitiveStateComponent* Cognitive = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
     if (Cognitive)
     {
-        TArray<float> CognitiveValues = Cognitive->GetObservationValues();
         ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, CognitiveValues, true, TEXT("AideObsCognitive")));
+            InObservationObject, Cognitive->GetObservationValues(), true, TEXT("AideObsCognitive")));
     }
     else
     {
-        TArray<float> CognitiveValues = {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f};
         ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, CognitiveValues, true, TEXT("AideObsCognitive")));
+            InObservationObject, {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f}, true, TEXT("AideObsCognitive")));
     }
 
     OutObservationObjectElement = ULearningAgentsObservations::MakeStructObservation(
@@ -77,8 +75,9 @@ void UNLTAideInteractor::SpecifyAgentAction(
     FLearningAgentsActionSchemaElement& OutActionSchemaElement,
     ULearningAgentsActionSchema* InActionSchema)
 {
+    // 10 discrete strategies (0-9)
     OutActionSchemaElement = ULearningAgentsActions::SpecifyExclusiveDiscreteAction(
-        InActionSchema, 11, {});
+        InActionSchema, 10, {});
 }
 
 void UNLTAideInteractor::PerformAgentAction(

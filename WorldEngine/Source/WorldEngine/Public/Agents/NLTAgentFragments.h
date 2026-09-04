@@ -21,6 +21,15 @@ struct FNLTAgentIdentityFragment : public FMassFragment
 
     UPROPERTY()
     FName DisplayName;
+
+    UPROPERTY()
+    int32 TeamId = 0;
+
+    UPROPERTY()
+    bool bIsSelected = false;
+
+    UPROPERTY()
+    int32 VisualCustomizationId = 0;
 };
 
 USTRUCT()

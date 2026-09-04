@@ -15,9 +15,8 @@ void UNLTAvatarInteractor::SpecifyAgentObservation(
     FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
     ULearningAgentsObservationSchema* InObservationSchema)
 {
-    // Struct observation: position (3 floats), velocity (3 floats), cognitive (7 floats)
     TMap<FName, FLearningAgentsObservationSchemaElement> ObsElements;
-    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 3));
+    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema));
     ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 3));
     ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 7));
     
@@ -36,32 +35,25 @@ void UNLTAvatarInteractor::GatherAgentObservation(
     FVector Position = Avatar->GetActorLocation();
     FVector Velocity = Avatar->GetVelocity();
 
-    // Build struct observation
     TMap<FName, FLearningAgentsObservationObjectElement> ObsElements;
     
-    // Position
     ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::MakeLocationObservation(
         InObservationObject, Position, FTransform::Identity, true, TEXT("AvatarPosition")));
     
-    // Velocity (as a vector of 3 floats)
     TArray<float> VelValues = {Velocity.X, Velocity.Y, Velocity.Z};
     ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
         InObservationObject, VelValues, true, TEXT("AvatarVelocity")));
     
-    // Cognitive state from LTCognitiveStateComponent
     ULTCognitiveStateComponent* Cognitive = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
     if (Cognitive)
     {
-        TArray<float> CognitiveValues = Cognitive->GetObservationValues();
         ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, CognitiveValues, true, TEXT("AvatarCognitive")));
+            InObservationObject, Cognitive->GetObservationValues(), true, TEXT("AvatarCognitive")));
     }
     else
     {
-        // Fallback if no cognitive component
-        TArray<float> CognitiveValues = {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f};
         ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, CognitiveValues, true, TEXT("AvatarCognitive")));
+            InObservationObject, {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f}, true, TEXT("AvatarCognitive")));
     }
 
     OutObservationObjectElement = ULearningAgentsObservations::MakeStructObservation(
@@ -72,14 +64,9 @@ void UNLTAvatarInteractor::SpecifyAgentAction(
     FLearningAgentsActionSchemaElement& OutActionSchemaElement,
     ULearningAgentsActionSchema* InActionSchema)
 {
-    // Struct action: move direction (3 continuous) + interaction type (discrete)
     TMap<FName, FLearningAgentsActionSchemaElement> ActionElements;
-    
-    // Move direction: 3 continuous floats (X, Y, Z direction to move)
     ActionElements.Add(TEXT("MoveDirection"), 
         ULearningAgentsActions::SpecifyContinuousAction(InActionSchema, 3));
-    
-    // Interaction: discrete exclusive (0=None, 1=Work, 2=Rest, 3=Interact)
     ActionElements.Add(TEXT("Interaction"),
         ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 4, {}));
 
@@ -98,13 +85,14 @@ void UNLTAvatarInteractor::PerformAgentAction(
     AAvatarAIController* AIController = Cast<AAvatarAIController>(Avatar->GetController());
     if (!AIController) return;
 
-    // Disable wandering when LA performs an action
-    AIController->SetLearningAgentsActive(true);
+    // Get move direction from the struct action (by name)
+    FLearningAgentsActionObjectElement MoveDirectionElement;
+    ULearningAgentsActions::GetStructActionElement(
+        MoveDirectionElement, InActionObject, InActionObjectElement, TEXT("MoveDirection"));
 
-    // Get move direction from the struct action
     TArray<float> MoveDirectionValues;
-    ULearningAgentsActions::GetContinuousActionToArrayView(
-        MoveDirectionValues, InActionObject, InActionObjectElement, true, TEXT("ContinuousAction"));
+    ULearningAgentsActions::GetContinuousAction(
+        MoveDirectionValues, InActionObject, MoveDirectionElement, true, TEXT("MoveDirection"));
 
     if (MoveDirectionValues.Num() >= 3)
     {
@@ -115,4 +103,14 @@ void UNLTAvatarInteractor::PerformAgentAction(
             AIController->MoveToLocation(TargetLocation);
         }
     }
+
+    // Get interaction value from the struct action
+    FLearningAgentsActionObjectElement InteractionElement;
+    ULearningAgentsActions::GetStructActionElement(
+        InteractionElement, InActionObject, InActionObjectElement, TEXT("Interaction"));
+
+    int32 InteractionChoice = 0;
+    ULearningAgentsActions::GetExclusiveDiscreteAction(
+        InteractionChoice, InActionObject, InteractionElement, true, TEXT("Interaction"));
+    // TODO: Apply interaction choice (set intent on Avatar, interact with SmartObject, etc.)
 }

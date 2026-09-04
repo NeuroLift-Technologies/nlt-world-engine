@@ -5,6 +5,10 @@
 #include "Core/NLTSimulationState.h"
 #include "Core/NLTEventBus.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "DustMotesActor.h"
+#include "PostProcessVolumeActor.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/SkyLight.h"
 #include "NLTWorkplaceEnvironmentSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTWorkplaceEnvironment, Log, All);
@@ -117,10 +121,32 @@ private:
 	/** Read a length-prefixed byte blob, returning false if truncated. */
 	static bool ReadBlob(const TArray<uint8>& InData, int32& Offset, TArray<uint8>& OutBlob);
 
+	/** Apply normal-mapped ground material for visual realism. */
+	void ApplyGroundMaterialOverride();
+
+	/** Update dust mote visibility based on time of day. */
+	void UpdateDustMotes(float Daylight, int32 Tick);
+
 	TObjectPtr<UNLTSimulationClockSubsystem> Clock = nullptr;
 	TObjectPtr<UNLTEventBus> EventBus = nullptr;
 	TObjectPtr<UNLTDeterministicSeedSubsystem> Seed = nullptr;
 	TObjectPtr<UNLTRoomStateSubsystem> RoomState = nullptr;
+
+	/** Sun directional light - updated each time-of-day cycle */
+	TObjectPtr<ADirectionalLight> SunLight = nullptr;
+
+	/** Sky light / ambient source - updated with time-of-day color */
+	TObjectPtr<ASkyLight> SkyLight = nullptr;
+
+	/** Dust motes actor for atmospheric effect */
+	TObjectPtr<ADustMotesActor> DustMotesActor = nullptr;
+
+	/** Optional dust particle template */
+	UPROPERTY(EditAnywhere, Category = "NLT|Environment|Workplace")
+	TObjectPtr<UParticleSystem> DustTemplate = nullptr;
+
+	/** Post-process volume for realistic rendering */
+	TObjectPtr<APostProcessVolumeActor> PostProcessVolumeActor = nullptr;
 
 	FName ActiveScenarioId = NAME_None;
 	int32 MasterSeed = 0;

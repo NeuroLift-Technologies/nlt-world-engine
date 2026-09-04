@@ -96,6 +96,148 @@ SensoryBalance - Sensory sensitivity
 SocialSync - Social challenges
 SensorySeeker - Sensory seeking behavior
 ConfidenceCoach - Self-esteem and identity
+## 🎮 Unreal Engine AI Tools
+
+This project leverages Unreal Engine's AI capabilities for simulation and training. Below are the key tools and plugins available.
+
+### Learning Agents Plugin (UE 5.3+)
+
+Epic's experimental machine learning plugin for training AI characters using reinforcement learning (RL) and imitation learning (IL).
+
+#### Core Components
+
+| Component | Purpose |
+|-----------|---------|
+| **LearningAgentsManager** | Central actor that tracks agents, stores references, orchestrates training/inference. Multiple agents handled in batch for efficient processing. |
+| **LearningAgentsInteractor** | Defines how agents observe the environment and perform actions. Implements observation/action schemas and gathering logic. |
+| **LearningAgentsPolicy** | Neural network that maps observations → actions. Supports custom network architectures. |
+| **LearningAgentsTrainer** | Handles reinforcement learning (rewards, completions, resets) and manages the training loop. |
+| **LearningAgentsCritic** | Used during training to estimate value functions for PPO. |
+| **LearningAgentsRecorder** | Records training data to files for analysis and offline training. |
+| **LearningAgentsNeuralNetwork** | Data asset storing trained network weights. Supports serialization to disk. |
+
+#### Observation System
+
+| Observation Type | Description |
+|------------------|-------------|
+| Position, Rotation, Velocity | Agent transform and motion state |
+| Ray/Collision | Spatial awareness via raycasts |
+| DepthMap | Visual depth information |
+| Custom Vector | User-defined float arrays |
+| Conv1d/Conv2d | Convolutional observation parameters |
+
+#### Action System
+
+| Action Type | Description |
+|-------------|-------------|
+| Continuous | Float values for smooth control |
+| Discrete | Integer selections for branching decisions |
+| Action Modifiers | Post-processing transforms on actions |
+
+#### Training Algorithms
+
+- **PPO (Proximal Policy Optimization)** — Primary RL algorithm for policy gradient training
+- **Behavior Cloning (BC)** — Imitation learning from expert demonstrations
+- **Reward Shaping** — Flexible reward function composition
+- **Episode Management** — Terminations and truncations for training control
+
+#### Neural Network Features
+
+- Configurable activation functions (ReLU, Tanh, etc.)
+- Observation/action normalization
+- Convolutional layers (1D, 2D) for visual inputs
+- Memory cells for recurrent policies
+- Batch processing for multiple agents
+
+#### Blueprint & C++ API
+
+- Full Blueprint support for rapid prototyping
+- C++ API for performance-critical applications
+- Visual logger for debugging training
+- Python training process integration (PyTorch-based)
+
+---
+
+### AMD Schola v2 (UE 5.5+, Open Source)
+
+Open-source reinforcement learning plugin bridging Unreal Engine to Python RL frameworks.
+
+| Feature | Details |
+|---------|---------|
+| **Framework Support** | Stable Baselines 3, Ray RLlib, Gymnasium 1.1+ |
+| **Architecture** | Modular: Agent Interface, Policy Interface, Stepper Objects |
+| **Dynamic Agents** | Spawn/despawn agents mid-episode |
+| **Multi-Agent** | Heterogeneous agent types with different observation/action spaces |
+| **Imitation Learning** | Native Minari dataset format support |
+| **License** | MIT |
+
+#### Key Components
+
+- `UInferenceComponent` — Add inference to any actor
+- `AInferencePawn` — Standalone pawn-based agents
+- `AInferenceController` — AI controller pattern
+- `UNNEPolicy` — Native ONNX inference via UE Neural Network Engine
+- `UBlueprintPolicy` — Custom Blueprint-based decisions
+- `SimpleStepper` — Synchronous inference
+- `PipelinedStepper` — Overlapped inference for throughput
+
+#### Best For
+
+- Complex multi-agent scenarios
+- Research and sim-to-real transfer
+- Heterogeneous agent teams
+- Projects requiring specific RL frameworks
+
+---
+
+### Additional AI Plugins
+
+#### NPC Intelligence Plugins
+
+| Plugin | Price | Features |
+|--------|-------|----------|
+| **Convai** | Free | Intelligent NPCs with voice dialogue, lip-sync, actions, knowledge base, multiplayer support |
+| **Inworld AI NPC Engine** | Free | AI-powered NPCs with unscripted dialogue, EQ, contextual awareness, voice-to-voice |
+| **Athena AI** | Varies | Utility AI framework for flexible NPC decision-making |
+
+#### AI Frameworks
+
+| Plugin | Price | Features |
+|--------|-------|----------|
+| **Fast AI Plugin** | $69.99 | C++ AI system for melee, ranged, animals, zombies; multiplayer support |
+| **Diverse AI** | $34.99 | Blueprint-based framework for flying/walking AI with customizable behaviors |
+| **AI Integration Toolkit** | $29.99 | ChatGPT, DALL-E, Whisper, ElevenLabs TTS integration |
+
+#### Movement & Navigation
+
+| Plugin | Features |
+|--------|----------|
+| **Enhanced AI Movement** | Spline-based paths, IK control rigs, dynamic avoidance, procedural movement, crowd system |
+
+#### AI Copilots & Assistants
+
+| Plugin | Features |
+|--------|----------|
+| **UnrealAI** | AI copilot for generating C++, Blueprints, materials, textures, meshes, audio; supports Claude, OpenAI, Gemini, Ollama |
+| **StraySpark Unreal MCP Server** | 370+ editor tools for AI agents to operate the editor directly |
+
+---
+
+### Built-in UE AI Features
+
+| Feature | Description |
+|---------|-------------|
+| **Behavior Trees** | Visual scripting for AI decision-making |
+| **Blackboard** | Data storage for behavior tree variables |
+| **AI Perception System** | Sight, hearing, damage sensing |
+| **Navigation System** | NavMesh, pathfinding, avoidance |
+| **Environment Query System (EQS)** | Query environment for tactical decisions |
+| **State Tree** | Modern state machine alternative |
+| **Mass Entity (ECS)** | High-performance entity component system for large-scale simulations |
+| **MetaHuman Animator** | Facial motion capture for MetaHuman characters |
+
+---
+
 ## Quick Start
 
 ### 🎮 Unreal Engine 5.8 World Engine (physical substrate)

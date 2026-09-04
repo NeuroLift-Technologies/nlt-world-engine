@@ -14,6 +14,18 @@
 #include "NLTEpisodeManager.h"
 #include "NLTTrainingManager.generated.h"
 
+/**
+ * Training Manager that orchestrates PPO training for Avatar/Aide pairs.
+ * 
+ * Training loop:
+ * 1. Spawn 20 Avatar/Aide pairs
+ * 2. Each tick:
+ *    - Aide observes paired Avatar's cognitive state
+ *    - Aide picks coaching strategy (0-9)
+ *    - Strategy modifies Avatar's stress/focus/burnout
+ *    - Reward reflects cognitive state changes
+ *    - Episode ends on cognitive thresholds or max steps
+ */
 UCLASS()
 class WORLDENGINE_API ANLTTrainingManager : public AActor
 {
@@ -32,16 +44,25 @@ public:
     UNLTAideInteractor* AideInteractor;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsPolicy* Policy;
+    ULearningAgentsPolicy* AvatarPolicy;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsCritic* Critic;
+    ULearningAgentsCritic* AvatarCritic;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
+    ULearningAgentsPolicy* AidePolicy;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
+    ULearningAgentsCritic* AideCritic;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
     ULearningAgentsTrainingEnvironment* TrainingEnvironment;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsPPOTrainer* Trainer;
+    ULearningAgentsPPOTrainer* AvatarTrainer;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
+    ULearningAgentsPPOTrainer* AideTrainer;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
     UNLTEpisodeManager* EpisodeManager;
@@ -75,4 +96,5 @@ private:
     void SpawnAndRegisterPairs();
     void OnEpisodeComplete();
     TMap<int32, int32> PairMap; // AideId -> AvatarId
+    float TrainingTimer = 0.0f;
 };

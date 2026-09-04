@@ -18,6 +18,7 @@ ANLTTrainingManager::ANLTTrainingManager()
     bRunInference = false;
     bRunTraining = false;
     MaxEpisodeSteps = 512;
+    TrainingTimer = 0.0f;
 }
 
 void ANLTTrainingManager::BeginPlay()
@@ -26,6 +27,7 @@ void ANLTTrainingManager::BeginPlay()
 
     // 1. Create Episode Manager
     EpisodeManager = NewObject<UNLTEpisodeManager>(this);
+    EpisodeManager->RegisterComponent();
     EpisodeManager->MaxEpisodeSteps = MaxEpisodeSteps;
     EpisodeManager->StepInterval = TickInterval;
     EpisodeManager->OnEpisodeComplete.AddDynamic(this, &ANLTTrainingManager::OnEpisodeComplete);
@@ -44,80 +46,102 @@ void ANLTTrainingManager::BeginPlay()
     AvatarInteractor->SetupInteractor(ManagerPtr);
     AideInteractor->SetupInteractor(ManagerPtr);
 
-    // 4. Setup Policy
-    Policy = NewObject<ULearningAgentsPolicy>(this);
-    FLearningAgentsPolicySettings PolicySettings;
-    PolicySettings.HiddenLayerNum = 1;
-    PolicySettings.HiddenLayerSize = 128;
-    PolicySettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    Policy->SetupPolicy(ManagerPtr, AvatarInteractorPtr, nullptr, nullptr, nullptr, true, true, true, PolicySettings, 1234);
+    // 4. Setup Avatar Policy/Critic
+    AvatarPolicy = NewObject<ULearningAgentsPolicy>(this);
+    FLearningAgentsPolicySettings AvatarPolicySettings;
+    AvatarPolicySettings.HiddenLayerNum = 1;
+    AvatarPolicySettings.HiddenLayerSize = 128;
+    AvatarPolicySettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
+    AvatarPolicy->SetupPolicy(ManagerPtr, AvatarInteractorPtr, nullptr, nullptr, nullptr, true, true, true, AvatarPolicySettings, 1234);
 
-    // 5. Setup Critic
-    Critic = NewObject<ULearningAgentsCritic>(this);
-    FLearningAgentsCriticSettings CriticSettings;
-    CriticSettings.HiddenLayerNum = 1;
-    CriticSettings.HiddenLayerSize = 128;
-    CriticSettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    Critic->SetupCritic(ManagerPtr, AvatarInteractorPtr, Policy, nullptr, true, CriticSettings, 1234);
+    AvatarCritic = NewObject<ULearningAgentsCritic>(this);
+    FLearningAgentsCriticSettings AvatarCriticSettings;
+    AvatarCriticSettings.HiddenLayerNum = 1;
+    AvatarCriticSettings.HiddenLayerSize = 128;
+    AvatarCriticSettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
+    AvatarCritic->SetupCritic(ManagerPtr, AvatarInteractorPtr, AvatarPolicy, nullptr, true, AvatarCriticSettings, 1234);
+
+    // 5. Setup Aide Policy/Critic
+    AidePolicy = NewObject<ULearningAgentsPolicy>(this);
+    FLearningAgentsPolicySettings AidePolicySettings;
+    AidePolicySettings.HiddenLayerNum = 1;
+    AidePolicySettings.HiddenLayerSize = 128;
+    AidePolicySettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
+    AidePolicy->SetupPolicy(ManagerPtr, AideInteractorPtr, nullptr, nullptr, nullptr, true, true, true, AidePolicySettings, 5678);
+
+    AideCritic = NewObject<ULearningAgentsCritic>(this);
+    FLearningAgentsCriticSettings AideCriticSettings;
+    AideCriticSettings.HiddenLayerNum = 1;
+    AideCriticSettings.HiddenLayerSize = 128;
+    AideCriticSettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
+    AideCritic->SetupCritic(ManagerPtr, AideInteractorPtr, AidePolicy, nullptr, true, AideCriticSettings, 5678);
 
     // 6. Setup Training Environment
     TrainingEnvironment = NewObject<UNLTTrainingEnvironment>(this);
     TrainingEnvironment->SetupTrainingEnvironment(ManagerPtr);
 
-    // 7. Create shared memory communicator for Python training process
-    FLearningAgentsCommunicator Communicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
+    // 7. Create shared memory communicators for Python training processes
+    FLearningAgentsCommunicator AvatarCommunicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
+    FLearningAgentsCommunicator AideCommunicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
 
-    // 8. Setup PPO Trainer
-    Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
+    // 8. Setup Avatar PPO Trainer
+    AvatarTrainer = NewObject<ULearningAgentsPPOTrainer>(this);
     FLearningAgentsPPOTrainerSettings TrainerSettings;
     TrainerSettings.MaxEpisodeStepNum = MaxEpisodeSteps;
     TrainerSettings.MaximumRecordedEpisodesPerIteration = 1000;
     TrainerSettings.MaximumRecordedStepsPerIteration = 10000;
-    Trainer->SetupPPOTrainer(ManagerPtr, AvatarInteractorPtr, TrainingEnvironment, Policy, Critic, Communicator, TrainerSettings);
+    AvatarTrainer->SetupPPOTrainer(ManagerPtr, AvatarInteractorPtr, TrainingEnvironment, AvatarPolicy, AvatarCritic, AvatarCommunicator, TrainerSettings);
 
-    // 9. Spawn agent pairs
+    // 9. Setup Aide PPO Trainer
+    AideTrainer = NewObject<ULearningAgentsPPOTrainer>(this);
+    AideTrainer->SetupPPOTrainer(ManagerPtr, AideInteractorPtr, TrainingEnvironment, AidePolicy, AideCritic, AideCommunicator, TrainerSettings);
+
+    // 10. Spawn agent pairs
     SpawnAndRegisterPairs();
 
-    // 10. Start training automatically
+    // 11. Start training automatically
     bRunTraining = true;
+    bRunInference = true;
     if (EpisodeManager)
     {
         EpisodeManager->StartEpisode();
     }
 
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: LA components initialized, training started"));
+    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: LA components initialized with Avatar+Aide dual-policy training"));
 }
 
 void ANLTTrainingManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    // Check cognitive-based episode completion
-    if (EpisodeManager && EpisodeManager->bEpisodeActive)
+    // Tick cognitive decay for all agents
+    if (AgentManager)
     {
-        for (const auto& Pair : PairMap)
+        const TArray<int32>& AllAgentIds = AgentManager->GetAllAgentIds();
+        for (int32 AgentId : AllAgentIds)
         {
-            int32 AvatarId = Pair.Value;
-            UObject* Agent = AgentManager->GetAgent(AvatarId);
+            UObject* Agent = AgentManager->GetAgent(AgentId);
             AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
-            if (Avatar)
+            if (Avatar && Avatar->CognitiveState)
             {
-                ULTCognitiveStateComponent* Cognitive = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
-                if (Cognitive)
-                {
-                    EpisodeManager->CheckCognitiveCompletion(Cognitive->Independence, Cognitive->Burnout);
-                }
+                Avatar->CognitiveState->TickCognitiveDecay(DeltaTime);
             }
         }
     }
 
+    // Run inference every tick
     if (bRunInference)
     {
-        Policy->RunInference(1.0f);
+        AvatarPolicy->RunInference(1.0f);
+        AidePolicy->RunInference(1.0f);
     }
 
-    if (bRunTraining && Trainer)
+    // Throttle training to episode completion or timer
+    TrainingTimer += DeltaTime;
+    if (bRunTraining && TrainingTimer >= 1.0f)
     {
+        TrainingTimer = 0.0f;
+        
         FLearningAgentsPPOTrainingSettings TrainingSettings;
         TrainingSettings.NumberOfIterations = 1;
         TrainingSettings.LearningRatePolicy = 1e-4f;
@@ -130,7 +154,25 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         GameSettings.bUseFixedTimeStep = true;
         GameSettings.FixedTimeStepFrequency = 60.0f;
 
-        Trainer->RunTraining(TrainingSettings, GameSettings, true, true);
+        AvatarTrainer->RunTraining(TrainingSettings, GameSettings, true, true);
+        AideTrainer->RunTraining(TrainingSettings, GameSettings, true, true);
+    }
+
+    // Check cognitive-based episode completion
+    if (EpisodeManager && EpisodeManager->bEpisodeActive)
+    {
+        for (const auto& Pair : PairMap)
+        {
+            int32 AvatarId = Pair.Value;
+            UObject* Agent = AgentManager->GetAgent(AvatarId);
+            AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
+            if (Avatar && Avatar->CognitiveState)
+            {
+                EpisodeManager->CheckCognitiveCompletion(
+                    Avatar->CognitiveState->Independence, 
+                    Avatar->CognitiveState->Burnout);
+            }
+        }
     }
 }
 

@@ -9,7 +9,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "Components/PostProcessVolumeComponent.h"
+#include "Components/PostProcessComponent.h"
 
 // Initialize static material parameter names
 const FName AAvatarCharacter::ParamTeamColor = TEXT("TeamColor");
@@ -55,12 +55,10 @@ AAvatarCharacter::AAvatarCharacter()
     InteractionParticleComponent->bAutoActivate = false;
     InteractionParticleComponent->SetRelativeLocation(FVector(50.0f, 0.0f, 50.0f));
 
-    // Create post process volume
-    PostProcessVolume = CreateDefaultSubobject<UPostProcessVolumeComponent>(TEXT("PostProcessVolume"));
-    PostProcessVolume->SetupAttachment(GetRootComponent());
-    PostProcessVolume->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
-    PostProcessVolume->Priority = -1; // Lower priority so it doesn't override level settings
-    PostProcessVolume->BlendWeight = 0.0f; // Start disabled
+    // Create post process component
+    PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcessComponent"));
+    PostProcessComponent->SetupAttachment(GetRootComponent());
+    PostProcessComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
     
     // Initialize values
     StressThresholdForParticles = 0.6f;
@@ -136,10 +134,10 @@ void AAvatarCharacter::UpdateVisualState()
     {
         NewState = ECharacterVisualState::Focused;
     }
-    else if (/* Add interaction detection logic here */ false)
-    {
-        NewState = ECharacterVisualState::Interacting;
-    }
+    // else if (bIsInteracting) // Add interaction detection logic here
+    // {
+    //     NewState = ECharacterVisualState::Interacting;
+    // }
     
     CurrentVisualState = NewState;
 }
@@ -151,7 +149,7 @@ void AAvatarCharacter::UpdateMaterials()
     FLinearColor TeamColor = GetTeamColor();
     float StressLevel = GetStressLevel();
     float FocusLevel = GetFocusLevel();
-    float PulseIntensity = FMath::Sin(FApp::GetTime() * 2.0f) * 0.5f + 0.5f;
+    float PulseIntensity = GetWorld() ? FMath::Sin(GetWorld()->GetTimeSeconds() * 2.0f) * 0.5f + 0.5f : 0.5f;
     
     // Update body material
     if (DynamicBodyMaterial)
@@ -192,7 +190,7 @@ void AAvatarCharacter::UpdateParticleEffects()
         }
         
         // Scale particle spawn rate with stress level
-        if (StressParticleComponent->ParticleSystem)
+        if (StressParticleComponent->Template)
         {
             float SpawnRateScale = FMath::Clamp(StressLevel / StressThresholdForParticles, 0.5f, 2.0f);
             StressParticleComponent->SetFloatParameter(TEXT("SpawnRateScale"), SpawnRateScale);
@@ -215,7 +213,7 @@ void AAvatarCharacter::UpdateParticleEffects()
         }
         
         // Scale aura intensity with focus level
-        if (FocusAuraComponent->ParticleSystem)
+        if (FocusAuraComponent->Template)
         {
             float AuraIntensity = FMath::Clamp(FocusLevel / FocusThresholdForAura, 0.5f, 2.0f);
             FocusAuraComponent->SetFloatParameter(TEXT("AuraIntensity"), AuraIntensity);
@@ -232,7 +230,7 @@ void AAvatarCharacter::UpdateParticleEffects()
 
 void AAvatarCharacter::UpdatePostProcessing()
 {
-    if (!PostProcessVolume) return;
+    if (!PostProcessComponent) return;
     
     float StressLevel = GetStressLevel();
     float FocusLevel = GetFocusLevel();
@@ -258,7 +256,7 @@ void AAvatarCharacter::UpdatePostProcessing()
             BlendWeight = 0.0f;
     }
     
-    PostProcessVolume->BlendWeight = BlendWeight;
+    PostProcessComponent->BlendWeight = BlendWeight;
 }
 
 // ============== Helper Functions ==============

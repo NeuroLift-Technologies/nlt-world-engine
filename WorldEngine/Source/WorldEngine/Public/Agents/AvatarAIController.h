@@ -30,7 +30,7 @@ public:
     float AcceptanceRadius = 50.0f;
 
     // Learning Agents integration
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LearningAgents")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
     bool bLearningAgentsActive = false;
 
     UFUNCTION(BlueprintCallable, Category = "LearningAgents")

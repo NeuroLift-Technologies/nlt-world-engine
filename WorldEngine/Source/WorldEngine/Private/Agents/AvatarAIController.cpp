@@ -23,6 +23,11 @@ void AAvatarAIController::SetLearningAgentsActive(bool bActive)
         StopMovement();
         GetWorldTimerManager().ClearTimer(WaitTimer);
     }
+    else
+    {
+        // Resume wandering when LA relinquishes control
+        Wander();
+    }
 }
 
 void AAvatarAIController::OnPossess(APawn* InPawn)

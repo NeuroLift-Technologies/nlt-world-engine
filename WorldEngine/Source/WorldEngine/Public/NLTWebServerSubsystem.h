@@ -10,6 +10,7 @@
 #include "Dom/JsonValue.h"
 #include "Serialization/JsonWriter.h"
 #include "Serialization/JsonSerializer.h"
+#include "MassEntityQuery.h"
 #include "NLTWebServerSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTWebServer, Log, All);

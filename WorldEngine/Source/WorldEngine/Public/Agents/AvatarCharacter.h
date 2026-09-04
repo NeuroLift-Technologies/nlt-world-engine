@@ -5,7 +5,7 @@
 #include "GameFramework/Character.h"
 #include "AIController.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "Components/PostProcessVolumeComponent.h"
+#include "Components/PostProcessComponent.h"
 #include "AvatarCharacter.generated.h"
 
 // Visual state for character
@@ -100,9 +100,9 @@ public:
 
     // ============== Post-Processing ==============
     
-    // Character-specific post processing volume
+    // Character-specific post processing component
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visual|PostProcessing")
-    UPostProcessVolumeComponent* PostProcessVolume;
+    UPostProcessComponent* PostProcessComponent;
 
     // ============== Visual State ==============
     

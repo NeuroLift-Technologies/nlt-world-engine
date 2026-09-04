@@ -5,6 +5,10 @@
 #include "Components/ActorComponent.h"
 #include "NLTEpisodeManager.generated.h"
 
+/**
+ * Per-agent episode manager for Learning Agents training.
+ * Tracks episode lifecycle with step timing and cognitive-based completion.
+ */
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class WORLDENGINE_API UNLTEpisodeManager : public UActorComponent
 {
@@ -49,4 +53,5 @@ public:
 
 private:
     float StepTimer = 0.0f;
+    bool bEndEpisodeGuard = false;
 };

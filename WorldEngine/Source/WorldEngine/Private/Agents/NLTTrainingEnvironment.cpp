@@ -27,15 +27,16 @@ void UNLTTrainingEnvironment::GatherAgentReward(float& OutReward, const int32 Ag
 
     // Reward: encourage independence, penalize burnout and high stress
     OutReward = 0.0f;
-    OutReward += Cognitive->Independence * 1.0f;      // Encourage independence
-    OutReward -= Cognitive->Burnout * 1.0f;            // Penalize burnout
-    OutReward -= Cognitive->Stress * 0.5f;             // Penalize stress
-    OutReward += Cognitive->Focus * 0.3f;              // Encourage focus
-    OutReward += Cognitive->SuccessRate * 0.5f;        // Encourage success
+    OutReward += Cognitive->Independence * 1.0f;
+    OutReward -= Cognitive->Burnout * 1.0f;
+    OutReward -= Cognitive->Stress * 0.5f;
+    OutReward += Cognitive->Focus * 0.3f;
+    OutReward += Cognitive->SuccessRate * 0.5f;
 }
 
 void UNLTTrainingEnvironment::GatherAgentCompletion(ELearningAgentsCompletion& OutCompletion, const int32 AgentId)
 {
-    // Episode completes after a fixed number of steps (handled by MaxEpisodeStepNum in TrainerSettings)
-    OutCompletion = ELearningAgentsCompletion::Termination;
+    // Return None during active episodes, Termination only when episode actually ends
+    // LA's trainer uses MaxEpisodeStepNum for truncation
+    OutCompletion = ELearningAgentsCompletion::None;
 }
