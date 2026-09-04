@@ -74,6 +74,12 @@ public:
 	FLinearColor SunColorNight = FLinearColor(0.25f, 0.30f, 0.55f, 1.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere|Sun")
+UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere|Sun")
+	bool bSunCastShadows = true;
+
+	/** If false, do not modify existing level sun/sky lights (only apply to spawned lights). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere")
+	bool bOverrideExistingLights = true;
 	bool bSunCastShadows = true;
 
 	// === Sky Light ===
