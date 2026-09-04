@@ -1,9 +1,6 @@
 #include "Simulation/DustMotesComponent.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleSystem.h"
-#include "Materials/MaterialInstanceDynamic.h"
-#include "Kismet/KismetMathLibrary.h"
-#include "UObject/ConstructorHelpers.h"
 
 UDustMotesComponent::UDustMotesComponent()
 {
@@ -12,52 +9,52 @@ UDustMotesComponent::UDustMotesComponent()
 	DriftSpeed = 1.0f;
 	DustColor = FLinearColor(0.9f, 0.85f, 0.7f, 1.0f);
 	VolumeSize = FVector(2000.0f, 2000.0f, 500.0f);
+	bIsVisible = true;
 }
 
 void UDustMotesComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Try the specified template first
-	if (DustTemplate)
+	AActor* Owner = GetOwner();
+	if (!Owner) return;
+
+	// Use the assigned template, otherwise fall back to project/engine assets.
+	// Note: asset lookup happens at runtime, so ConstructorHelpers is NOT used here
+	// (it is only valid inside the class constructor). Loop until we have a component.
+	UParticleSystem* EffectiveTemplate = DustTemplate;
+	if (!EffectiveTemplate)
 	{
-		DustParticles = NewObject<UParticleSystemComponent>(GetOwner());
-		DustParticles->SetTemplate(DustTemplate);
-		DustParticles->bAutoActivate = false;
-		DustParticles->RegisterComponent();
+		EffectiveTemplate = LoadObject<UParticleSystem>(nullptr, TEXT("/Game/VFX/Workplace/NS_DustMotes.NS_DustMotes"));
 	}
-	else
+	if (!EffectiveTemplate)
 	{
-		// Try engine starter content particles
-		static ConstructorHelpers::FObjectFinder<UParticleSystem> DustFinder(
-			TEXT("/Game/VFX/Workplace/NS_DustMotes.NS_DustMotes"));
-		if (DustFinder.Succeeded())
-		{
-			DustTemplate = DustFinder.Object;
-			DustParticles = NewObject<UParticleSystemComponent>(GetOwner());
-			DustParticles->SetTemplate(DustTemplate);
-			DustParticles->bAutoActivate = false;
-			DustParticles->RegisterComponent();
-		}
-		else
-		{
-			// Last resort: try the engine's built-in particle
-			static ConstructorHelpers::FObjectFinder<UParticleSystem> SparkFinder(
-				TEXT("/Engine/EngineResources/DefaultPawn/DefaultPawn_ParticleSystem.DefaultPawn_ParticleSystem"));
-			if (SparkFinder.Succeeded())
-			{
-				DustParticles = NewObject<UParticleSystemComponent>(GetOwner());
-				DustParticles->SetTemplate(SparkFinder.Object);
-				DustParticles->bAutoActivate = false;
-				DustParticles->RegisterComponent();
-			}
-		}
+		EffectiveTemplate = LoadObject<UParticleSystem>(nullptr, TEXT("/Engine/Effects/Tutorial/Dust.ParticleSystem"));
+	}
+	if (!EffectiveTemplate)
+	{
+		EffectiveTemplate = LoadObject<UParticleSystem>(nullptr, TEXT("/Engine/EngineResources/DefaultPawn/DefaultPawn_ParticleSystem.DefaultPawn_ParticleSystem"));
 	}
 
-	if (DustParticles)
+	DustParticles = NewObject<UParticleSystemComponent>(Owner);
+	if (EffectiveTemplate)
+	{
+		DustParticles->SetTemplate(EffectiveTemplate);
+		DustTemplate = EffectiveTemplate;
+	}
+	DustParticles->bAutoActivate = false;
+	DustParticles->SetupAttachment(Owner->GetRootComponent());
+	DustParticles->RegisterComponent();
+
+	if (EffectiveTemplate)
 	{
 		DustParticles->SetFloatParameter(TEXT("SpawnRate"), DustDensity * 50.0f);
 		DustParticles->SetVectorParameter(TEXT("Color"), FVector(DustColor.R, DustColor.G, DustColor.B));
+		DustParticles->SetVisibility(bIsVisible);
+		if (bIsVisible)
+		{
+			DustParticles->ActivateSystem(true);
+		}
 	}
 }
 
@@ -83,9 +80,9 @@ void UDustMotesComponent::SetVisibility(bool bVisible)
 
 	DustParticles->SetVisibility(bVisible);
 	if (bVisible)
-		DustParticles->Activate();
+		DustParticles->ActivateSystem(true);
 	else
-		DustParticles->Deactivate();
+		DustParticles->DeactivateSystem();
 }
 
 void UDustMotesComponent::SetDensity(float Density)

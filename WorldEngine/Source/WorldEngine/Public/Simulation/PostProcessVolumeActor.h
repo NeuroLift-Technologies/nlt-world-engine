@@ -1,26 +1,24 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Volume.h"
+#include "Engine/PostProcessVolume.h"
 #include "PostProcessVolumeActor.generated.h"
 
 /**
  * Cinematic post-process volume for WorldEngine.
+ * Derives from APostProcessVolume so the inherited registered Settings
+ * (bUnbound global volume) are driven by this actor's configuration.
  * Provides film-quality rendering with bloom, ambient occlusion,
  * film grain, chromatic aberration, lens flare, vignette,
  * and color grading.
  */
 UCLASS()
-class WORLDENGINE_API APostProcessVolumeActor : public AVolume
+class WORLDENGINE_API APostProcessVolumeActor : public APostProcessVolume
 {
 	GENERATED_BODY()
 
 public:
 	APostProcessVolumeActor();
-
-	/** Post-process settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process")
-	FPostProcessSettings PostProcessSettings;
 
 	// ─── Bloom ──────────────────────────────────────────────────
 
@@ -90,7 +88,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|DOF", meta = (ClampMin = "0.0", ClampMax = "100.0"))
 	float DOFAperture = 5.5f;
 
-	/** Apply all current property values to the post-process settings. */
+	/** Apply all current property values to the inherited registered Settings. */
 	UFUNCTION(BlueprintCallable, Category = "Post-Process")
 	void ApplySettings();
+
+	/** True when this volume should affect the entire level (unbound). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process")
+	bool bApplyUnbounded = true;
 };

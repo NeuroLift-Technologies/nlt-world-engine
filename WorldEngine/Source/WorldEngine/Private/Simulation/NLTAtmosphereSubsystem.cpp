@@ -1,12 +1,12 @@
 #include "Simulation/NLTAtmosphereSubsystem.h"
 #include "Simulation/PostProcessVolumeActor.h"
 #include "Modules/ModuleManager.h"
-#include "UObject/ConstructorHelpers.h"
 #include "EngineUtils.h"
 #include "Components/LightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Math/UnrealMathUtility.h"
 
 DEFINE_LOG_CATEGORY(LogNLTAtmosphere);
@@ -33,6 +33,11 @@ void UNLTAtmosphereSubsystem::Deinitialize()
 {
 	SkyDomeMaterialInstance = nullptr;
 	Super::Deinitialize();
+}
+
+TStatId UNLTAtmosphereSubsystem::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(UNLTAtmosphereSubsystem, STATGROUP_Tickables);
 }
 
 void UNLTAtmosphereSubsystem::Tick(float DeltaTime)
@@ -132,27 +137,17 @@ void UNLTAtmosphereSubsystem::UpdateSunLight(float Hours)
 
 	FLinearColor SunColor;
 	if (Daylight > 0.5f)
-	{
 		SunColor = BlendColor(SunColorDawn, SunColorMidday, (Daylight - 0.5f) * 2.0f);
-	}
 	else if (Daylight > 0.0f)
-	{
 		SunColor = BlendColor(SunColorNight, SunColorDawn, Daylight * 2.0f);
-	}
 	else
-	{
 		SunColor = SunColorNight;
-	}
 	LightComp->SetLightColor(SunColor);
 	LightComp->SetCastShadows(bSunCastShadows && Daylight > 0.05f);
-	LightComp->SetUseTemperature(true);
+
 	// Warm at dawn/dusk (low daylight), cool at midday (high daylight)
-	LightComp->SetTemperature(FMath::Lerp(3000.0f, 6500.0f, Daylight));
-}
-	// Warm at dawn/dusk (low daylight), cool at midday (high daylight)
-	LightComp->SetTemperature(FMath::Lerp(3000.0f, 6500.0f, Daylight));
 	LightComp->SetUseTemperature(true);
-	LightComp->SetTemperature(FMath::Lerp(3000.0f, 6500.0f, FMath::Sin(Daylight * PI)));
+	LightComp->SetTemperature(FMath::Lerp(3000.0f, 6500.0f, Daylight));
 }
 
 // ─── Sky Light ───────────────────────────────────────────────────
@@ -251,10 +246,10 @@ void UNLTAtmosphereSubsystem::UpdateColorGrading(float Hours)
 	PostProcessVolumeActor->ColorGradeTint = FLinearColor(
 		1.0f + WarmAmount, 1.0f + WarmAmount * 0.3f, 1.0f - WarmAmount * 0.5f, 1.0f);
 
-	PostProcessVolumeActor->PostProcessSettings.bOverride_SceneColorTint = true;
-	PostProcessVolumeActor->PostProcessSettings.SceneColorTint = PostProcessVolumeActor->ColorGradeTint;
+	PostProcessVolumeActor->Settings.bOverride_SceneColorTint = true;
+	PostProcessVolumeActor->Settings.SceneColorTint = PostProcessVolumeActor->ColorGradeTint;
 	PostProcessVolumeActor->BloomIntensity = 1.2f + (MiddaySaturation - 1.0f) * Daylight * 0.5f;
-	PostProcessVolumeActor->PostProcessSettings.BloomIntensity = PostProcessVolumeActor->BloomIntensity;
+	PostProcessVolumeActor->Settings.BloomIntensity = PostProcessVolumeActor->BloomIntensity;
 }
 
 // ─── Phase Calculation ───────────────────────────────────────────
@@ -277,71 +272,6 @@ FLinearColor UNLTAtmosphereSubsystem::BlendColor(const FLinearColor& A, const FL
 		FMath::Lerp(A.R, B.R, T), FMath::Lerp(A.G, B.G, T),
 		FMath::Lerp(A.B, B.B, T), FMath::Lerp(A.A, B.A, T));
 }
-void UNLTAtmosphereSubsystem::FindSunLight()
-{
-	if (SunLight) return;
-
-	if (bOverrideExistingLights)
-	{
-		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
-			{ SunLight = *It; break; }
-	}
-	else
-	{
-		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
-		{
-			if (It->GetName().Contains(TEXT("NLT_SunLight")))
-				{ SunLight = *It; break; }
-		}
-	}
-
-	if (!SunLight)
-	{
-		FActorSpawnParameters SP;
-		SP.Name = TEXT("NLT_SunLight");
-		SunLight = GetWorld()->SpawnActor<ADirectionalLight>(SP);
-		if (SunLight)
-		{
-			SunLight->GetLightComponent()->SetIntensity(SunIntensityMidday);
-			SunLight->GetLightComponent()->SetLightColor(SunColorMidday);
-			SunLight->GetLightComponent()->SetCastShadows(bSunCastShadows);
-			SunLight->GetLightComponent()->SetMobility(EComponentMobility::Movable);
-			SunLight->SetActorRotation(FRotator(-45.0f, 0.0f, 0.0f));
-		}
-	}
-}
-
-void UNLTAtmosphereSubsystem::FindSkyLight()
-{
-	if (SkyLight) return;
-
-	if (bOverrideExistingLights)
-	{
-		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
-			{ SkyLight = *It; break; }
-	}
-	else
-	{
-		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
-		{
-			if (It->GetName().Contains(TEXT("NLT_SkyLight")))
-				{ SkyLight = *It; break; }
-		}
-	}
-
-	if (!SkyLight)
-	{
-		FActorSpawnParameters SP;
-		SP.Name = TEXT("NLT_SkyLight");
-		SkyLight = GetWorld()->SpawnActor<ASkyLight>(SP);
-		if (SkyLight)
-		{
-			SkyLight->GetLightComponent()->SetIntensity(SkyIntensityMidday);
-			SkyLight->GetLightComponent()->SetLightColor(SkyColorDay);
-			SkyLight->GetLightComponent()->SetMobility(EComponentMobility::Movable);
-		}
-	}
-}
 
 // ─── Actor Finding / Creation ────────────────────────────────────
 
@@ -351,13 +281,11 @@ void UNLTAtmosphereSubsystem::FindSunLight()
 
 	if (bOverrideExistingLights)
 	{
-		// Find any existing directional light
 		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
 			{ SunLight = *It; break; }
 	}
 	else
 	{
-		// Only find lights we spawned ourselves
 		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
 		{
 			if (It->GetName().Contains(TEXT("NLT_SunLight")))
@@ -398,47 +326,6 @@ void UNLTAtmosphereSubsystem::FindSkyLight()
 				{ SkyLight = *It; break; }
 		}
 	}
-
-	if (!SkyLight)
-	{
-		FActorSpawnParameters SP;
-		SP.Name = TEXT("NLT_SkyLight");
-		SkyLight = GetWorld()->SpawnActor<ASkyLight>(SP);
-		if (SkyLight)
-		{
-			SkyLight->GetLightComponent()->SetIntensity(SkyIntensityMidday);
-			SkyLight->GetLightComponent()->SetLightColor(SkyColorDay);
-			SkyLight->GetLightComponent()->SetMobility(EComponentMobility::Movable);
-		}
-	}
-}
-void UNLTAtmosphereSubsystem::FindSunLight()
-{
-	if (SunLight) return;
-	for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
-		{ SunLight = *It; break; }
-
-	if (!SunLight)
-	{
-		FActorSpawnParameters SP;
-		SP.Name = TEXT("NLT_SunLight");
-		SunLight = GetWorld()->SpawnActor<ADirectionalLight>(SP);
-		if (SunLight)
-		{
-			SunLight->GetLightComponent()->SetIntensity(SunIntensityMidday);
-			SunLight->GetLightComponent()->SetLightColor(SunColorMidday);
-			SunLight->GetLightComponent()->SetCastShadows(bSunCastShadows);
-			SunLight->GetLightComponent()->SetMobility(EComponentMobility::Movable);
-			SunLight->SetActorRotation(FRotator(-45.0f, 0.0f, 0.0f));
-		}
-	}
-}
-
-void UNLTAtmosphereSubsystem::FindSkyLight()
-{
-	if (SkyLight) return;
-	for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
-		{ SkyLight = *It; break; }
 
 	if (!SkyLight)
 	{
@@ -486,10 +373,9 @@ void UNLTAtmosphereSubsystem::FindOrCreateSkyDome()
 		if (SkyActor)
 		{
 			SkyActor->SetActorLabel(TEXT("NLT_SkyDome"));
-			UStaticMesh* SphereMesh = nullptr;
-			static ConstructorHelpers::FObjectFinder<UStaticMesh> Finder(TEXT("/Engine/BasicShapes/Sphere"));
-			if (Finder.Succeeded()) SphereMesh = Finder.Object;
 
+			// Runtime-safe asset lookup (not constructor-only API)
+			UStaticMesh* SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere"));
 			if (SphereMesh)
 			{
 				SkyDomeComponent = NewObject<UStaticMeshComponent>(SkyActor, TEXT("SkyDomeMesh"));

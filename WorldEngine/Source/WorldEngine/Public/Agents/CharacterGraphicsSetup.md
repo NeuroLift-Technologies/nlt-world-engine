@@ -156,7 +156,7 @@ Material parameters:
 
 In `BP_AvatarCharacter` blueprint:
 
-1. Add **PostProcessVolumeComponent** named "PostProcessVolume"
+1. Add **UPostProcessComponent** named "PostProcessVolume"
    - Priority: -1
    - Blend Weight: 0.0 (initially disabled)
    - Settings: Use M_PostProcess_Character
@@ -229,7 +229,13 @@ The `AAvatarCharacter` class now includes:
 ### Components
 - `USkeletalMeshComponent` (inherited from ACharacter)
 - `UParticleSystemComponent` x3 (Stress, Focus, Interaction)
-- `UPostProcessVolumeComponent`
+### Components
+- `USkeletalMeshComponent` (inherited from ACharacter)
+- `UParticleSystemComponent` x3 (Stress, Focus, Interaction)
+- `UPostProcessComponent`
+- `ULTCognitiveStateComponent`
+- `UNLTAvatarVisualComponent` (cognitive-state-driven status ring, emissive glow, state particles)
+- `UPostProcessComponent`
 - `ULTCognitiveStateComponent`
 
 ### Properties

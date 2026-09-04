@@ -65,9 +65,6 @@ private:
 	FVector VolumeSize = FVector(2000.0f, 2000.0f, 500.0f);
 
 	UPROPERTY()
-	bool bIsVisible = false;
-
-	UPROPERTY()
 	UParticleSystemComponent* DustParticles = nullptr;
 
 	UPROPERTY()

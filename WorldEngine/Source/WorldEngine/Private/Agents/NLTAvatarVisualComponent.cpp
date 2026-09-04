@@ -13,6 +13,15 @@ UNLTAvatarVisualComponent::UNLTAvatarVisualComponent()
 	bShowStatusRing = true;
 	bShowParticles = true;
 	MaxGlowIntensity = 3.0f;
+
+	// Load the status ring mesh in the constructor (ConstructorHelpers is
+	// only valid here, not in BeginPlay / CreateStatusRing).
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(
+		TEXT("/Engine/BasicShapes/Cylinder"));
+	if (CylinderMesh.Succeeded())
+	{
+		StatusRingMeshAsset = CylinderMesh.Object;
+	}
 }
 
 void UNLTAvatarVisualComponent::BeginPlay()
@@ -100,17 +109,17 @@ void UNLTAvatarVisualComponent::SetEmissiveGlow(float Intensity)
 void UNLTAvatarVisualComponent::CreateStatusRing()
 {
 	AActor* Owner = GetOwner();
-	if (!Owner) return;
-
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(TEXT("/Engine/BasicShapes/Cylinder"));
-	if (!CylinderMesh.Succeeded()) return;
+	if (!Owner || !StatusRingMeshAsset) return;
 
 	StatusRingMesh = NewObject<UStaticMeshComponent>(Owner, TEXT("StatusRing"));
-	StatusRingMesh->SetStaticMesh(CylinderMesh.Object);
+	StatusRingMesh->SetStaticMesh(StatusRingMeshAsset);
 	StatusRingMesh->SetRelativeScale3D(FVector(1.5f, 1.5f, 0.05f));
 	StatusRingMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -90.0f));
 	StatusRingMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	StatusRingMesh->SetCastShadow(false);
+
+	// Attach to owner root so the ring follows the avatar transform.
+	StatusRingMesh->SetupAttachment(Owner->GetRootComponent());
 	StatusRingMesh->RegisterComponent();
 
 	StatusRingMaterial = UMaterialInstanceDynamic::Create(StatusRingMesh->GetMaterial(0), StatusRingMesh);

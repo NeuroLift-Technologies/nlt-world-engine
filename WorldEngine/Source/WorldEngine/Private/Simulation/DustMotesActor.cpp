@@ -1,23 +1,51 @@
 #include "Simulation/DustMotesActor.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "UObject/ConstructorHelpers.h"
+#include "Particles/ParticleSystem.h"
 
 ADustMotesActor::ADustMotesActor()
 {
-    // Create the particle system component
+    // Create and root the particle system component
     DustParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("DustParticles"));
+    SetRootComponent(DustParticles);
     DustParticles->bAutoActivate = false;
     DustParticles->SetVisibility(false);
 
-    // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+    // Set this actor to not need tick by default
     PrimaryActorTick.bCanEverTick = false;
+}
 
-    // Load default dust particle template
-    static ConstructorHelpers::FObjectFinder<UParticleSystem> DustParticleAsset(
-        TEXT("/Engine/Effects/Tutorial/Dust.ParticleSystem"));
-    if (DustParticleAsset.Succeeded())
+void ADustMotesActor::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // Apply the assigned template if present, falling back to the engine dust asset
+    UParticleSystem* EffectiveTemplate = DustTemplate;
+    if (!EffectiveTemplate)
     {
-        DustTemplate = DustParticleAsset.Object;
-        DustParticles->SetTemplate(DustTemplate);
+        EffectiveTemplate = LoadObject<UParticleSystem>(nullptr, TEXT("/Engine/Effects/Tutorial/Dust.ParticleSystem"));
+    }
+    if (EffectiveTemplate)
+    {
+        SetDustTemplate(EffectiveTemplate);
+    }
+
+    // Activate now that the world is ready (SetVisibility alone does not activate)
+    if (bActive && DustParticles && DustParticles->Template)
+    {
+        DustParticles->SetVisibility(true);
+        DustParticles->ActivateSystem(true);
+    }
+    else if (DustParticles)
+    {
+        DustParticles->SetVisibility(false);
+    }
+}
+
+void ADustMotesActor::SetDustTemplate(UParticleSystem* InTemplate)
+{
+    DustTemplate = InTemplate;
+    if (DustParticles)
+    {
+        DustParticles->SetTemplate(InTemplate);
     }
 }

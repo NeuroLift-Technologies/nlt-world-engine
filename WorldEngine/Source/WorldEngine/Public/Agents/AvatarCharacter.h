@@ -4,6 +4,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AIController.h"
+#include "AIController.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Components/PostProcessComponent.h"
+#include "Agents/NLTAvatarVisualComponent.h"
+#include "AvatarCharacter.generated.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "AvatarCharacter.generated.h"
@@ -113,6 +118,16 @@ public:
     float StressThresholdForParticles = 0.6f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|State")
+    // ============== Cognitive State ==============
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cognitive")
+    class ULTCognitiveStateComponent* CognitiveState;
+
+    // ============== Avatar Visual Component ==============
+    // Driven by cognitive state (status ring, emissive glow, state particles).
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|AvatarVisual")
+    class UNLTAvatarVisualComponent* AvatarVisualComponent;
+
+protected:
     float FocusThresholdForAura = 0.7f;
 
     // ============== Cognitive State ==============

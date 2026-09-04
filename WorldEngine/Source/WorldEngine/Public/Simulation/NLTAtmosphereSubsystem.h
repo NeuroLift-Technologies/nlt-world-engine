@@ -9,6 +9,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "NLTAtmosphereSubsystem.generated.h"
 
+class APostProcessVolumeActor;
+
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTAtmosphere, Log, All);
 
 UENUM(BlueprintType)
@@ -24,7 +26,7 @@ enum class ENLTTimeOfDayPhase : uint8
 };
 
 UCLASS()
-class WORLDENGINE_API UNLTAtmosphereSubsystem : public UWorldSubsystem
+class WORLDENGINE_API UNLTAtmosphereSubsystem : public UTickableWorldSubsystem
 {
 	GENERATED_BODY()
 
@@ -74,13 +76,11 @@ public:
 	FLinearColor SunColorNight = FLinearColor(0.25f, 0.30f, 0.55f, 1.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere|Sun")
-UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere|Sun")
 	bool bSunCastShadows = true;
 
 	/** If false, do not modify existing level sun/sky lights (only apply to spawned lights). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere")
 	bool bOverrideExistingLights = true;
-	bool bSunCastShadows = true;
 
 	// === Sky Light ===
 
@@ -171,8 +171,10 @@ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Atmosphere|Sun")
 	void RefreshAtmosphere();
 
 private:
+	// UTickableWorldSubsystem interface
 	virtual void Tick(float DeltaTime) override;
-	virtual bool ShouldTick() const override { return true; }
+	virtual bool IsTickable() const override { return true; }
+	virtual TStatId GetStatId() const override;
 
 	void UpdateSunLight(float Hours);
 	void UpdateSkyLight(float Hours);
