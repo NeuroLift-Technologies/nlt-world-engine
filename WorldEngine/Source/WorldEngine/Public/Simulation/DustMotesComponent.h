@@ -52,6 +52,8 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Dust Motes", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float DustDensity = 0.5f;
+	UPROPERTY()
+	bool bIsVisible = true;
 
 	UPROPERTY(EditAnywhere, Category = "Dust Motes", meta = (ClampMin = "0.0", ClampMax = "10.0"))
 	float DriftSpeed = 1.0f;

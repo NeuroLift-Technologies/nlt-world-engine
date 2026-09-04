@@ -1,0 +1,8 @@
+{
+	"SourceFiles": [
+		"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Source/WorldEngine/WorldEngine.Build.cs",
+		"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Source/WorldEngine.Target.cs",
+		"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Source/WorldEngineEditor.Target.cs"
+	],
+	"EngineVersion": "5.8.2"
+}

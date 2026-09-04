@@ -146,6 +146,9 @@ void UNLTAtmosphereSubsystem::UpdateSunLight(float Hours)
 	LightComp->SetLightColor(SunColor);
 	LightComp->SetCastShadows(bSunCastShadows && Daylight > 0.05f);
 	LightComp->SetUseTemperature(true);
+	// Warm at dawn/dusk (low daylight), cool at midday (high daylight)
+	LightComp->SetTemperature(FMath::Lerp(3000.0f, 6500.0f, Daylight));
+	LightComp->SetUseTemperature(true);
 	LightComp->SetTemperature(FMath::Lerp(3000.0f, 6500.0f, FMath::Sin(Daylight * PI)));
 }
 
@@ -274,6 +277,73 @@ FLinearColor UNLTAtmosphereSubsystem::BlendColor(const FLinearColor& A, const FL
 
 // ─── Actor Finding / Creation ────────────────────────────────────
 
+void UNLTAtmosphereSubsystem::FindSunLight()
+{
+	if (SunLight) return;
+
+	if (bOverrideExistingLights)
+	{
+		// Find any existing directional light
+		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
+			{ SunLight = *It; break; }
+	}
+	else
+	{
+		// Only find lights we spawned ourselves
+		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
+		{
+			if (It->GetName().Contains(TEXT("NLT_SunLight")))
+				{ SunLight = *It; break; }
+		}
+	}
+
+	if (!SunLight)
+	{
+		FActorSpawnParameters SP;
+		SP.Name = TEXT("NLT_SunLight");
+		SunLight = GetWorld()->SpawnActor<ADirectionalLight>(SP);
+		if (SunLight)
+		{
+			SunLight->GetLightComponent()->SetIntensity(SunIntensityMidday);
+			SunLight->GetLightComponent()->SetLightColor(SunColorMidday);
+			SunLight->GetLightComponent()->SetCastShadows(bSunCastShadows);
+			SunLight->GetLightComponent()->SetMobility(EComponentMobility::Movable);
+			SunLight->SetActorRotation(FRotator(-45.0f, 0.0f, 0.0f));
+		}
+	}
+}
+
+void UNLTAtmosphereSubsystem::FindSkyLight()
+{
+	if (SkyLight) return;
+
+	if (bOverrideExistingLights)
+	{
+		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
+			{ SkyLight = *It; break; }
+	}
+	else
+	{
+		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
+		{
+			if (It->GetName().Contains(TEXT("NLT_SkyLight")))
+				{ SkyLight = *It; break; }
+		}
+	}
+
+	if (!SkyLight)
+	{
+		FActorSpawnParameters SP;
+		SP.Name = TEXT("NLT_SkyLight");
+		SkyLight = GetWorld()->SpawnActor<ASkyLight>(SP);
+		if (SkyLight)
+		{
+			SkyLight->GetLightComponent()->SetIntensity(SkyIntensityMidday);
+			SkyLight->GetLightComponent()->SetLightColor(SkyColorDay);
+			SkyLight->GetLightComponent()->SetMobility(EComponentMobility::Movable);
+		}
+	}
+}
 void UNLTAtmosphereSubsystem::FindSunLight()
 {
 	if (SunLight) return;

@@ -1,0 +1,879 @@
+{
+	"folders": [
+		{
+			"name": "WorldEngine",
+			"path": "."
+		},
+		{
+			"name": "UE5",
+			"path": "/home/joshd/Documents/NLT"
+		}
+	],
+	"settings": {
+		"js/ts.tsc.autoDetect": "off",
+		"npm.autoDetect": "off",
+		"terminal.integrated.env.linux": {
+			"PATH": "/home/joshd/Documents/NLT/Engine/Binaries/ThirdParty/DotNet/10.0/linux-x64:${env:PATH}",
+			"DOTNET_ROOT": "/home/joshd/Documents/NLT/Engine/Binaries/ThirdParty/DotNet/10.0/linux-x64",
+			"DOTNET_HOST_PATH": "/home/joshd/Documents/NLT/Engine/Binaries/ThirdParty/DotNet/10.0/linux-x64/dotnet",
+			"DOTNET_MULTILEVEL_LOOKUP": "0",
+			"DOTNET_ROLL_FORWARD": "LatestMajor"
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-vscode.cpptools",
+			"ms-dotnettools.csharp"
+		]
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "WorldEngine Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine Linux Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine Linux DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine Linux Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Test Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Test",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Test Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Test",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine Linux Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Test Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Test",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Shipping Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Shipping",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Shipping Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Shipping",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine Linux Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine Linux Shipping Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"Linux",
+					"Shipping",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine LinuxArm64 Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine LinuxArm64 DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine LinuxArm64 Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Test Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Test",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Test Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Test",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine LinuxArm64 Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Test Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Test",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Shipping Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Shipping",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Shipping Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Shipping",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngine LinuxArm64 Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngine LinuxArm64 Shipping Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngine",
+					"LinuxArm64",
+					"Shipping",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux Debug Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux Debug Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngineEditor Linux Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux Debug Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"Debug",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux DebugGame Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngineEditor Linux DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux DebugGame Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"DebugGame",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux Development Build",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux Development Rebuild",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"WorldEngineEditor Linux Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			},
+			{
+				"label": "WorldEngineEditor Linux Development Clean",
+				"group": "build",
+				"command": "Engine/Build/BatchFiles/Linux/Build.sh",
+				"args": [
+					"WorldEngineEditor",
+					"Linux",
+					"Development",
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-waitmutex",
+					"-clean"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "/home/joshd/Documents/NLT"
+				}
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Launch WorldEngine (Debug)",
+				"request": "launch",
+				"program": "/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Binaries/Linux/UnrealGame-Linux-Debug",
+				"preLaunchTask": "WorldEngine Linux Debug Build",
+				"args": [
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngine (DebugGame)",
+				"request": "launch",
+				"program": "/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Binaries/Linux/UnrealGame-Linux-DebugGame",
+				"preLaunchTask": "WorldEngine Linux DebugGame Build",
+				"args": [
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngine (Development)",
+				"request": "launch",
+				"program": "/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Binaries/Linux/UnrealGame",
+				"preLaunchTask": "WorldEngine Linux Development Build",
+				"args": [
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngine (Test)",
+				"request": "launch",
+				"program": "/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Binaries/Linux/UnrealGame-Linux-Test",
+				"preLaunchTask": "WorldEngine Linux Test Build",
+				"args": [
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngine (Shipping)",
+				"request": "launch",
+				"program": "/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Binaries/Linux/UnrealGame-Linux-Shipping",
+				"preLaunchTask": "WorldEngine Linux Shipping Build",
+				"args": [
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngineEditor (Debug)",
+				"request": "launch",
+				"program": "/home/joshd/Documents/NLT/Engine/Binaries/Linux/UnrealEditor-Linux-Debug",
+				"preLaunchTask": "WorldEngineEditor Linux Debug Build",
+				"args": [
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject"
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngineEditor (DebugGame)",
+				"request": "launch",
+				"program": "/home/joshd/Documents/NLT/Engine/Binaries/Linux/UnrealEditor-Linux-DebugGame",
+				"preLaunchTask": "WorldEngineEditor Linux DebugGame Build",
+				"args": [
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject"
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Launch WorldEngineEditor (Development)",
+				"request": "launch",
+				"program": "/home/joshd/Documents/NLT/Engine/Binaries/Linux/UnrealEditor",
+				"preLaunchTask": "WorldEngineEditor Linux Development Build",
+				"args": [
+					"/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject"
+				],
+				"cwd": "/home/joshd/Documents/NLT",
+				"type": "cppdbg",
+				"visualizerFile": "/home/joshd/Documents/NLT/Engine/Extras/VisualStudioDebugging/Unreal.natvis",
+				"showDisplayString": true
+			},
+			{
+				"name": "Generate Project Files",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "UnrealBuildTool Linux Development Build",
+				"program": "/home/joshd/Documents/NLT/Engine/Build/BatchFiles/RunUBT.sh",
+				"args": [
+					"-projectfiles",
+					"-vscode",
+					"-project=/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/WorldEngine.uproject",
+					"-game",
+					"-engine",
+					"-dotnet"
+				],
+				"env": {
+					"PATH": "/home/joshd/Documents/NLT/Engine/Binaries/ThirdParty/DotNet/10.0/linux-x64:${env:PATH}",
+					"DOTNET_ROOT": "/home/joshd/Documents/NLT/Engine/Binaries/ThirdParty/DotNet/10.0/linux-x64",
+					"DOTNET_HOST_PATH": "/home/joshd/Documents/NLT/Engine/Binaries/ThirdParty/DotNet/10.0/linux-x64/dotnet",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "internalConsole",
+				"internalConsoleOptions": "openOnSessionStart",
+				"stopAtEntry": false,
+				"cwd": "/home/joshd/Documents/NLT"
+			}
+		]
+	}
+}
