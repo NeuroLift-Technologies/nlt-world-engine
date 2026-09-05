@@ -14,6 +14,7 @@
 #include "Serialization/JsonSerializer.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "IPAddress.h"
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleManager.h"
 
@@ -180,6 +181,20 @@ bool UNLTWebServerSubsystem::HandleStatusRequest(const FHttpServerRequest& Reque
 
 bool UNLTWebServerSubsystem::HandleControlRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 {
+	// Authorization: simulation control commands mutate game state, so they are
+	// only accepted from loopback. Remote control requires token-based auth
+	// (see gap analysis) before the endpoint can be exposed beyond localhost.
+	const bool bIsLoopback = Request.PeerAddress.IsValid() &&
+		(Request.PeerAddress->ToString(false) == TEXT("127.0.0.1") || Request.PeerAddress->ToString(false) == TEXT("::1"));
+	if (!bIsLoopback)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"forbidden: control requires local access\"}")), TEXT("application/json"));
+		Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
 	FString BodyStr;
 	for (uint8 Byte : Request.Body)
 	{
