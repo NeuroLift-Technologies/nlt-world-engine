@@ -5,6 +5,7 @@
 #include "Engine/DirectionalLight.h"
 #include "Engine/SkyLight.h"
 #include "Components/ExponentialHeightFogComponent.h"
+#include "Engine/ExponentialHeightFog.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "NLTAtmosphereSubsystem.generated.h"

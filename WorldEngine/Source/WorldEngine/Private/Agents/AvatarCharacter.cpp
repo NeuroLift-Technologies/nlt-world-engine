@@ -58,18 +58,11 @@ AAvatarCharacter::AAvatarCharacter()
     // Create post process component
     PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcessComponent"));
     PostProcessComponent->SetupAttachment(GetRootComponent());
-    // Create post process component
-    PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcessComponent"));
-    PostProcessComponent->SetupAttachment(GetRootComponent());
-    PostProcessComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
+    PostProcessComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f));
 
     // Create the cognitive-state-driven avatar visual component
     AvatarVisualComponent = CreateDefaultSubobject<UNLTAvatarVisualComponent>(TEXT("AvatarVisual"));
-    AvatarVisualComponent->SetupAttachment(GetRootComponent());
 
-    // Initialize values
-    PostProcessComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
-    
     // Initialize values
     StressThresholdForParticles = 0.6f;
     FocusThresholdForAura = 0.7f;
@@ -123,7 +116,6 @@ void AAvatarCharacter::BeginPlay()
             CognitiveState->CognitiveLoad,
             CognitiveState->EmotionalState);
     }
-}
 }
 
 void AAvatarCharacter::Tick(float DeltaTime)

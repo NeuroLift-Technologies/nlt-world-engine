@@ -20,6 +20,8 @@ class WORLDENGINE_API APostProcessVolumeActor : public APostProcessVolume
 public:
 	APostProcessVolumeActor();
 
+	virtual void BeginPlay() override;
+
 	// ─── Bloom ──────────────────────────────────────────────────
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Bloom", meta = (ClampMin = "0.0", ClampMax = "10.0"))
@@ -57,7 +59,7 @@ public:
 	float LensFlareIntensity = 0.8f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Lens")
-	FLinearColor LensFlareTint = FLinearColor(1.0f, 0.9f, 0.7f, 1.0f);
+	FLinearColor LensFlareTint = FLinearColor::White;
 
 	// ─── Vignette ───────────────────────────────────────────────
 

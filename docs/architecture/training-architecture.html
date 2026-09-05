@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NLT World Engine — Training Architecture</title>
+  <style>
+    /* Theme via CSS variables (Hermes desktop injects these) */
+    :root {
+      --foreground: #1a1a1a;
+      --muted-foreground: #666;
+      --accent: #3b82f8;
+      --border: #e0e0e0;
+      --card: #fafafa;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--card);
+      color: var(--foreground);
+      padding: 24px;
+      line-height: 1.8;
+    }
+
+    h1 { font-size: 1.6em; margin-bottom: 4px; }
+    h2 { font-size: 1.2em; margin: 24px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+    h3 { font-size: 1em; margin: 16px 0 8px; }
+    p, li { color: var(--muted-foreground); }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--card);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .center-row { display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; }
+    .box { min-width: 180px; }
+
+    .ue5-box { border-color: #8b5cf6; }
+    .py-box  { border-color: #10b981; }
+    .tb-box  { border-color: #f59e0b; }
+
+    .arrow {
+      text-align: center;
+      font-size: 0.9em;
+      color: var(--accent);
+      margin: 8px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85em;
+    }
+    th { color: var(--muted-foreground); font-weight: 600; }
+    td.code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.8em; }
+
+    .flow-step {
+      padding: 8px 12px;
+      margin: 8px 0;
+      background: rgba(59, 130, 246, 0.05);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+    }
+
+    .adhd-note {
+      background: rgba(245, 158, 11, 0.05);
+      border-left: 3px solid #f59e0b;
+      padding: 8px 12px;
+      margin: 8px 0;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>NLT World Engine — Training Architecture</h1>
+    <p style="color: var(--muted-foreground);">
+      Dual-policy PPO training: Unreal Engine 5 (environment + PPO) ↔ Python (monitoring)
+    </p>
+
+    <h2>The Big Picture</h2>
+    <div class="center-row">
+      <div class="box ue5-box">
+        <strong>Unreal Engine 5.8</strong>
+        <p style="font-size: 0.85em; margin-top: 4px;">The World + PPO Trainer</p>
+      </div>
+      <div class="arrow">↔ Shared Memory<br>(port 5555)</div>
+      <div class="box py-box">
+        <strong>Python PyTorch</strong>
+        <p style="font-size: 0.85em; margin-top: 4px;">Metrics &amp; Monitoring</p>
+      </div>
+      <div class="box tb-box">
+        <strong>TensorBoard</strong>
+        <p style="font-size: 0.85em; margin-top: 4px;">Saved/LearningAgents/</p>
+      </div>
+    </div>
+
+    <h2>UE5 Side — What Runs Every Tick (0.1s)</h2>
+    <div class="flow-step">
+      <code>NLTTrainingManager::Tick()</code> — orchestrates everything
+    </div>
+    <div class="flow-step">
+      → <code>LTCognitiveStateComponent::TickCognitiveDecay()</code> — cognitive decay/growth
+    </div>
+    <div class="flow-step">
+      → <code>NLTAvatarInteractor::GatherAgentObservation()</code> — 13-dim obs
+    </div>
+    <div class="flow-step">
+      → <code>ULearningAgentsPPOTrainer::RunTraining()</code> (every 1.0s)
+    </div>
+    <div class="flow-step">
+      → <code>NLTTrainingEnvironment::GatherAgentReward()</code>
+    </div>
+    <div class="flow-step">
+      → <code>NLTEpisodeManager::CheckCognitiveCompletion()</code> — independence/burnout/step cap
+    </div>
+
+    <div class="adhd-note">
+      <strong>ADHD note:</strong> The 0.1s tick interval mirrors the rapid pacing
+      of ADHD cognition — thoughts, impulses, and state changes happen fast.
+      This is why stress can spike and decay quickly between interventions.
+    </div>
+
+    <h2>Python Side — PPO Orchestrator</h2>
+    <p>File: <code>neurolift-ai-fusion/src/simulation/training/train_nlt.py</code></p>
+    <div class="flow-step">
+      1. Connect to UE5 shared memory communicator (port 5555)
+    </div>
+    <div class="flow-step">
+      2. Receive observations (13-dim float × 2 agents per pair)
+    </div>
+    <div class="flow-step">
+      3. Evaluate policy networks → get action probabilities
+    </div>
+    <div class="flow-step">
+      4. Sample actions → send back (3 continuous + 4 discrete for Avatar, 10 discrete for Aide)
+    </div>
+    <div class="flow-step">
+      5. Receive rewards (computed by <code>NLTTrainingEnvironment::GatherAgentReward</code>)
+    </div>
+    <div class="flow-step">
+      6. PPO update step (clip ε=0.2, λ=0.95, γ=0.99)
+    </div>
+    <div class="flow-step">
+      7. Log scalars → TensorBoard
+    </div>
+
+    <h2>Observation Space Schema</h2>
+    <table>
+      <tr><th>Dim</th><th>Name</th><th>Description</th><th>Range</th></tr>
+      <tr><td>1-3</td><td>Position XYZ</td><td class="code">Avatar/Actor location</td><td>float</td></tr>
+      <tr><td>4-6</td><td>Velocity XYZ</td><td class="code">Movement direction/speed</td><td>float</td></tr>
+      <tr><td>7</td><td>Focus</td><td class="code">Current attention level</td><td>0.0–1.0</td></tr>
+      <tr><td>8</td><td>CognitiveLoad</td><td class="code">Mental bandwidth used</td><td>0.0–1.0</td></tr>
+      <tr><td>9</td><td>Stress</td><td class="code">Anxiety/pressure level</td><td>0.0–1.0</td></tr>
+      <tr><td>10</td><td>Burnout</td><td class="code">Exhaustion accumulation</td><td>0.0–1.0</td></tr>
+      <tr><td>11</td><td>Independence</td><td class="code">Self-sufficiency level</td><td>0.0–1.0</td></tr>
+      <tr><td>12</td><td>FusionReady</td><td class="code">Preparedness to engage</td><td>0.0–1.0</td></tr>
+      <tr><td>13</td><td>SuccessRate</td><td class="code">Recent task completion</td><td>0.0–1.0</td></tr>
+    </table>
+
+    <h2>Action Space Schema</h2>
+    <table>
+      <tr><th>Agent</th><th>Action Type</th><th>Dimensions</th><th>Range</th><th>Description</th></tr>
+      <tr><td>Avatar</td><td>Continuous</td><td class="code">3</td><td class="code">[-1,1]</td><td>MoveDirection (XYZ)</td></tr>
+      <tr><td>Avatar</td><td>Discrete</td><td class="code">4</td><td class="code">0-3</td><td>Interaction (Idle/Start/Task/Help)</td></tr>
+      <tr><td>Aide</td><td>Discrete</td><td class="code">10</td><td class="code">0-9</td><td>CoachingStrategy (Pomodoro→ShrinkTheTask)</td></tr>
+    </table>
+
+    <h2>Reward Function</h2>
+    <p><code>GatherAgentReward</code> in <code>NLTTrainingEnvironment.cpp</code>:</p>
+    <pre style="font-family: monospace; padding: 8px; background: rgba(0,0,0,0.03); border-radius: 4px; font-size: 0.85em;">
+reward = +1.0 * Independence
+       − 1.0 * Burnout
+       − 0.5 * Stress
+       + 0.3 * Focus
+       + 0.5 * SuccessRate</pre>
+
+    <h2>Episode Completion Logic</h2>
+    <p><code>NLTEpisodeManager::CheckCognitiveCompletion</code>:</p>
+    <table>
+      <tr><th>Condition</th><th>Result</th><th>Reason</th></tr>
+      <tr><td>Independence ≥ 0.8</td><td class="code">Success</td><td>Avatar learned to work independently</td></tr>
+      <tr><td>Burnout ≥ 0.9</td><td class="code">Failure (early)</td><td>Avatar was overwhelmed</td></tr>
+      <tr><td>512 steps elapsed</td><td class="code">Truncation</td><td>Scenario ran to time limit</td></tr>
+    </table>
+
+    <div class="adhd-note">
+      <strong>ADHD insight:</strong> Independence is the goal — not speed, not
+      perfection. The reward function rewards the Avatar for needing less help,
+      which mirrors the real ADHD journey of building self-advocacy and
+      self-management skills.
+    </div>
+  </div>
+</body>
+</html>

@@ -173,7 +173,7 @@ void UNLTAtmosphereSubsystem::UpdateSkyLight(float Hours)
 	SkyComp->SetLightColor(SkyColor);
 
 	if (bUseRealTimeSkyCapture)
-		SkyComp->SetCaptureSceneDeferred();
+		SkyComp->RecaptureSky();
 }
 
 // ─── Height Fog ──────────────────────────────────────────────────
@@ -281,15 +281,18 @@ void UNLTAtmosphereSubsystem::FindSunLight()
 
 	if (bOverrideExistingLights)
 	{
-		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
-			{ SunLight = *It; break; }
+		TActorIterator<ADirectionalLight> It(GetWorld());
+		SunLight = It ? *It : nullptr;
 	}
 	else
 	{
 		for (TActorIterator<ADirectionalLight> It(GetWorld()); It; ++It)
 		{
 			if (It->GetName().Contains(TEXT("NLT_SunLight")))
-				{ SunLight = *It; break; }
+			{
+				SunLight = *It;
+				break;
+			}
 		}
 	}
 
@@ -315,15 +318,18 @@ void UNLTAtmosphereSubsystem::FindSkyLight()
 
 	if (bOverrideExistingLights)
 	{
-		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
-			{ SkyLight = *It; break; }
+		TActorIterator<ASkyLight> It(GetWorld());
+		SkyLight = It ? *It : nullptr;
 	}
 	else
 	{
 		for (TActorIterator<ASkyLight> It(GetWorld()); It; ++It)
 		{
 			if (It->GetName().Contains(TEXT("NLT_SkyLight")))
-				{ SkyLight = *It; break; }
+			{
+				SkyLight = *It;
+				break;
+			}
 		}
 	}
 
@@ -344,8 +350,10 @@ void UNLTAtmosphereSubsystem::FindSkyLight()
 void UNLTAtmosphereSubsystem::FindHeightFog()
 {
 	if (HeightFog) return;
-	for (TActorIterator<AExponentialHeightFog> It(GetWorld()); It; ++It)
-		{ HeightFog = *It; break; }
+	{
+		TActorIterator<AExponentialHeightFog> It(GetWorld());
+		HeightFog = It ? *It : nullptr;
+	}
 
 	if (!HeightFog)
 	{
@@ -362,8 +370,11 @@ void UNLTAtmosphereSubsystem::FindOrCreateSkyDome()
 	for (TObjectIterator<UStaticMeshComponent> It; It; ++It)
 	{
 		if (It->GetWorld() == GetWorld() && It->GetOwner() &&
-			It->GetOwner()->GetActorLabel().Contains(TEXT("Sky")))
-			{ SkyDomeComponent = *It; break; }
+			It->GetOwner()->GetName().Contains(TEXT("Sky")))
+		{
+			SkyDomeComponent = *It;
+			break;
+		}
 	}
 
 	if (!SkyDomeComponent)
@@ -372,7 +383,9 @@ void UNLTAtmosphereSubsystem::FindOrCreateSkyDome()
 			AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
 		if (SkyActor)
 		{
+#if WITH_EDITOR
 			SkyActor->SetActorLabel(TEXT("NLT_SkyDome"));
+#endif
 
 			// Runtime-safe asset lookup (not constructor-only API)
 			UStaticMesh* SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere"));
@@ -383,7 +396,6 @@ void UNLTAtmosphereSubsystem::FindOrCreateSkyDome()
 				SkyDomeComponent->SetWorldScale3D(FVector(10000.0f));
 				SkyDomeComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 				SkyDomeComponent->SetCastShadow(false);
-				SkyDomeComponent->SetCastShadows(false);
 				SkyDomeComponent->bReceivesDecals = false;
 				SkyDomeComponent->RegisterComponent();
 				SkyActor->SetRootComponent(SkyDomeComponent);
@@ -393,7 +405,7 @@ void UNLTAtmosphereSubsystem::FindOrCreateSkyDome()
 
 	if (SkyDomeComponent && !SkyDomeMaterialInstance)
 	{
-		UMaterialInterface* BaseMat = SkyDomeMaterial ? SkyDomeMaterial : SkyDomeComponent->GetMaterial(0);
+		UMaterialInterface* BaseMat = SkyDomeMaterial ? SkyDomeMaterial.Get() : SkyDomeComponent->GetMaterial(0);
 		if (BaseMat)
 		{
 			SkyDomeMaterialInstance = UMaterialInstanceDynamic::Create(BaseMat, SkyDomeComponent);
@@ -405,8 +417,10 @@ void UNLTAtmosphereSubsystem::FindOrCreateSkyDome()
 void UNLTAtmosphereSubsystem::FindOrCreatePostProcessVolume()
 {
 	if (PostProcessVolumeActor) return;
-	for (TActorIterator<APostProcessVolumeActor> It(GetWorld()); It; ++It)
-		{ PostProcessVolumeActor = *It; break; }
+	{
+		TActorIterator<APostProcessVolumeActor> It(GetWorld());
+		PostProcessVolumeActor = It ? *It : nullptr;
+	}
 
 	if (!PostProcessVolumeActor)
 	{

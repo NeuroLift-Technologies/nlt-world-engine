@@ -14,6 +14,13 @@ APostProcessVolumeActor::APostProcessVolumeActor()
 	ApplySettings();
 }
 
+void APostProcessVolumeActor::BeginPlay()
+{
+	Super::BeginPlay();
+	// Re-apply settings after runtime configuration by UNLTAtmosphereSubsystem
+	ApplySettings();
+}
+
 void APostProcessVolumeActor::ApplySettings()
 {
 	bUnbound = bApplyUnbounded;
@@ -25,10 +32,8 @@ void APostProcessVolumeActor::ApplySettings()
 	Settings.BloomThreshold = BloomThreshold;
 
 	// === Exposure ===
-	Settings.bOverride_AutoExposureMinBrightness = true;
-	Settings.bOverride_AutoExposureMaxBrightness = true;
-	Settings.AutoExposureMinBrightness = Exposure;
-	Settings.AutoExposureMaxBrightness = Exposure;
+	Settings.bOverride_AutoExposureBias = true;
+	Settings.AutoExposureBias = Exposure;
 
 	// === Ambient Occlusion ===
 	Settings.bOverride_AmbientOcclusionRadius = true;
@@ -57,10 +62,10 @@ void APostProcessVolumeActor::ApplySettings()
 	// === Color Grading ===
 	Settings.bOverride_SceneColorTint = true;
 	Settings.SceneColorTint = ColorGradeTint;
-	Settings.bOverride_Saturation = true;
-	Settings.Saturation = FVector4(Saturation, Saturation, Saturation, 1.0f);
-	Settings.bOverride_Contrast = true;
-	Settings.Contrast = FVector4(Contrast, Contrast, Contrast, 1.0f);
+	Settings.bOverride_ColorSaturation = true;
+	Settings.ColorSaturation = FVector4(Saturation, Saturation, Saturation, 1.0f);
+	Settings.bOverride_ColorContrast = true;
+	Settings.ColorContrast = FVector4(Contrast, Contrast, Contrast, 1.0f);
 
 	// === Motion Blur ===
 	Settings.bOverride_MotionBlurAmount = true;

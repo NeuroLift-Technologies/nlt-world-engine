@@ -4,13 +4,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "AIController.h"
-#include "AIController.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Agents/NLTAvatarVisualComponent.h"
-#include "AvatarCharacter.generated.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "Components/PostProcessComponent.h"
 #include "AvatarCharacter.generated.h"
 
 // Visual state for character
@@ -58,7 +54,7 @@ public:
     float InteractionRange = 200.0f;
 
     // ============== Visual Properties ==============
-    
+
     // Team identification
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Team")
     ECharacterTeam Team = ECharacterTeam::Neutral;
@@ -81,7 +77,7 @@ public:
     UMaterialInstanceDynamic* DynamicHeadMaterial;
 
     // ============== Particle Effects ==============
-    
+
     // Stress particles (appears when stressed)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Particles")
     UParticleSystem* StressParticles;
@@ -104,20 +100,19 @@ public:
     UParticleSystemComponent* InteractionParticleComponent;
 
     // ============== Post-Processing ==============
-    
+
     // Character-specific post processing component
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visual|PostProcessing")
     UPostProcessComponent* PostProcessComponent;
 
     // ============== Visual State ==============
-    
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visual|State")
     ECharacterVisualState CurrentVisualState = ECharacterVisualState::Normal;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|State")
     float StressThresholdForParticles = 0.6f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|State")
     // ============== Cognitive State ==============
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cognitive")
     class ULTCognitiveStateComponent* CognitiveState;
@@ -130,11 +125,6 @@ public:
 protected:
     float FocusThresholdForAura = 0.7f;
 
-    // ============== Cognitive State ==============
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cognitive")
-    class ULTCognitiveStateComponent* CognitiveState;
-
-protected:
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
     // Visual update functions

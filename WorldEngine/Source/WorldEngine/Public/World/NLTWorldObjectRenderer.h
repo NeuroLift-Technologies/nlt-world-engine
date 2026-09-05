@@ -67,7 +67,7 @@ private:
 	TMap<FName, TObjectPtr<UInstancedStaticMeshComponent>> BuildingISMs;
 
 	UPROPERTY()
-	TObjectPtr<UStaticMeshComponent> PlaneMeshCache;
+	TObjectPtr<UStaticMesh> PlaneMeshCache;
 
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> CubeMeshCache;
@@ -76,12 +76,6 @@ private:
 	UInstancedStaticMeshComponent* GetBuildingISM(FName BuildingType);
 	UMaterialInterface* GetBuildingMaterial(FName BuildingType) const;
 	FLinearColor GetDistrictColor(FName DistrictType) const;
-
-	UPROPERTY()
-	TMap<FName, TObjectPtr<UInstancedStaticMeshComponent>> BuildingISMs;
-
-	UPROPERTY()
-	TObjectPtr<UStaticMeshComponent> PlaneMeshCache;
 
 	UPROPERTY()
 	TObjectPtr<UInstancedStaticMeshComponent> RoadInstances;
