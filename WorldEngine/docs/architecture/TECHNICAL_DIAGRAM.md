@@ -8,7 +8,7 @@
 
 ## 1. High-Level System Architecture
 
-```
+```text
 +----------------------------------------------------------------------------------+
 |                           EXTERNAL SYSTEMS                                       |
 |  +------------------+    +------------------+    +--------------------------+    |
@@ -17,15 +17,15 @@
 |  | (Fusion Runtime) |    | (Web UI)         |    |                          |    |
 |  +--------+---------+    +------------------+    +------------+-------------+    |
 |           |                                                    |                 |
-|           | WebSocket                                          | gRPC/Data       |
+|           | WebSocket (planned)                                | gRPC/Data       |
 +-----------+----------------------------------------------------+-----------------+
             |                                                    |
 +-----------v----------------------------------------------------v-----------------+
 |                        UNREAL ENGINE 5.8 - WORLDENGINE                           |
 |  +------------------------------------------------------------------------+      |
-|  |                         HTTP/WebSocket Layer                           |      |
+|  |                         HTTP Layer (WebSocket planned)                 |      |
 |  |                    (NLTWebServerSubsystem:8765)                        |      |
-|  |         /snapshot  /control  /scene  /status  /events                  |      |
+|  |         /api/snapshot  /api/control  /api/scene  /api/status           |      |
 |  +--------------------------------+---------------------------------------+      |
 |                                   |                                              |
 |  +-------------------------------v----------------------------------------------+|
@@ -142,7 +142,7 @@
 
 ### 2.1 Simulation Tick Flow
 
-```
+```text
 +---------------------+
 |  SimulationClock    |
 |  AdvanceTick()      |
@@ -171,7 +171,7 @@
 
 ### 2.2 Agent Spawn Flow
 
-```
+```text
 +---------------------+
 | NLTAgentSpawner     |
 | SpawnAgent(Profile) |
@@ -202,7 +202,7 @@
 
 ### 2.3 Cognition Gateway Pattern (TO BE IMPLEMENTED)
 
-```
+```text
 +-------------------------------------------------------------+
 |                    ICognitionProvider                       |
 |                    (Interface)                              |
@@ -223,7 +223,7 @@
 
 ## 3. Module Dependency Graph
 
-```
+```text
 WorldEngine Module
 |
 +-- Core Subsystems
@@ -281,7 +281,7 @@ WorldEngine Module
 
 ## 4. Missing Critical Components (Gap Analysis)
 
-```
+```text
 +---------------------------------+----------------------------------+
 |  CURRENT STATE                  |  REQUIRED                        |
 +---------------------------------+----------------------------------+
@@ -290,6 +290,7 @@ WorldEngine Module
 |  [OK] Simulation clock          |  [MISSING] Governance Subsystem  |
 |  [OK] Persistence stub          |  [MISSING] WebSocket Client      |
 |  [OK] HTTP Server               |  [MISSING] LOD Manager           |
+|  [OK] Control (loopback)        |  [MISSING] Remote auth token     |
 |  [OK] Agent spawner             |  [MISSING] Smart Object annot.   |
 |  [OK] Scenario data assets      |  [MISSING] Need->Intent mapping  |
 |  [OK] Cognitive component       |  [MISSING] Coaching system       |
@@ -301,7 +302,7 @@ WorldEngine Module
 
 ## 5. Build Configuration Issues
 
-```
+```text
 Current Build.cs Dependencies:
 +-- MassEntity modules (13 modules) [OK]
 +-- LearningAgents modules (4 modules) [OK]
@@ -321,7 +322,7 @@ Current Build.cs Dependencies:
 
 ## 6. Recommended Plugin Restructuring
 
-```
+```text
 Plugins/
 +-- NLTFusionCore/          # Shared interfaces, fragments, enums
 +-- NLTSimulation/          # Clock, scheduler, event bus
@@ -360,22 +361,21 @@ LOD Targets: 500 (LOD0), 5k (LOD1), 20k (LOD2), 24.5k (LOD3)
 
 ## 8. Integration Points
 
-```
+```text
 +--------------------------------------------------------------+
 |                     FUSION RUNTIME                           |
 |              (Cloudflare Durable Objects)                    |
 +----------------------+---------------------------------------+
-                       | WebSocket
+                       | WebSocket (planned)
                        v
 +--------------------------------------------------------------+
 |                  UNREAL WORLDENGINE                          |
 |  +--------------------------------------------------------+  |
 |  |  NLTWebServerSubsystem (HTTP)                          |  |
-|  |  GET /snapshot  -> Mass entity state                   |  |
-|  |  GET /status    -> Simulation metrics                  |  |
-|  |  GET /scene     -> World description                   |  |
-|  |  GET /events    -> Recent event feed                   |  |
-|  |  POST /control  -> Simulation commands                 |  |
+|  |  GET /api/snapshot -> Mass entity state                |  |
+|  |  GET /api/status   -> Simulation metrics               |  |
+|  |  GET /api/scene    -> World description                |  |
+|  |  POST /api/control -> Sim commands (loopback-only)     |  |
 |  +--------------------------------------------------------+  |
 |                                                              |
 |  [TODO: WebSocket Client for bidirectional sync]             |
@@ -386,7 +386,7 @@ LOD Targets: 500 (LOD0), 5k (LOD1), 20k (LOD2), 24.5k (LOD3)
 
 ## 9. Thread Safety Model
 
-```
+```text
 Main Game Thread:
 +-- Simulation tick execution
 +-- Mass processor updates
@@ -407,7 +407,7 @@ HTTP Server Thread (NLTWebServerSubsystem):
 
 ### Agent Intent States
 
-```
+```text
 None -> Idle -> [FindQuietPlace|Work|Socialize|Rest|Study|MoveToLocation|Interact]
                         |
              [Coached|Overwhelmed|Drifting|Hyperfocus]
@@ -415,7 +415,7 @@ None -> Idle -> [FindQuietPlace|Work|Socialize|Rest|Study|MoveToLocation|Interac
 
 ### Simulation Modes
 
-```
+```text
 Realtime | Paused | FastForward | SlowMotion | Headless | Replay | DeterministicTest
 ```
 
