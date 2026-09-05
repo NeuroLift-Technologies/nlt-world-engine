@@ -92,7 +92,7 @@ All subsystems extend `UWorldSubsystem` — lifecycle bound to the world, auto-c
 | `UNLTRoomStateSubsystem` | Initialize → sync with world cells | Game thread |
 | `UNLTWebServerSubsystem` | Initialize → start HTTP/WebSocket | Own thread |
 | `UNLTAgentSpawnerSubsystem` | On simulation start | Game thread |
-| `UNLTPersonScaler` | On simulation start, recalculate on LOD change | Game thread |
+| `UNLTPopulationScaler` | On simulation start, recalculate on LOD change | Game thread |
 
 ### Simulation Tick Flow
 
@@ -193,7 +193,7 @@ Event types (28 total): Tick, AgentCreated/Destroyed/Spawned/Despawned, AgentMov
 
 ### Critical Rule
 
-> **Unreal never writes agent cognitive state directly.** Cognitive state changes flow through the EventBus and are raised by Fusion-originated commands or by subsystems that observe physical state (e.g., `StressSpike` when collision/overcrowding detected). The `FNLTAgentCognitiveFragment` is a mirror — the source of truth lives in Fusion.
+> **Unreal does not write agent cognitive state during production/runtime.** Cognitive state changes flow through the EventBus and are raised by Fusion-originated commands or by subsystems that observe physical state (e.g., `StressSpike` when collision/overcrowding detected). The `FNLTAgentCognitiveFragment` is a mirror — the source of truth lives in Fusion. During PPO training, `LTCognitiveStateComponent::TickCognitiveDecay()` updates local derived state for reward computation, but these are training-time dynamics, not runtime state changes.
 
 ---
 
@@ -261,7 +261,7 @@ AgentSpawner → Create FMassEntity
 
 All subsystems run on the **game thread**. The web server (`NLTWebServerSubsystem`) runs on its own thread for incoming HTTP/WebSocket connections but delegates state reads/writes to the game thread via async tasks.
 
-**No multi-threaded Mass processor writes** — Mass processes fragments on the game thread in parallel batches, but all writes go through the game thread's command queue.
+**Mass Entity processors** write fragment changes in parallel by design — individual processors run concurrently across Mass's execution graph. Reads (observations exported to Fusion) are batched to the game thread via the EventBus to avoid race conditions.
 
 **Deterministic seed** (`NLTDeterministicSeedSubsystem`) ensures the same seed + tick + event sequence produces identical simulation results regardless of frame time variance.
 

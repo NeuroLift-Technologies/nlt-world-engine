@@ -92,7 +92,6 @@ nlt-world-engine/
 | AllToolsets | Enabled | Full toolset access |
 | MassAI | Required | Mass + AI integration |
 | LearningAgents | Required | RL training |
-| HTNPlanner | Required | Task planning |
 | MassCrowd | Required | Crowd simulation |
 | MetaHuman | Optional | LOD 0 characters |
 
@@ -146,7 +145,14 @@ The repo has one CI workflow:
 ```yaml
 # .github/workflows/validate-governance.yml
 on: [push, pull_request]
-runs: bash .nltotoi/scripts/validate-governance.sh
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate governance
+        run: bash .nltotoi/scripts/validate-governance.sh
 ```
 
 No build validation in CI — `make WorldEngineEditor` is not currently gated on PRs.

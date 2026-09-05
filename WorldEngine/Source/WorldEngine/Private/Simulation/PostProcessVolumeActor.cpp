@@ -14,6 +14,13 @@ APostProcessVolumeActor::APostProcessVolumeActor()
 	ApplySettings();
 }
 
+void APostProcessVolumeActor::BeginPlay()
+{
+	Super::BeginPlay();
+	// Re-apply settings after runtime configuration by UNLTAtmosphereSubsystem
+	ApplySettings();
+}
+
 void APostProcessVolumeActor::ApplySettings()
 {
 	bUnbound = bApplyUnbounded;
@@ -25,10 +32,8 @@ void APostProcessVolumeActor::ApplySettings()
 	Settings.BloomThreshold = BloomThreshold;
 
 	// === Exposure ===
-	Settings.bOverride_AutoExposureMinBrightness = true;
-	Settings.bOverride_AutoExposureMaxBrightness = true;
-	Settings.AutoExposureMinBrightness = Exposure;
-	Settings.AutoExposureMaxBrightness = Exposure;
+	Settings.bOverride_AutoExposureBias = true;
+	Settings.AutoExposureBias = Exposure;
 
 	// === Ambient Occlusion ===
 	Settings.bOverride_AmbientOcclusionRadius = true;

@@ -2,8 +2,8 @@
   "nltotoi_version": "1.0.3",
   "document_id": "ORG-DEV-OTOI-1.0.3",
   "repository": {
-    "name": "NeuroLift-Technologies/nlt-fusion",
-    "purpose": "Repository-specific coding agent governance for nlt-fusion",
+    "name": "NeuroLift-Technologies/nlt-world-engine",
+    "purpose": "Repository-specific coding agent governance for nlt-world-engine",
     "mode": "production",
     "visibility": "private",
     "audience": "internal-coding-agents"
@@ -51,6 +51,6 @@
   "metadata": {
     "created": "2026-03-31",
     "version": "1.0.3",
-    "last_updated": "2026-06-22"
+    "last_updated": "2026-09-05"
   }
 }

@@ -94,19 +94,19 @@
   <div class="container">
     <h1>NLT World Engine — Training Architecture</h1>
     <p style="color: var(--muted-foreground);">
-      Dual-policy PPO training: Unreal Engine 5 (environment) ↔ Python PyTorch (PPO brain)
+      Dual-policy PPO training: Unreal Engine 5 (environment + PPO) ↔ Python (monitoring)
     </p>
 
     <h2>The Big Picture</h2>
     <div class="center-row">
       <div class="box ue5-box">
         <strong>Unreal Engine 5.8</strong>
-        <p style="font-size: 0.85em; margin-top: 4px;">The World</p>
+        <p style="font-size: 0.85em; margin-top: 4px;">The World + PPO Trainer</p>
       </div>
       <div class="arrow">↔ Shared Memory<br>(port 5555)</div>
       <div class="box py-box">
         <strong>Python PyTorch</strong>
-        <p style="font-size: 0.85em; margin-top: 4px;">PPO Training Engine</p>
+        <p style="font-size: 0.85em; margin-top: 4px;">Metrics &amp; Monitoring</p>
       </div>
       <div class="box tb-box">
         <strong>TensorBoard</strong>
@@ -119,19 +119,19 @@
       <code>NLTTrainingManager::Tick()</code> — orchestrates everything
     </div>
     <div class="flow-step">
-      → <code>LTCognitiveStateComponent::Tick()</code> — cognitive decay/growth
+      → <code>LTCognitiveStateComponent::TickCognitiveDecay()</code> — cognitive decay/growth
     </div>
     <div class="flow-step">
-      → <code>NLTAvatarInteractor::GatherObservations()</code> — 13-dim obs
+      → <code>NLTAvatarInteractor::GatherAgentObservation()</code> — 13-dim obs
     </div>
     <div class="flow-step">
-      → <code>LearningAgentsTrainer::RunTraining()</code> (every 1.0s)
+      → <code>ULearningAgentsPPOTrainer::RunTraining()</code> (every 1.0s)
     </div>
     <div class="flow-step">
       → <code>NLTTrainingEnvironment::GatherAgentReward()</code>
     </div>
     <div class="flow-step">
-      → <code>NLTEpisodeManager::CheckCompletion()</code> — independence/burnout/step cap
+      → <code>NLTEpisodeManager::CheckCognitiveCompletion()</code> — independence/burnout/step cap
     </div>
 
     <div class="adhd-note">
@@ -141,9 +141,9 @@
     </div>
 
     <h2>Python Side — PPO Orchestrator</h2>
-    <p>File: <code>neurolift-ai-fusion/src/simulation/training/train_nlt.py</code> (to be built in Phase 3)</p>
+    <p>File: <code>neurolift-ai-fusion/src/simulation/training/train_nlt.py</code></p>
     <div class="flow-step">
-      1. Connect to UE shared-memory communicator (port 5555)
+      1. Connect to UE5 shared memory communicator (port 5555)
     </div>
     <div class="flow-step">
       2. Receive observations (13-dim float × 2 agents per pair)

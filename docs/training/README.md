@@ -1,7 +1,7 @@
 # Training README — PPO for Avatar/Aide Pairs
 
-> **Status:** ✅ Complete. UE5 infrastructure in `WorldEngine/Source/WorldEngine`.
-> Python training script live at `neurolift-ai-fusion/src/simulation/training/train_nlt.py`.
+> **Status:** ✅ Complete. Training infrastructure is live in both UE5 and Python.
+> `train_nlt.py` exists in `neurolift-ai-fusion/src/simulation/training/`.
 
 ## How Training Works
 
@@ -15,18 +15,32 @@ Two policies train simultaneously:
 They train as paired agents: each Aide observes its paired Avatar's cognitive
 state and chooses one of 10 coaching strategies.
 
-### Training Loop (in UE5)
+### Training Loop
 
-Inside `NLTTrainingManager::Tick()`:
+Training runs on **two paths** depending on mode:
+
+**Path A — UE5 Runtime (default):** PPO training runs inside UE5 via the
+Learning Agents module (`ULearningAgentsPPOTrainer`). UE5 creates a
+shared-memory communicator (`MakeSharedMemoryTrainingProcess()`) on port 5555
+that the LearningAgents trainer uses for synchronization. The Python
+`train_nlt.py` can connect to this communicator for monitoring/logging.
+
+**Path B — Python Standalone:** `train_nlt.py --standalone` runs the full PPO
+loop in Python without UE5, using a simulated cognitive-state evolution
+(`update_cognitive_state()` mirrors `LTCognitiveStateComponent`).
+
+#### UE5 Tick Flow (`NLTTrainingManager::Tick()`):
 
 ```
 every 0.1s (TickInterval):
   └─ Tick cognitive decay (stress rises, focus drops, without coaching)
+    └─ LTCognitiveStateComponent::TickCognitiveDecay(DeltaTime)
   └─ Run inference (both policies act)
+    └─ AvatarPolicy->RunInference() + AidePolicy->RunInference()
   └─ Avatar moves + acts (via AvatarInteractor)
   └─ Aide picks strategy → applies to Avatar (via AideInteractor)
   └─ Every 1.0s (TrainingTimer):
-     └─ PPOTrainer.RunTraining() — 1 iteration
+     └─ ULearningAgentsPPOTrainer::RunTraining()
         - Collects episode records
         - Updates policy + critic networks
         - Logs reward to TensorBoard (via communicator)
@@ -72,7 +86,7 @@ In `NLTEpisodeManager::CheckCognitiveCompletion`:
 
 ### Neural Network Assets
 
-Learning Agents requires pre-created NN assets in the Editor. These must be
+Learning Agents requires pre-created assets in the Editor. These must be
 created via the **Learning Agents Editor** panel:
 
 | Asset name | Input dims | Hidden | Output dims | Role |
@@ -89,21 +103,28 @@ Location: `WorldEngine/Saved/LearningAgents/Assets/`
 | Flag | Behavior |
 |------|----------|
 | `bRunInference = true` | Policies run every tick (Avatar/Aide act) |
-| `bRunTraining = true` | PPO updates run every 1.0s |
+| `bRunTraining = true` | PPO updates run every 1.0s via `ULearningAgentsPPOTrainer` |
 | Both true | Full training: act + learn |
 | Inference only | Play back trained policies (no updates) |
+| `--standalone` (Python) | Run PPO in Python without UE5 |
 
-### Python Side (TODO — Phase 3)
+### Python Side
 
-The Python training orchestrator needs to be built at:
-`neurolift-ai-fusion/src/simulation/training/train_nlt.py`
+The Python training orchestrator (`train_nlt.py`) in the `neurolift-ai-fusion`
+repo provides:
 
-It will:
-1. Connect to UE's shared-memory communicator on port 5555
+- **Standalone PPO**: Full PyTorch PPO implementation (policy networks, critics,
+  PPO update step) that mirrors the UE5 LearningAgents configuration
+- **Monitoring**: Connects to UE5's shared-memory communicator (port 5555) to
+  log metrics and TensorBoard scalars
+
+1. Connect to UE5's shared-memory communicator (port 5555)
 2. Receive observations (13-dim float arrays per agent)
-3. Send action probabilities + sampled actions back
-4. Send rewards (computed by `NLTTrainingEnvironment::GatherAgentReward`)
-5. Log to TensorBoard at `Saved/LearningAgents/TensorBoard/`
+3. Evaluate policy networks → get action probabilities
+4. Sample actions → send back (3 continuous + 4 discrete for Avatar, 10 discrete for Aide)
+5. Receive rewards (computed by `NLTTrainingEnvironment::GatherAgentReward`)
+6. PPO update step (clip ε=0.2, λ=0.95, γ=0.99)
+7. Log scalars → TensorBoard
 
 ### Running Training
 
@@ -112,7 +133,7 @@ It will:
 cd WorldEngine && make WorldEngineEditor && make WorldEngine
 ```
 
-**Step 2 — Launch headless training:**
+**Step 2 — Launch UE5 in headless training mode:**
 ```bash
 ~/Documents/NLT/Engine/Binaries/Linux/UnrealEditor \
   WorldEngine.uproject \
@@ -120,15 +141,16 @@ cd WorldEngine && make WorldEngineEditor && make WorldEngine
   -MAP=/Game/Scenarios/Levels/Workplace_Level.Workplace_Level
 ```
 
-**Step 3 — Run PPO (when Python script exists):**
+**Step 3 — Run Python PPO training (optional, for monitoring or standalone):**
 ```bash
-python3 ../../neurolift-ai-fusion/src/simulation/training/train_nlt.py \
-  --port 5555 --agents 1 --iterations 500
+cd /home/joshd/Desktop/nlt-repos/neurolift-ai-fusion/src/simulation/training
+python3 train_nlt.py --port 5555 --agents 20 --iterations 500 --scenario pers_4
+# Use --standalone for Python-only training (no UE5 needed)
 ```
 
 **Step 4 — Monitor:**
 ```bash
-python3 -m tensorboard --logdir=Saved/LearningAgents/TensorBoard --port 6006
+python3 -m tensorboard --logdir=/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Saved/LearningAgents/TensorBoard/ --port 6006
 ```
 
 Open http://localhost:6006 → look for:
@@ -146,8 +168,9 @@ Open http://localhost:6006 → look for:
 | `WorldEngine/Source/WorldEngine/Private/Agents/NLTTrainingManager.cpp` | BeginPlay/Tick — sets up everything |
 | `WorldEngine/Source/WorldEngine/Public/Agents/NLTAvatarInteractor.h` | 13-dim obs + 3+4 action schema |
 | `WorldEngine/Source/WorldEngine/Public/Agents/NLTAideInteractor.h` | 13-dim obs + 10 strategy action schema |
-| `WorldEngine/Source/WorldEngine/Public/Agents/NLCognitiveStateComponent.h` | 7-dim cognitive state, coaching effects |
+| `WorldEngine/Source/WorldEngine/Public/Agents/LTCognitiveStateComponent.h` | 7-dim cognitive state, coaching effects |
 | `WorldEngine/Source/WorldEngine/Public/Agents/NLTEpisodeManager.h` | Step tracking, cognitive completion check |
 | `WorldEngine/Source/WorldEngine/Public/Agents/NLTTrainingEnvironment.h` | Reward + completion computation |
 | `WorldEngine/Source/WorldEngine/Public/Scenarios/UScenarioDataAsset.h` | Scenario definitions (.uasset) |
+| `neurolift-ai-fusion/src/simulation/training/train_nlt.py` | Python PPO training orchestrator (standalone + UE bridge) |
 | `neurolift-ai-fusion/src/simulation/environment/scenarios.py` | 13 Python scenario definitions |

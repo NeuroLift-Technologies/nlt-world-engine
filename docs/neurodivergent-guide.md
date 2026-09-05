@@ -19,7 +19,7 @@ realistic, understandable, and kind.
 
 ## The Big Picture (Visual)
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │  Unreal Engine 5.8  (the World)             │
 │                                            │

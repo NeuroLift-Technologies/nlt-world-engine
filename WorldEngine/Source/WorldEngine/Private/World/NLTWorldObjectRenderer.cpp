@@ -30,11 +30,7 @@ ANLTWorldObjectRenderer::ANLTWorldObjectRenderer()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneFinder(TEXT("/Engine/BasicShapes/Plane"));
 	if (PlaneFinder.Succeeded())
 	{
-		PlaneMeshCache = NewObject<UStaticMeshComponent>(this, TEXT("PlaneMeshCache"));
-		PlaneMeshCache->SetStaticMesh(PlaneFinder.Object);
-		PlaneMeshCache->SetHiddenInGame(true);
-		PlaneMeshCache->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		PlaneMeshCache->RegisterComponent();
+		PlaneMeshCache = PlaneFinder.Object;
 	}
 }
 
@@ -62,7 +58,10 @@ void ANLTWorldObjectRenderer::ClearWorld()
 	for (auto& Pair : BuildingISMs)
 	{
 		if (Pair.Value)
+		{
 			Pair.Value->ClearInstances();
+			Pair.Value->DestroyComponent();
+		}
 	}
 	BuildingISMs.Empty();
 	if (RoadInstances)
@@ -149,6 +148,9 @@ void ANLTWorldObjectRenderer::RenderRoads(const TArray<FTransform>& RoadPoints, 
 {
 	if (!RoadInstances) return;
 
+	if (RoadMaterial)
+		RoadInstances->SetMaterial(0, RoadMaterial);
+
 	for (int32 i = 0; i < RoadPoints.Num(); i++)
 	{
 		const FVector& Pos = RoadPoints[i].GetLocation();
@@ -188,7 +190,7 @@ void ANLTWorldObjectRenderer::RenderDistricts(const TArray<FNLTGeneratedDistrict
 	{
 		UStaticMeshComponent* DistrictMesh = NewObject<UStaticMeshComponent>(this);
 		if (PlaneMeshCache)
-			DistrictMesh->SetStaticMesh(PlaneMeshCache->GetStaticMesh());
+			DistrictMesh->SetStaticMesh(PlaneMeshCache);
 		DistrictMesh->SetWorldLocation(FVector(District.Center.X, District.Center.Y, 1.0f));
 		// UE plane is 100cm x 100cm, so scale = diameter / 100.
 		float Diameter = District.Radius * 2.0f;

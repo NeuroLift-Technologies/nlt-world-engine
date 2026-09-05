@@ -67,7 +67,7 @@ private:
 	TMap<FName, TObjectPtr<UInstancedStaticMeshComponent>> BuildingISMs;
 
 	UPROPERTY()
-	TObjectPtr<UStaticMeshComponent> PlaneMeshCache;
+	TObjectPtr<UStaticMesh> PlaneMeshCache;
 
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> CubeMeshCache;

@@ -4,7 +4,7 @@ NeuroLift Technologies Simulation Environment — the deterministic runtime wher
 
 ## Architecture
 
-```
+```text
 Fusion Runtime (neurolift-ai-fusion)
   ├── Avatar/Aide/Advocate intelligence
   ├── ADHD trait modeling (26-dim)
@@ -52,9 +52,9 @@ make WorldEngineEditor
 
 ## Project Structure
 
-```
+```text
 nlt-world-engine/
-├── WorldEngine/                  # UE 5.8 project (C++ authoritative simulation)
+├── WorldEngine/
 │   ├── WorldEngine.uproject      # Project file
 │   ├── Source/WorldEngine/       # C++ module (57 files, 11 subsystems)
 │   │   ├── Public/               # Headers
@@ -181,7 +181,18 @@ python3 -m unittest discover tests  # Run tests
 | Onboarding | `ONBOARDING.md` |
 | Active Threads | `docs/active-threads.md` |
 
-## Remaining Work
+## License
+
+License TBD — Open Source. See `LICENSE` for details when available.
+
+---
+
+## Contact
+
+**NeuroLift Technologies**
+
+- Website: https://neurolifttech.com
+- Founder: Joshua W. Dorsey — joshua.dorsey@neurolifttech.com
 
 - `NLTGovernanceSubsystem` — TOI/OTOI/ASFDK boundary (planned)
 - StateTree behavior trees on Mass entities
@@ -190,5 +201,5 @@ python3 -m unittest discover tests  # Run tests
 - Replay deterministic verification
 - LOD transition logic for avatar actors
 - Headless server build configuration
-- Test suite (currently none)
+- UE5 unit tests (AutomationDriver /AutomationTest framework)
 - Build validation in CI

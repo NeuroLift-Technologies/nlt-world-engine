@@ -17,7 +17,7 @@
 | Project file | `WorldEngine.uproject` (433 bytes, minimal, single module) |
 | C++ sources | `Source/WorldEngine/` — **57 files** (was: "empty stub") |
 | Build | ✅ `make configure` and `make WorldEngineEditor` both succeed |
-| Content | 40+ assets: Audio, Materials, Kits (SimBody, Workplace), PCG, Scenarios (16 scenario assets across 4 domains), VFX, Web viewer, Levels |
+|| Content | 40+ assets: Audio, Materials, Kits (SimBody, Workplace), PCG, Scenarios (13 scenario assets across 4 domains), VFX, Web viewer, Levels ||
 | Plugins enabled | ModelingToolsEditorMode, ModelContextProtocol, AllToolsets |
 | Toolchain | Clang 20.1.8, ISPC 1.24.0, UBA enabled |
 
@@ -58,7 +58,7 @@ Private: Projects, NavigationSystem, Navmesh, AudioMixer, AudioMixerCore,
 | Project | Status |
 |---------|--------|
 | `MyProject/` | **Removed** — was UE 5.8 FirstPerson template, no custom code |
-| `MyProject2/` | **Removed** — was UE 5.8 + MassAI/LearningAgents/HTNPlanner/MassCrowd/MetaHuman plugins |
+|| `MyProject2/` | **Removed** — was UE 5.8 + MassAI/LearningAgents/MassCrowd/MetaHuman plugins ||
 
 ### Existing Fusion World Engine (neurolift-ai-fusion)
 
@@ -87,7 +87,7 @@ Private: Projects, NavigationSystem, Navmesh, AudioMixer, AudioMixerCore,
 | Aide | Python class / DO state | 1:1 with avatar, coaching strategies |
 | Advocate | Python class | Helps other pairs |
 | Room | Grid rect (24×18 iso) | office, meeting, home, phone, lounge |
-| Scenario | `UScenarioDataAsset` + Python | 16 assets across 4 domains |
+|| Scenario | `UScenarioDataAsset` + Python | 13 assets across 4 domains ||
 | Need | Derived from stress/cogLoad/focus | `FNLTAgentNeedsFragment` in UE |
 | Intent | State machine states | idle, working, drifting, hyperfocus, overwhelmed, coached |
 | Tick | 1Hz simulation clock | `NLTSimulationClockSubsystem` |

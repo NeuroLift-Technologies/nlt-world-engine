@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- [ ] **UE5.8.2** installed at `~/Documents/NLT/Engine/` (Linux)
+- [ ] **UE5.8** installed at `~/Documents/NLT/Engine/` (Linux)
 - [ ] **Python 3.11+** available (`python3 --version`)
 - [ ] **PyTorch** installed (`python3 -c "import torch; print(torch.__version__)"`)
 - [ ] **TensorBoard** available (`python3 -m tensorboard --version`)
@@ -61,20 +61,21 @@ python3 demo.py
 ## Step 4: SSE Service (Studio viewer)
 
 ```bash
-# 5. Start the SSE/REST service
-python3 world-engine/service/server.py &
-# Expected: "SSE server started on :8765"
+# 5. Start the SSE/REST service on port 8766
+cd world-engine
+python3 service/server.py &
+# Expected: "SSE server started on :8766"
 
 # 6. In another terminal, test the endpoint
-curl http://localhost:8765/api/status
-# Expected: JSON with {"status": "ok", "sim_state": {...}}
-curl http://localhost:8765/api/scene
+curl http://localhost:8766/api/status
+# Expected: JSON with "status": "ok", "sim_state": {...}
+curl http://localhost:8766/api/scene
 # Expected: JSON with scene graph
 # Kill the server:
 kill %1
 ```
 
-- [ ] Server starts on port 8765
+- [ ] Server starts on port 8766
 - [ ] `/api/status` returns JSON
 - [ ] `/api/scene` returns JSON
 
@@ -84,11 +85,12 @@ kill %1
 
 ```bash
 # 7. Start static file server
-cd world-engine
-python3 -m http.server 8765 &
+cd nlt-world-engine
+python3 -m http.server 8765 --directory world-engine &
 
-# 8. Start SSE service in another terminal
-python3 service/server.py &
+# 8. Start SSE service in another terminal on port 8766
+cd nlt-world-engine
+python3 world-engine/service/server.py &
 
 # 9. Open in browser:
 #    http://127.0.0.1:8765/index.html?live=1
@@ -105,7 +107,7 @@ python3 service/server.py &
 # 10. Build the training binaries (already done in Step 2)
 
 # 11. Launch UE5 in headless training mode
-cd WorldEngine
+cd nlt-world-engine
 ~/Documents/NLT/Engine/Binaries/Linux/UnrealEditor \
   WorldEngine.uproject \
   -nullrhi -game -server -log \
@@ -121,12 +123,14 @@ grep "NLTTrainingManager" Saved/Logs/WorldEngine.log
 
 ```bash
 # 13. Run Python PPO training
-cd ../../neurolift-ai-fusion/src/simulation/training
+# train_nlt.py is in the neurolift-ai-fusion repo
+cd /home/joshd/Desktop/nlt-repos/neurolift-ai-fusion/src/simulation/training
 python3 train_nlt.py --standalone --agents 1 --iterations 50
 # (Standalone mode runs without UE5; use --port 5555 for UE5 connection)
+```
 
 # 14. Monitor TensorBoard
-python3 -m tensorboard --logdir=../../../WorldEngine/Saved/LearningAgents/TensorBoard/ --port 6006 &
+python3 -m tensorboard --logdir=/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Saved/LearningAgents/TensorBoard/ --port 6006 &
 # Open http://localhost:6006 → look for "Loss/AvatarPolicy", "Reward/AvatarMean", "Independence/AvatarMean"
 
 ---
@@ -137,7 +141,9 @@ Before you commit anything:
 
 ```bash
 # 15. Run flake8 (Python critical errors)
+cd nlt-world-engine
 flake8 world-engine/src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+```
 
 # 16. Validate governance
 bash .nltotoi/scripts/validate-governance.sh
@@ -160,7 +166,7 @@ cd world-engine && python3 -m pytest tests/ -v
 | `UnrealEditor not found` | Check `~/Documents/NLT/Engine/Binaries/Linux/` |
 | `Module LearningAgents not found` | Enable plugin in `WorldEngine.uproject` |
 | `python3: command not found` | Install Python 3.11+ |
-| Port 8765 already in use | `kill $(lsof -t -i:8765)` |
+| Port 8765 already in use | `kill $(lsof -t -i:8765)` \| or use a different port |
 | UE build fails on Niagara | Ensure `Niagara` plugin is enabled in `.uproject` |
 | Python imports fail | `pip install -r world-engine/requirements.txt` |
 
