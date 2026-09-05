@@ -2,6 +2,9 @@
 #include "Scenarios/NLTDemoGameMode.h"
 #include "Scenarios/Demo/NLTScenarioManagerSubsystem.h"
 #include "Scenarios/UScenarioLibrary.h"
+#include "World/NLTDoorActor.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 
 ANLTDemoGameMode::ANLTDemoGameMode()
 {
@@ -12,20 +15,18 @@ void ANLTDemoGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// The NLT web server is hosted at engine boot by UEngineSubsystem so the
-	// shared HTTP listeners (including the ModelContextProtocol MCP endpoint on
-	// port 8000) are not coupled to any single PIE world lifecycle.
+	// Spawn doors that lead to other levels
+	SpawnLevelDoors();
 
+	// Start the scenario simulation
 	if (UNLTScenarioManagerSubsystem* ScenarioManager = GetWorld()->GetSubsystem<UNLTScenarioManagerSubsystem>())
 	{
-		// Resolve the default scenario asset from the asset registry.
 		UScenarioDataAsset* ScenarioAsset = UScenarioLibrary::GetScenarioById(DefaultScenarioId);
 		if (!ScenarioAsset)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Demo: scenario asset not found for id '%s'; spawning raw"), *DefaultScenarioId.ToString());
 		}
 
-		// Parameters are fully deterministic: fixed seed + fixed agent count => reproducible runs.
 		FNLTScenarioParams Params;
 		Params.NumAgents = 20;
 		Params.Seed = 1000;
@@ -73,4 +74,71 @@ void ANLTDemoGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	Super::EndPlay(EndPlayReason);
+}
+
+void ANLTDemoGameMode::SpawnLevelDoors()
+{
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	// Get the current level name
+	FName CurrentLevel = FName(*UGameplayStatics::GetCurrentLevelName(World));
+	UE_LOG(LogTemp, Log, TEXT("SpawnLevelDoors: Current level is '%s'"), *CurrentLevel.ToString());
+
+	// Define all available levels
+	struct FLevelInfo
+	{
+		FName LevelId;
+		FText DisplayName;
+	};
+
+	TArray<FLevelInfo> AllLevels = {
+		{ TEXT("Workplace_Level"),  FText::FromString(TEXT("Workplace")) },
+		{ TEXT("Personal_Level"),   FText::FromString(TEXT("Personal")) },
+		{ TEXT("Social_Level"),     FText::FromString(TEXT("Social")) },
+		{ TEXT("Academic_Level"),   FText::FromString(TEXT("Academic")) }
+	};
+
+	// Spawn a door for each level that isn't the current one
+	int32 DoorCount = 0;
+	for (const FLevelInfo& Info : AllLevels)
+	{
+		if (Info.LevelId == CurrentLevel)
+			continue;
+
+		// Position doors in a row along the X axis, spaced 400 units apart
+		float XOffset = (DoorCount + 1) * 400.0f;
+		FVector DoorLocation(XOffset, 0.0f, 100.0f);
+
+		SpawnDoor(Info.LevelId, Info.DisplayName, DoorLocation);
+		DoorCount++;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("SpawnLevelDoors: Spawned %d doors on level '%s'"), DoorCount, *CurrentLevel.ToString());
+}
+
+ANLTDoorActor* ANLTDemoGameMode::SpawnDoor(const FName& TargetLevel, const FText& DisplayName, const FVector& Location)
+{
+	UWorld* World = GetWorld();
+	if (! World) return nullptr;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Name = FName(*FString::Printf(TEXT("Door_%s"), *TargetLevel.ToString()));
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	ANLTDoorActor* Door = World->SpawnActor<ANLTDoorActor>(
+		ANLTDoorActor::StaticClass(),
+		Location,
+		FRotator::ZeroRotator,
+		SpawnParams
+	);
+
+	if (Door)
+	{
+		Door->TargetLevelId = TargetLevel;
+		Door->DisplayName = DisplayName;
+		UE_LOG(LogTemp, Log, TEXT("SpawnLevelDoors: Spawned door to '%s' at %s"), *TargetLevel.ToString(), *Location.ToString());
+	}
+
+	return Door;
 }

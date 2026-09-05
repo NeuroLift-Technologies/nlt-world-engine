@@ -7,7 +7,7 @@
 
 /**
  * Demo game mode for NLT Fusion scenario simulation.
- * On BeginPlay, loads a default scenario and starts the simulation.
+ * On BeginPlay, loads a default scenario, spawns level doors, and starts the simulation.
  * Uses ANLTPlayerController for interactive door/level traversal.
  */
 UCLASS()
@@ -26,4 +26,11 @@ protected:
 	/** Default scenario to load on startup. */
 	UPROPERTY(EditAnywhere, Category = "NLT|Scenario")
 	FName DefaultScenarioId = TEXT("wp_1");
+
+	/** Spawn doors that lead to other levels. */
+	void SpawnLevelDoors();
+
+private:
+	/** Spawn a single door at the given location. */
+	class ANLTDoorActor* SpawnDoor(const FName& TargetLevel, const FText& DisplayName, const FVector& Location);
 };
