@@ -1,5 +1,5 @@
 {
-  "nltotoi_version": "1.0.2",
+  "nltotoi_version": "1.0.3",
   "document_id": "ORG-DEV-OTOI-1.0.3",
   "repository": {
     "name": "NeuroLift-Technologies/nlt-fusion",
@@ -50,7 +50,7 @@
   },
   "metadata": {
     "created": "2026-03-31",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "last_updated": "2026-06-22"
   }
 }
