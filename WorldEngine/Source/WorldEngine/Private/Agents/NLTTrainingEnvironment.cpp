@@ -36,7 +36,7 @@ void UNLTTrainingEnvironment::GatherAgentReward(float& OutReward, const int32 Ag
 
 void UNLTTrainingEnvironment::GatherAgentCompletion(ELearningAgentsCompletion& OutCompletion, const int32 AgentId)
 {
-    // Return None during active episodes, Termination only when episode actually ends
+    // Return Running during active episodes, Termination only when episode actually ends
     // LA's trainer uses MaxEpisodeStepNum for truncation
-    OutCompletion = ELearningAgentsCompletion::None;
+    OutCompletion = ELearningAgentsCompletion::Running;
 }
