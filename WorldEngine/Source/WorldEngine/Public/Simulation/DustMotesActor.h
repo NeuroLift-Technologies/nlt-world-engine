@@ -1,32 +1,33 @@
 #pragma once
+
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Components/StaticMeshComponent.h"
 #include "Particles/ParticleSystemComponent.h"
-#include "Particles/ParticleSystem.h"
 #include "DustMotesActor.generated.h"
 
 UCLASS()
 class WORLDENGINE_API ADustMotesActor : public AActor
 {
     GENERATED_BODY()
+
 public:
     ADustMotesActor();
-    virtual void BeginPlay() override;
-    virtual void Tick(float DeltaTime) override;
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dust")
-    UStaticMeshComponent* DustMesh;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dust")
+    virtual void BeginPlay() override;
+
+    /** The dust motes particle system component (owned root). */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Dust Motes")
     UParticleSystemComponent* DustParticles;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dust")
-    float DustDensity = 0.5f;
+    /** The dust particle template - assigned from editor or content browser. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dust Motes")
+    UParticleSystem* DustTemplate;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dust")
-    float TimeOfDay = 8.5f;
+    /** Enable/disable the dust effect globally. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dust Motes")
+    bool bActive = true;
 
-    /** Optional particle template used by NLTWorkplaceEnvironmentSubsystem */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dust")
-    TObjectPtr<UParticleSystem> DustTemplate;
+    /** Assign the template and immediately apply it to the particle component. */
+    UFUNCTION(BlueprintCallable, Category = "Dust Motes")
+    void SetDustTemplate(UParticleSystem* InTemplate);
 };

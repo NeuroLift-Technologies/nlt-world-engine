@@ -1,86 +1,79 @@
 #include "Simulation/PostProcessVolumeActor.h"
-#include "Components/PostProcessComponent.h"
-#include "Engine/World.h"
 
 APostProcessVolumeActor::APostProcessVolumeActor()
 {
-    PrimaryActorTick.bCanEverTick = false;
-    PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcessComponent"));
-    RootComponent = PostProcessComponent;
-    PostProcessComponent->bUnbound = true;
-    PostProcessComponent->Priority = Priority;
-    PostProcessComponent->BlendWeight = BlendWeight;
-    ApplySettings();
-}
+	PrimaryActorTick.bCanEverTick = false;
 
-void APostProcessVolumeActor::BeginPlay()
-{
-    Super::BeginPlay();
-}
+	// Unbound volume affecting the full level with no physical extent
+	bUnbound = true;
+	Priority = 1.0f;
+	BlendWeight = 1.0f;
+	BlendRadius = 0.0f;
+	bEnabled = true;
 
-void APostProcessVolumeActor::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
+	ApplySettings();
 }
 
 void APostProcessVolumeActor::ApplySettings()
 {
-    if (!PostProcessComponent) return;
-    PostProcessComponent->bEnabled = true;
-    PostProcessComponent->bUnbound = bApplyUnbounded;
-    PostProcessComponent->Priority = Priority;
-    PostProcessComponent->BlendWeight = BlendWeight;
-    PostProcessComponent->BlendRadius = BlendRadius;
+	bUnbound = bApplyUnbounded;
 
-    // Color Grading
-    PostProcessComponent->Settings.bOverride_SceneColorTint = true;
-    PostProcessComponent->Settings.SceneColorTint = ColorGradeTint;
-    PostProcessComponent->Settings.bOverride_ColorSaturation = true;
-    PostProcessComponent->Settings.ColorSaturation = FVector4(Saturation, Saturation, Saturation, 1.0f);
-    PostProcessComponent->Settings.bOverride_ColorContrast = true;
-    PostProcessComponent->Settings.ColorContrast = FVector4(Contrast, Contrast, Contrast, 1.0f);
+	// === Bloom ===
+	Settings.bOverride_BloomIntensity = true;
+	Settings.BloomIntensity = BloomIntensity;
+	Settings.bOverride_BloomThreshold = true;
+	Settings.BloomThreshold = BloomThreshold;
 
-    // Bloom
-    PostProcessComponent->Settings.bOverride_BloomIntensity = true;
-    PostProcessComponent->Settings.BloomIntensity = BloomIntensity;
-    PostProcessComponent->Settings.bOverride_BloomThreshold = true;
-    PostProcessComponent->Settings.BloomThreshold = BloomThreshold;
+	// === Exposure ===
+	Settings.bOverride_AutoExposureMinBrightness = true;
+	Settings.bOverride_AutoExposureMaxBrightness = true;
+	Settings.AutoExposureMinBrightness = Exposure;
+	Settings.AutoExposureMaxBrightness = Exposure;
 
-    // Exposure
-    PostProcessComponent->Settings.bOverride_AutoExposureMinBrightness = true;
-    PostProcessComponent->Settings.bOverride_AutoExposureMaxBrightness = true;
-    PostProcessComponent->Settings.AutoExposureMinBrightness = FMath::Max(0.0f, 1.0f - FMath::Abs(Exposure));
-    PostProcessComponent->Settings.AutoExposureMaxBrightness = FMath::Max(0.0f, 1.0f + FMath::Abs(Exposure));
+	// === Ambient Occlusion ===
+	Settings.bOverride_AmbientOcclusionRadius = true;
+	Settings.AmbientOcclusionRadius = AORadius;
+	Settings.bOverride_AmbientOcclusionIntensity = true;
+	Settings.AmbientOcclusionIntensity = AmbientOcclusion;
 
-    // Ambient Occlusion
-    PostProcessComponent->Settings.bOverride_AmbientOcclusionIntensity = true;
-    PostProcessComponent->Settings.AmbientOcclusionIntensity = AmbientOcclusion;
+	// === Film Grain ===
+	Settings.bOverride_FilmGrainIntensity = true;
+	Settings.FilmGrainIntensity = FilmGrain;
 
-    // Film Grain
-    PostProcessComponent->Settings.bOverride_FilmGrainIntensity = true;
-    PostProcessComponent->Settings.FilmGrainIntensity = FilmGrain;
+	// === Chromatic Aberration ===
+	Settings.bOverride_SceneFringeIntensity = true;
+	Settings.SceneFringeIntensity = ChromaticAberration;
 
-    // Chromatic Aberration
-    PostProcessComponent->Settings.bOverride_SceneFringeIntensity = true;
-    PostProcessComponent->Settings.SceneFringeIntensity = ChromaticAberration;
+	// === Lens Flare ===
+	Settings.bOverride_LensFlareIntensity = true;
+	Settings.LensFlareIntensity = LensFlareIntensity;
+	Settings.bOverride_LensFlareTint = true;
+	Settings.LensFlareTint = LensFlareTint;
 
-    // Lens Flare
-    PostProcessComponent->Settings.bOverride_LensFlareIntensity = true;
-    PostProcessComponent->Settings.LensFlareIntensity = LensFlareIntensity;
-    PostProcessComponent->Settings.bOverride_LensFlareTint = true;
-    PostProcessComponent->Settings.LensFlareTint = LensFlareTint;
+	// === Vignette ===
+	Settings.bOverride_VignetteIntensity = true;
+	Settings.VignetteIntensity = VignetteIntensity;
 
-    // Vignette
-    PostProcessComponent->Settings.bOverride_VignetteIntensity = true;
-    PostProcessComponent->Settings.VignetteIntensity = VignetteIntensity;
+	// === Color Grading ===
+	Settings.bOverride_SceneColorTint = true;
+	Settings.SceneColorTint = ColorGradeTint;
+	Settings.bOverride_ColorSaturation = true;
+	Settings.ColorSaturation = FVector4(Saturation, Saturation, Saturation, 1.0f);
+	Settings.bOverride_ColorContrast = true;
+	Settings.ColorContrast = FVector4(Contrast, Contrast, Contrast, 1.0f);
 
-    // Motion Blur
-    PostProcessComponent->Settings.bOverride_MotionBlurAmount = true;
-    PostProcessComponent->Settings.MotionBlurAmount = MotionBlurAmount;
+	// === Motion Blur ===
+	Settings.bOverride_MotionBlurAmount = true;
+	Settings.MotionBlurAmount = MotionBlurAmount;
 
-    // Depth of Field
-    PostProcessComponent->Settings.bOverride_DepthOfFieldFocalDistance = true;
-    PostProcessComponent->Settings.DepthOfFieldFocalDistance = DOFFocalDistance;
-    PostProcessComponent->Settings.bOverride_DepthOfFieldFstop = true;
-    PostProcessComponent->Settings.DepthOfFieldFstop = DOFAperture;
+	// === Depth of Field ===
+	Settings.bOverride_DepthOfFieldFocalDistance = true;
+	Settings.DepthOfFieldFocalDistance = DOFFocalDistance;
+	Settings.bOverride_DepthOfFieldFstop = true;
+	Settings.DepthOfFieldFstop = DOFAperture;
+
+	// Re-assert volume state in case a default-constructed base reset it
+	bEnabled = true;
+	Priority = 1.0f;
+	BlendWeight = 1.0f;
 }

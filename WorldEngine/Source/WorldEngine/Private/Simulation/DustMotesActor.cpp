@@ -1,32 +1,51 @@
 #include "Simulation/DustMotesActor.h"
-#include "Components/StaticMeshComponent.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleSystem.h"
-#include "UObject/ConstructorHelpers.h"
 
 ADustMotesActor::ADustMotesActor()
 {
-    PrimaryActorTick.bCanEverTick = false;
-    DustMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DustMesh"));
-    RootComponent = DustMesh;
-    DustMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
+    // Create and root the particle system component
     DustParticles = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("DustParticles"));
-    DustParticles->SetupAttachment(RootComponent);
-    DustParticles->bAutoActivate = true;
+    SetRootComponent(DustParticles);
+    DustParticles->bAutoActivate = false;
+    DustParticles->SetVisibility(false);
+
+    // Set this actor to not need tick by default
+    PrimaryActorTick.bCanEverTick = false;
 }
 
 void ADustMotesActor::BeginPlay()
 {
     Super::BeginPlay();
 
-    if (DustTemplate && DustParticles)
+    // Apply the assigned template if present, falling back to the engine dust asset
+    UParticleSystem* EffectiveTemplate = DustTemplate;
+    if (!EffectiveTemplate)
     {
-        DustParticles->SetTemplate(DustTemplate);
+        EffectiveTemplate = LoadObject<UParticleSystem>(nullptr, TEXT("/Engine/Effects/Tutorial/Dust.ParticleSystem"));
+    }
+    if (EffectiveTemplate)
+    {
+        SetDustTemplate(EffectiveTemplate);
+    }
+
+    // Activate now that the world is ready (SetVisibility alone does not activate)
+    if (bActive && DustParticles && DustParticles->Template)
+    {
+        DustParticles->SetVisibility(true);
+        DustParticles->ActivateSystem(true);
+    }
+    else if (DustParticles)
+    {
+        DustParticles->SetVisibility(false);
     }
 }
 
-void ADustMotesActor::Tick(float DeltaTime)
+void ADustMotesActor::SetDustTemplate(UParticleSystem* InTemplate)
 {
-    Super::Tick(DeltaTime);
+    DustTemplate = InTemplate;
+    if (DustParticles)
+    {
+        DustParticles->SetTemplate(InTemplate);
+    }
 }

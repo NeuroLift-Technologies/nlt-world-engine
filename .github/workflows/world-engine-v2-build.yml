@@ -8,6 +8,11 @@ on:
     paths:
       - 'world-engine-v2/**'
 
+# [SECURITY] Least-privilege: this workflow only builds the v2 frontend from
+# source, so the default GITHUB_TOKEN needs read-only access.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: tsc + vite build

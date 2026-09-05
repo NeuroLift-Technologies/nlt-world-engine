@@ -1,99 +1,98 @@
 #pragma once
+
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
-#include "Components/PostProcessComponent.h"
+#include "Engine/PostProcessVolume.h"
 #include "PostProcessVolumeActor.generated.h"
 
+/**
+ * Cinematic post-process volume for WorldEngine.
+ * Derives from APostProcessVolume so the inherited registered Settings
+ * (bUnbound global volume) are driven by this actor's configuration.
+ * Provides film-quality rendering with bloom, ambient occlusion,
+ * film grain, chromatic aberration, lens flare, vignette,
+ * and color grading.
+ */
 UCLASS()
-class WORLDENGINE_API APostProcessVolumeActor : public AActor
+class WORLDENGINE_API APostProcessVolumeActor : public APostProcessVolume
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
+
 public:
-    APostProcessVolumeActor();
-    virtual void BeginPlay() override;
-    virtual void Tick(float DeltaTime) override;
+	APostProcessVolumeActor();
 
-    /** Global scene color tint for warm/cool grading */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|ColorGrading")
-    FLinearColor ColorGradeTint;
+	// ─── Bloom ──────────────────────────────────────────────────
 
-    /** Overall saturation multiplier (1.0 = neutral) */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|ColorGrading")
-    float Saturation = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Bloom", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	float BloomIntensity = 1.2f;
 
-    /** Overall contrast multiplier (1.0 = neutral) */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|ColorGrading")
-    float Contrast = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Bloom", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	float BloomThreshold = 1.0f;
 
-    /** Bloom effect intensity */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Bloom")
-    float BloomIntensity = 1.0f;
+	// ─── Exposure ───────────────────────────────────────────────
 
-    /** Bloom threshold (lower = more bloom bleeding) */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Bloom")
-    float BloomThreshold = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Exposure", meta = (ClampMin = "0.1", ClampMax = "2.0"))
+	float Exposure = 1.0f;
 
-    /** Camera exposure compensation stops */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Exposure")
-    float Exposure = 0.0f;
+	// ─── Ambient Occlusion ──────────────────────────────────────
 
-    /** Ambient occlusion intensity */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|AmbientOcclusion")
-    float AmbientOcclusion = 0.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|AO", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float AmbientOcclusion = 0.5f;
 
-    /** Film grain strength */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Film")
-    float FilmGrain = 0.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|AO", meta = (ClampMin = "0.0", ClampMax = "1000.0"))
+	float AORadius = 200.0f;
 
-    /** Chromatic aberration */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Lens")
-    float ChromaticAberration = 0.0f;
+	// ─── Film Grain ─────────────────────────────────────────────
 
-    /** Lens flare intensity */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Lens")
-    float LensFlareIntensity = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Film", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float FilmGrain = 0.03f;
 
-    /** Lens flare tint */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Lens")
-    FLinearColor LensFlareTint;
+	// ─── Chromatic Aberration ───────────────────────────────────
 
-    /** Vignette intensity */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|Vignette")
-    float VignetteIntensity = 0.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Lens", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	float ChromaticAberration = 0.5f;
 
-    /** Motion blur amount */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|MotionBlur")
-    float MotionBlurAmount = 0.5f;
+	// ─── Lens Flare ─────────────────────────────────────────────
 
-    /** Depth of field focal distance */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|DepthOfField")
-    float DOFFocalDistance = 1000.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Lens", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	float LensFlareIntensity = 0.8f;
 
-    /** Depth of field aperture (f-stop) */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess|DepthOfField")
-    float DOFAperture = 8.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Lens")
+	FLinearColor LensFlareTint = FLinearColor(1.0f, 0.9f, 0.7f, 1.0f);
 
-    /** Apply settings to the actor's post process component */
-    UFUNCTION(BlueprintCallable, Category = "PostProcess")
-    void ApplySettings();
+	// ─── Vignette ───────────────────────────────────────────────
 
-    /** Whether the volume is unbound (affects whole level) */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess")
-    bool bApplyUnbounded = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Vignette", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float VignetteIntensity = 0.3f;
 
-    /** Priority for overlapping volumes */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess")
-    float Priority = 1.0f;
+	// ─── Color Grading ──────────────────────────────────────────
 
-    /** Blend weight 0..1 */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess")
-    float BlendWeight = 1.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Color")
+	FLinearColor ColorGradeTint = FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-    /** Blend radius */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PostProcess")
-    float BlendRadius = 0.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Color", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+	float Saturation = 1.0f;
 
-private:
-    UPROPERTY(VisibleAnywhere, Category = "PostProcess")
-    UPostProcessComponent* PostProcessComponent;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Color", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+	float Contrast = 1.0f;
+
+	// ─── Motion Blur ────────────────────────────────────────────
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|Motion", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float MotionBlurAmount = 0.1f;
+
+	// ─── Depth of Field ─────────────────────────────────────────
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|DOF", meta = (ClampMin = "0.0", ClampMax = "10.0"))
+	float DOFFocalDistance = 1000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process|DOF", meta = (ClampMin = "0.0", ClampMax = "100.0"))
+	float DOFAperture = 5.5f;
+
+	/** Apply all current property values to the inherited registered Settings. */
+	UFUNCTION(BlueprintCallable, Category = "Post-Process")
+	void ApplySettings();
+
+	/** True when this volume should affect the entire level (unbound). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Post-Process")
+	bool bApplyUnbounded = true;
 };
