@@ -1,6 +1,11 @@
 name: Governance Validation
 on: [push, pull_request]
 
+# [SECURITY] Least-privilege: this workflow only checks out the repo and runs a
+# local governance script, so the default GITHUB_TOKEN needs read-only access.
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
