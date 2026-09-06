@@ -2,11 +2,21 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 ---
-
 ## Active Threads
+
+### 🤖 LLM → Avatar control via AIController (semantic command API) 🆕 READY FOR REVIEW
+- **Agent:** Cline · **Opened:** 2026-09-05 · **Branch:** `feat/llm-avatar-control`
+- **Scope:** Let an LLM drive an avatar through `AAvatarAIController` using high-level commands (move_to / move_by / move_to_object / face_towards / stop / release) while CMC keeps ownership of locomotion. Provider-agnostic reference loop included.
+- **Delivered:**
+  - `AAvatarAIController`: new `bLLMControlActive` (+ `SetLLMControlActive`/`IsLLMControlActive`, mirrors `bLearningAgentsActive`), new `ExecuteLLMCommand(Command, Args, OutMessage)` dispatcher, and wander/on-move guards now honor LLM control. Compiles clean (`make WorldEngineEditor` → Succeeded).
+  - `UNLTWebServerSubsystem`: new loopback-only `POST /api/avatar/command` accepting `{avatar_id?, command, args}`; returns `{ok, command, message, avatar_id, llm_control}`.
+  - `WorldEngine/Scripts/llm_avatar_agent.py`: stdlib-only OpenAI-compatible tool-calling controller (env: `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL`/`WE_BASE`), with `--dry-run`, action JSONL log (`llm_avatar_session.jsonl`), and arrival polling. `--dry-run` verified live against the running sim (7 avatars observable).
+  - Docs: `WorldEngine/docs/LLM_AVATAR_CONTROL.md`.
+- **Verification:** build succeeded; Python dry-run against running editor OK. NOTE: the live editor (pid 398063) predates the rebuild, so `/api/avatar/command` returns 404 until the editor is restarted.
+- **Next baton:** restart the editor/headless sim → `curl -X POST localhost:8765/api/avatar/command -d '{"command":"move_by","args":{"dx":300,"dy":0}}'` → then run `python3 llm_avatar_agent.py --task "..."` against a local or hosted OpenAI-compatible endpoint. Watch the drift/peer WIP in § below.
 
 ### 🔐 Secret-purge + code-scanning fixes 🟡 AWAITING MERGE
 - **Agent:** Codex (Poolside) · **Opened:** 2026-09-04 · **Branch:** `fix/security-code-scanning`

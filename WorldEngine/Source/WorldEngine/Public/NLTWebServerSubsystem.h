@@ -51,6 +51,8 @@ private:
 	bool HandleControlRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
 	bool HandleSceneRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
 	bool HandleStatusRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
+	bool HandleAvatarActionRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
+	bool HandleAvatarCommandRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete);
 
 	TSharedPtr<FJsonObject> BuildSnapshotObject();
 	FString BuildSceneJson();

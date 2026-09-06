@@ -4,6 +4,8 @@
 #include "Scenarios/Demo/NLTScenarioManagerSubsystem.h"
 #include "Agents/NLTAgentSpawnerSubsystem.h"
 #include "Agents/NLTAgentFragments.h"
+#include "Agents/AvatarCharacter.h"
+#include "Agents/AvatarAIController.h"
 #include "Core/NLTFusionCore.h"
 #include "MassEntitySubsystem.h"
 #include "MassEntityQuery.h"
@@ -14,6 +16,7 @@
 #include "Serialization/JsonSerializer.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "IPAddress.h"
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleManager.h"
@@ -109,6 +112,10 @@ void UNLTWebServerSubsystem::StartServer(int32 InPort)
 		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleStatusRequest));
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/control")), EHttpServerRequestVerbs::VERB_POST,
 		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleControlRequest));
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/avatar/action")), EHttpServerRequestVerbs::VERB_POST,
+		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleAvatarActionRequest));
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/avatar/command")), EHttpServerRequestVerbs::VERB_POST,
+		FHttpRequestHandler::CreateUObject(this, &UNLTWebServerSubsystem::HandleAvatarCommandRequest));
 
 	// OPTIONS for CORS
 	auto CORSHandler = FHttpRequestHandler::CreateLambda([](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete) -> bool {
@@ -124,6 +131,8 @@ void UNLTWebServerSubsystem::StartServer(int32 InPort)
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/scene")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/status")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
 	HttpRouter->BindRoute(FHttpPath(TEXT("/api/control")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/avatar/action")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
+	HttpRouter->BindRoute(FHttpPath(TEXT("/api/avatar/command")), EHttpServerRequestVerbs::VERB_OPTIONS, CORSHandler);
 
 	HttpModule.StartAllListeners();
 	bRunning = true;
@@ -268,6 +277,195 @@ bool UNLTWebServerSubsystem::HandleControlRequest(const FHttpServerRequest& Requ
 	{
 		ResultJson = FString::Printf(TEXT("{\"ok\":false,\"error\":\"unknown action: %s\"}"), *Action);
 	}
+
+	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FUtf8String(ResultJson), TEXT("application/json"));
+	OnComplete(MoveTemp(Response));
+	return true;
+}
+
+bool UNLTWebServerSubsystem::HandleAvatarActionRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+{
+	// Only accept from loopback
+	const bool bIsLoopback = Request.PeerAddress.IsValid() &&
+		(Request.PeerAddress->ToString(false) == TEXT("127.0.0.1") || Request.PeerAddress->ToString(false) == TEXT("::1"));
+	if (!bIsLoopback)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"only localhost allowed\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Read body
+	FString BodyStr;
+	for (const uint8& Byte : Request.Body)
+	{
+		BodyStr += (TCHAR)Byte;
+	}
+
+	TSharedPtr<FJsonObject> JsonObject;
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyStr);
+
+	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"invalid JSON\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Parse action
+	float MoveX = 0.0f, MoveY = 0.0f, MoveZ = 0.0f;
+	int32 Interact = 0;
+	FString AvatarId;
+
+	JsonObject->TryGetStringField(TEXT("avatar_id"), AvatarId);
+	JsonObject->TryGetNumberField(TEXT("move_x"), MoveX);
+	JsonObject->TryGetNumberField(TEXT("move_y"), MoveY);
+	JsonObject->TryGetNumberField(TEXT("move_z"), MoveZ);
+	JsonObject->TryGetNumberField(TEXT("interact"), Interact);
+
+	// Clamp values
+	MoveX = FMath::Clamp(MoveX, -1.0f, 1.0f);
+	MoveY = FMath::Clamp(MoveY, -1.0f, 1.0f);
+	MoveZ = FMath::Clamp(MoveZ, -1.0f, 1.0f);
+	Interact = FMath::Clamp(Interact, 0, 3);
+
+	// Find avatar and apply action
+	UWorld* World = GetSimulationWorld();
+	if (!World)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"no world\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Find the avatar actor by name
+	AAvatarCharacter* TargetAvatar = nullptr;
+	for (TActorIterator<AAvatarCharacter> It(World); It; ++It)
+	{
+		if (AvatarId.IsEmpty() || It->GetName() == AvatarId)
+		{
+			TargetAvatar = *It;
+			break;
+		}
+	}
+
+	if (!TargetAvatar)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"avatar not found\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Apply the movement via AvatarAIController
+	if (AAvatarAIController* AIController = Cast<AAvatarAIController>(TargetAvatar->GetController()))
+	{
+		FVector TargetLocation = TargetAvatar->GetActorLocation() + FVector(MoveX, MoveY, MoveZ) * 100.0f;
+		AIController->MoveToLocation(TargetLocation, 50.0f);
+		UE_LOG(LogNLTWebServer, Log, TEXT("Avatar action: move=(%f,%f,%f) interact=%d"), MoveX, MoveY, MoveZ, Interact);
+	}
+
+	FString ResultJson = FString::Printf(TEXT("{\"ok\":true,\"move\":[%f,%f,%f],\"interact\":%d}"), MoveX, MoveY, MoveZ, Interact);
+	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FUtf8String(ResultJson), TEXT("application/json"));
+	OnComplete(MoveTemp(Response));
+	return true;
+}
+
+bool UNLTWebServerSubsystem::HandleAvatarCommandRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
+{
+	// Only accept from loopback — high-level avatar commands mutate game state.
+	const bool bIsLoopback = Request.PeerAddress.IsValid() &&
+		(Request.PeerAddress->ToString(false) == TEXT("127.0.0.1") || Request.PeerAddress->ToString(false) == TEXT("::1"));
+	if (!bIsLoopback)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"only localhost allowed\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Read body
+	FString BodyStr;
+	for (const uint8& Byte : Request.Body)
+	{
+		BodyStr += (TCHAR)Byte;
+	}
+
+	TSharedPtr<FJsonObject> JsonObject;
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(BodyStr);
+	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"invalid JSON\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Parse { "avatar_id": "...", "command": "...", "args": { ... } }
+	FString AvatarId;
+	FString Command;
+	if (!JsonObject->TryGetStringField(TEXT("command"), Command) || Command.IsEmpty())
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"missing command\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+	JsonObject->TryGetStringField(TEXT("avatar_id"), AvatarId);
+
+	const TSharedPtr<FJsonObject> Args = JsonObject->HasField(TEXT("args")) ? JsonObject->GetObjectField(TEXT("args")) : nullptr;
+
+	UWorld* World = GetSimulationWorld();
+	if (!World)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"no world\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Resolve the avatar actor (default to the first avatar when id is omitted).
+	AAvatarCharacter* TargetAvatar = nullptr;
+	for (TActorIterator<AAvatarCharacter> It(World); It; ++It)
+	{
+		if (AvatarId.IsEmpty() || It->GetName() == AvatarId)
+		{
+			TargetAvatar = *It;
+			break;
+		}
+	}
+
+	if (!TargetAvatar)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"avatar not found\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	AAvatarAIController* AIController = Cast<AAvatarAIController>(TargetAvatar->GetController());
+	if (!AIController)
+	{
+		TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
+			FUtf8String(TEXT("{\"ok\":false,\"error\":\"avatar has no AIController\"}")), TEXT("application/json"));
+		OnComplete(MoveTemp(Response));
+		return true;
+	}
+
+	// Dispatch the semantic command. Movement commands take over LLM control;
+	// "release" hands control back to the autonomous wander AI.
+	FString OutMessage;
+	const bool bOk = AIController->ExecuteLLMCommand(Command, Args, OutMessage);
+	UE_LOG(LogNLTWebServer, Log, TEXT("Avatar command: avatar=%s command=%s ok=%d message=%s"),
+		*TargetAvatar->GetName(), *Command, bOk ? 1 : 0, *OutMessage);
+
+	const FString ResultJson = bOk
+		? FString::Printf(TEXT("{\"ok\":true,\"command\":\"%s\",\"message\":\"%s\",\"avatar_id\":\"%s\",\"llm_control\":%s}"),
+			*Command, *OutMessage, *TargetAvatar->GetName(), AIController->IsLLMControlActive() ? TEXT("true") : TEXT("false"))
+		: FString::Printf(TEXT("{\"ok\":false,\"error\":\"%s\"}"), *OutMessage);
 
 	TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(FUtf8String(ResultJson), TEXT("application/json"));
 	OnComplete(MoveTemp(Response));
