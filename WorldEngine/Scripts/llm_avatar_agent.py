@@ -64,10 +64,11 @@ SESSION_LOG = os.environ.get("SESSION_LOG", "llm_avatar_session.jsonl")
 def _http(method: str, path: str, body: Optional[dict] = None) -> dict:
     """Minimal HTTP/1.1 client for the UE web server.
 
-    Unreal's HttpServer emits a non-standard `HTTP/1.1 0` status line for
-    responses built via FHttpServerResponse::Create (no explicit status code),
-    which strict clients (curl, http.client) reject. This client treats a
-    status code of 0 as success (200).
+    Older WorldEngine builds served some endpoints (status/scene/snapshot/CORS)
+    with `HTTP/1.1 0` because their responses never set the HTTP status code;
+    strict clients (curl, http.client, requests) reject that. Fixed builds emit
+    `HTTP/1.1 200`. This client still treats a status code of 0 as success (200)
+    so it works against both old and new hosts.
     """
     base = WE_BASE[len("http://"):]
     host, _, port_str = base.partition(":")

@@ -96,12 +96,17 @@ action log — a basis for the deterministic replay stream later).
 
 ## 5. Known caveats
 
-- UE's `FHttpServer` responds with a non-standard `HTTP/1.1 0` status line for
-  responses created via `FHttpServerResponse::Create`. Strict HTTP clients
-  (curl, Python `http.client`) reject it; this script tolerates it. The web
-  viewer and the other UE endpoints share this behavior — do not "fix" the
-  client side by assuming success codes; treat code `0` as 200.
-- The live editor must be restarted after rebuilding to register the new route.
+- UE's `FHttpServerResponse::Create(...)` sets the HTTP status code to 200, but
+  responses built manually with `MakeUnique<FHttpServerResponse>()` leave it
+  unset, so the original web server emitted a non-standard `HTTP/1.1 0` status
+  line on `/api/status`, `/api/snapshot`, `/api/scene` and the CORS preflight —
+  strict HTTP clients (curl, `requests`, `http.client`) reject that.
+  **Fixed 2026-09-05** by setting `Response->Code = EHttpServerResponseCodes::Ok`
+  on every manually-built response; all endpoints now serve proper `HTTP/1.1 200`.
+  The Python controller still tolerates a `0` status line for compatibility with
+  older hosts.
+- The live editor must be restarted after rebuilding to load the new endpoints
+  and the status-code fix.
 - `move_to_object` matches actors by `GetName()`; the snapshot exposes avatar
   ids such as `Agent_0`, not arbitrary object ids yet.
 - Loopback-only: the endpoint is intentionally not reachable from other hosts

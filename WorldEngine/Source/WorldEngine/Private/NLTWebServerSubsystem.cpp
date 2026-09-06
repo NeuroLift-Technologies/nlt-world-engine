@@ -120,6 +120,7 @@ void UNLTWebServerSubsystem::StartServer(int32 InPort)
 	// OPTIONS for CORS
 	auto CORSHandler = FHttpRequestHandler::CreateLambda([](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete) -> bool {
 		TUniquePtr<FHttpServerResponse> Response = MakeUnique<FHttpServerResponse>();
+		Response->Code = EHttpServerResponseCodes::Ok;
 		Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 		Response->Headers.Add(TEXT("Access-Control-Allow-Methods"), {TEXT("GET, POST, OPTIONS")});
 		Response->Headers.Add(TEXT("Access-Control-Allow-Headers"), {TEXT("Content-Type")});
@@ -153,6 +154,7 @@ void UNLTWebServerSubsystem::StopServer()
 bool UNLTWebServerSubsystem::HandleSnapshotRequest(const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
 {
 	TUniquePtr<FHttpServerResponse> Response = MakeUnique<FHttpServerResponse>();
+	Response->Code = EHttpServerResponseCodes::Ok;
 	Response->Headers.Add(TEXT("Content-Type"), {TEXT("application/json")});
 	Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 
@@ -168,6 +170,7 @@ bool UNLTWebServerSubsystem::HandleSceneRequest(const FHttpServerRequest& Reques
 {
 	FString SceneJson = BuildSceneJson();
 	TUniquePtr<FHttpServerResponse> Response = MakeUnique<FHttpServerResponse>();
+	Response->Code = EHttpServerResponseCodes::Ok;
 	Response->Headers.Add(TEXT("Content-Type"), {TEXT("application/json")});
 	Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 	FTCHARToUTF8 Converter(*SceneJson);
@@ -180,6 +183,7 @@ bool UNLTWebServerSubsystem::HandleStatusRequest(const FHttpServerRequest& Reque
 {
 	FString StatusJson = BuildStatusJson();
 	TUniquePtr<FHttpServerResponse> Response = MakeUnique<FHttpServerResponse>();
+	Response->Code = EHttpServerResponseCodes::Ok;
 	Response->Headers.Add(TEXT("Content-Type"), {TEXT("application/json")});
 	Response->Headers.Add(TEXT("Access-Control-Allow-Origin"), {TEXT("*")});
 	FTCHARToUTF8 Converter(*StatusJson);
