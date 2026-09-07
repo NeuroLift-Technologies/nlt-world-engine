@@ -284,11 +284,9 @@ std::vector<PolicyConflict> OTOIValidator::detectConflicts(const std::vector<nlo
                         std::string rest = dot == std::string::npos ? "" : p.substr(dot + 1);
                         if (!obj.contains(first)) return false;
                         if (rest.empty()) {
-                            if (obj[first].is_string()) {
-                                values.insert(obj[first].get<std::string>());
-                                return true;
-                            }
-                            return false;
+                            if (obj[first].is_object()) return false;
+                            values.insert(obj[first].dump());
+                            return true;
                         }
                         if (obj[first].is_object()) {
                             return getValue(obj[first], rest);
