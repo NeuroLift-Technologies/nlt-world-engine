@@ -122,11 +122,7 @@ grep "NLTTrainingManager" Saved/Logs/WorldEngine.log
 - [ ] `NLTTrainingManager` initializes without errors
 
 ```bash
-# 13. Run Python PPO training
-# train_nlt.py is in the neurolift-ai-fusion repo
-cd /home/joshd/Desktop/nlt-repos/neurolift-ai-fusion/src/simulation/training
-python3 train_nlt.py --standalone --agents 1 --iterations 50
-# (Standalone mode runs without UE5; use --port 5555 for UE5 connection)
+
 ```
 
 # 14. Monitor TensorBoard

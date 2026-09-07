@@ -26,6 +26,10 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupInputComponent() override;
 
+	/** Travel to a specific level. */
+	UFUNCTION(BlueprintCallable, Category = "NLT|Travel")
+	void TravelToLevel(const FName& LevelId);
+
 protected:
 	/** The level picker widget (created on demand). */
 	UPROPERTY()
@@ -61,8 +65,4 @@ protected:
 
 	/** Interact input handler. */
 	void OnInteract();
-
-	/** Teleport to a specific level. */
-	UFUNCTION(BlueprintCallable, Category = "NLT|Travel")
-	void TravelToLevel(const FName& LevelId);
 };

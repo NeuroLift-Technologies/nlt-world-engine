@@ -119,6 +119,10 @@
 				"Linux",
 				"Mac"
 			]
+		},
+		{
+			"Name": "NLTGovernanceSubsystem",
+			"Enabled": true
 		}
 	]
 }

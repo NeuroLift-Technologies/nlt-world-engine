@@ -1,6 +1,8 @@
 # NLT World Engine — UE 5.8 Authoritative Simulation
 
-NeuroLift Technologies Simulation Environment — the deterministic runtime where AI Avatars (with ADHD traits) and AI Aides live inside. This repo owns the **physical simulation layer**: world state, space, time, objects, needs, NPCs, scenario instantiation, and the Unreal Engine 5.8 authoritative simulation. Avatar/Aide/Advocate *intelligence* — ADHD trait modeling, coaching expertise, training loop, fusion — lives in [`neurolift-ai-fusion`](https://github.com/NeuroLift-Technologies/neurolift-ai-fusion) and connects through the agent interface.
+NeuroLift Technologies Simulation Environment — the deterministic runtime where AI Avatars (with ADHD traits) and AI Aides live inside. This repo owns the **physical simulation layer** and is the **authoritative simulation training environment** for the Avatar-Aide-Advocate system: world state, space, time, objects, needs, NPCs, scenario instantiation, and the Unreal Engine 5.8 authoritative simulation. Avatar/Aide/Advocate *intelligence* — ADHD trait modeling, coaching expertise, training loop, fusion — lives in [`neurolift-ai-fusion`](https://github.com/NeuroLift-Technologies/neurolift-ai-fusion) and connects through the agent interface.
+
+> **Architecture docs:** [`WorldEngine/docs/architecture/`](WorldEngine/docs/architecture/) is the authoritative UE-side documentation — [`TECHNICAL_DIAGRAM.md`](WorldEngine/docs/architecture/TECHNICAL_DIAGRAM.md), [`unreal-simulation-architecture.md`](WorldEngine/docs/architecture/unreal-simulation-architecture.md), [`fusion-unreal-domain-mapping.md`](WorldEngine/docs/architecture/fusion-unreal-domain-mapping.md). Core principle: **Fusion owns semantic reality; Unreal owns physical reality.**
 
 ## Architecture
 

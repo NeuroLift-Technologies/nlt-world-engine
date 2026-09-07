@@ -32,5 +32,5 @@ protected:
 
 private:
 	/** Spawn a single door at the given location. */
-	class ANLTDoorActor* SpawnDoor(const FName& TargetLevel, const FText& DisplayName, const FVector& Location);
+	class ANLTDoorActor* SpawnDoor(const FName& TargetLevel, const FText& DisplayName, const FVector& Location, const FRotator& Rotation = FRotator::ZeroRotator);
 };
