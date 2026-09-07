@@ -22,7 +22,7 @@ NLT World Engine (this repo)
   │   ├── Smart Objects + NavMesh
   │   ├── Deterministic tick (1Hz)
   │   ├── EventBus (256-entry ring buffer)
-  │   ├── MLInference bridge (in-engine LLM → ExecuteLLMCommand)
+  │   ├── UMLInferenceBridgeSubsystem (in-engine LLM → ExecuteLLMCommand)
   │   └── NLTGovernanceSubsystem (ASFDK-C++ TOI/OTOI boundary)
   ├── Babylon.js v2 viewer (world-engine-v2/)
   └── Python ECS engine (world-engine/) — reference only
