@@ -21,7 +21,9 @@ NLT World Engine (this repo)
   │   ├── Learning Agents RL training
   │   ├── Smart Objects + NavMesh
   │   ├── Deterministic tick (1Hz)
-  │   └── EventBus (256-entry ring buffer)
+  │   ├── EventBus (256-entry ring buffer)
+  │   ├── UMLInferenceBridgeSubsystem (in-engine LLM → ExecuteLLMCommand)
+  │   └── NLTGovernanceSubsystem (ASFDK-C++ TOI/OTOI boundary)
   ├── Babylon.js v2 viewer (world-engine-v2/)
   └── Python ECS engine (world-engine/) — reference only
 ```
@@ -56,7 +58,7 @@ make WorldEngineEditor
 nlt-world-engine/
 ├── WorldEngine/
 │   ├── WorldEngine.uproject      # Project file
-│   ├── Source/WorldEngine/       # C++ module (57 files, 11 subsystems)
+│   ├── Source/WorldEngine/       # C++ module (45 .cpp files, 16 subsystems)
 │   │   ├── Public/               # Headers
 │   │   │   ├── Agents/           # Fragments, spawner, AI controller, character
 │   │   │   ├── Core/             # EventBus, FusionCore, SimulationState
@@ -108,6 +110,7 @@ nlt-world-engine/
 | `UNLTPopulationScaler` | LOD 0-3 population management |
 | `UNLTAideInteractor` | Coaching interventions |
 | `UNLTAvatarInteractor` | Avatar-world interaction |
+| `UMLInferenceBridgeSubsystem` | In-engine LLM bridge — spawns `llm_avatar_agent.py`, drives `ExecuteLLMCommand` over loopback TCP (A1) |
 | `UNLTTrainingManager` | RL training via Learning Agents plugin |
 | `UNLTWebServerSubsystem` | WebSocket + HTTP control API |
 | `UNLTAtmosphereSubsystem` | Weather, lighting, time of day |
@@ -128,6 +131,7 @@ nlt-world-engine/
 | ModelContextProtocol | MCP server |
 | ModelingToolsEditorMode, AllToolsets | Editor tools |
 | WebSocketNetworking | WebSocket support |
+| NLTGovernanceSubsystem | ASFDK-C++ TOI/OTOI governance boundary (capability ≠ authority) |
 | MetaHumanGenerator, MetaHumanCharacter, MetaHumanCoreML, MetaHumanLiveLink | MetaHuman (optional) |
 
 ## Character & Mesh
@@ -194,7 +198,8 @@ License TBD — Open Source. See `LICENSE` for details when available.
 - Website: https://neurolifttech.com
 - Founder: Joshua W. Dorsey — joshua.dorsey@neurolifttech.com
 
-- `NLTGovernanceSubsystem` — TOI/OTOI/ASFDK boundary (planned)
+## Remaining Work
+
 - StateTree behavior trees on Mass entities
 - Cross-level navigation (rooms → world cells)
 - Full Fusion ↔ Unreal WebSocket protocol
