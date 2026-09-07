@@ -2,11 +2,22 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-05
 
 ---
-
 ## Active Threads
+
+### 🤖 LLM → Avatar control via AIController (semantic command API) 🆕 READY FOR REVIEW
+- **Agent:** Cline · **Opened:** 2026-09-05 · **Branch:** `feat/llm-avatar-control`
+- **Scope:** Let an LLM drive an avatar through `AAvatarAIController` using high-level commands (move_to / move_by / move_to_object / face_towards / stop / release) while CMC keeps ownership of locomotion. Provider-agnostic reference loop included.
+- **Delivered:**
+  - `AAvatarAIController`: new `bLLMControlActive` (+ `SetLLMControlActive`/`IsLLMControlActive`, mirrors `bLearningAgentsActive`), new `ExecuteLLMCommand(Command, Args, OutMessage)` dispatcher, and wander/on-move guards now honor LLM control. Compiles clean (`make WorldEngineEditor` → Succeeded).
+  - `UNLTWebServerSubsystem`: new loopback-only `POST /api/avatar/command` accepting `{avatar_id?, command, args}`; returns `{ok, command, message, avatar_id, llm_control}`.
+  - `WorldEngine/Scripts/llm_avatar_agent.py`: stdlib-only OpenAI-compatible tool-calling controller (env: `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL`/`WE_BASE`), with `--dry-run`, action JSONL log (`llm_avatar_session.jsonl`), and arrival polling. `--dry-run` verified live against the running sim (7 avatars observable).
+  - Docs: `WorldEngine/docs/LLM_AVATAR_CONTROL.md`.
+- **Verification:** build succeeded; Python dry-run against running editor OK. NOTE: HTTP status-code fix (below) requires one more editor restart to take effect.
+- **Next baton:** restart the editor/headless sim → `curl -X POST localhost:8765/api/avatar/command -d '{"command":"move_by","args":{"dx":300,"dy":0}}'` → then run `python3 llm_avatar_agent.py --task "..."` against a local or hosted OpenAI-compatible endpoint.
+- **Status-code fix (same branch):** `/api/status`, `/api/snapshot`, `/api/scene` + CORS preflight were served with `HTTP/1.1 0` (responses built via `MakeUnique<FHttpServerResponse>()` never set `Code`), breaking strict clients. Added `Response->Code = EHttpServerResponseCodes::Ok` on all 4 manual-response sites; rebuilt (Succeeded). The live editor needs one more restart to pick it up.
 
 ### 🔐 Secret-purge + code-scanning fixes 🟡 AWAITING MERGE
 - **Agent:** Codex (Poolside) · **Opened:** 2026-09-04 · **Branch:** `fix/security-code-scanning`

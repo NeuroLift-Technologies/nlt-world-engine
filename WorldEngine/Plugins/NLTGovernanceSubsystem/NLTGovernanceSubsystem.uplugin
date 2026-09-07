@@ -1,0 +1,40 @@
+{
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "0.1.0",
+    "FriendlyName": "NLTGovernanceSubsystem",
+    "Description": "NeuroLift Technologies Solidarity Framework governance subsystem for Unreal Engine 5. Integrates ASFDK-C++ (TOI/OTOI/RRT/Sleepwalker) with UE5 Mass Entity and Actor systems.",
+    "Category": "NeuroLift",
+    "CreatedBy": "NeuroLift Technologies",
+    "CreatedByURL": "https://neurolift.tech",
+    "DocsURL": "",
+    "MarketplaceURL": "",
+    "SupportContact": "",
+    "EnabledByDefault": false,
+    "CanContainContent": true,
+    "IsBetaVersion": true,
+    "IsExperimentalVersion": false,
+    "Installed": false,
+    "Modules": [
+        {
+            "Name": "NLTGovernanceSubsystem",
+            "Type": "Runtime",
+            "LoadingPhase": "Default",
+            "AdditionalDependencies": [
+                "Core",
+                "CoreUObject",
+                "Engine",
+                "MassEntity",
+                "MassCore",
+                "MassSignals",
+                "MassEngine",
+                "MassCommon",
+                "MassSimulation",
+                "AIModule",
+                "Json",
+                "JsonUtilities"
+            ]
+        }
+    ],
+    "Plugins": []
+}

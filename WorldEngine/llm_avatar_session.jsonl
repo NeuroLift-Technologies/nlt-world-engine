@@ -1,0 +1,18 @@
+{"turn": 1, "role": "assistant", "message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_5s3d91w7", "index": 0, "type": "function", "function": {"name": "move_by", "arguments": "{\"dx\":500,\"dy\":0}"}}]}}
+{"turn": 1, "tool": "move_by", "args": {"dx": 500, "dy": 0}, "result": {"ok": false, "error": "avatar not found"}}
+{"turn": 2, "role": "assistant", "message": {"role": "assistant", "content": ""}}
+{"turn": 1, "role": "assistant", "message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_ihifhxtz", "index": 0, "type": "function", "function": {"name": "move_by", "arguments": "{\"dx\":500,\"dy\":0}"}}]}}
+{"turn": 1, "tool": "move_by", "args": {"dx": 500, "dy": 0}, "result": {"ok": false, "error": "unsupported command for avatar: move_by"}}
+{"turn": 2, "role": "assistant", "message": {"role": "assistant", "content": ""}}
+{"turn": 1, "role": "assistant", "message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_1x8ki5jq", "index": 0, "type": "function", "function": {"name": "move_by", "arguments": "{\"dx\":500,\"dy\":0}"}}]}}
+{"turn": 1, "tool": "move_by", "args": {"dx": 500, "dy": 0}, "result": {"ok": false, "error": "unsupported command for avatar: move_by"}}
+{"turn": 2, "role": "assistant", "message": {"role": "assistant", "content": ""}}
+{"turn": 1, "role": "assistant", "message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_epnf4nem", "index": 0, "type": "function", "function": {"name": "move_by", "arguments": "{\"dx\":0,\"dy\":500}"}}]}}
+{"turn": 1, "tool": "move_by", "args": {"dx": 0, "dy": 500}, "result": {"ok": false, "error": "unsupported command for avatar: move_by"}}
+{"turn": 2, "role": "assistant", "message": {"role": "assistant", "content": ""}}
+{"turn": 1, "role": "assistant", "message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_exngwl05", "index": 0, "type": "function", "function": {"name": "get_snapshot", "arguments": "{\"interval\":1}"}}]}}
+{"turn": 1, "tool": "get_snapshot", "args": {"interval": 1}, "result": {"ok": true, "observation": "simulation tick=116497 state=running pace=1\navatar id=Agent_0 pos=(3599.9, -1018.0) moving_to=(3691.5, -1711.3) focus=0.65 stress=0.15 cognitive_load=0.20\navatar id=Agent_3 pos=(-3224.1, -1919.2) moving_to=(0.0, 0.0) focus=0.65 stress=0.15 cognitive_load=0.20\navatar id=Agent_6 pos=(3646.9, -4478.5) moving_to=(0.0, 0.0) focus=0.65 stress=0.15 cognitive_load=0.20\navatar id=Agent_9 pos=(-3545.1, -2261.0) moving_to=(0.0, 0.0) focus=0.65 stress=0.15 cognitive_load=0.20\navatar id=Agent_12 pos=(2145.8, 5259.5) moving_to=(0.0, 0.0) focus=0.65 stress=0.15 cognitive_load=0.20\navatar id=Agent_15 pos=(-896.8, -4192.5) moving_to=(0.0, 0.0) focus=0.65 stress=0.15 cognitive_load=0.20\navatar id=Agent_18 pos=(-777.8, -3156.7) moving_to=(0.0, 0.0) focus=0.65 stress=0.15 cognitive_load=0.20"}}
+{"turn": 2, "role": "assistant", "message": {"role": "assistant", "content": ""}}
+{"turn": 1, "role": "assistant", "message": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_yf4r5txp", "index": 0, "type": "function", "function": {"name": "move_by", "arguments": "{\"dx\":0,\"dy\":500}"}}]}}
+{"turn": 1, "tool": "move_by", "args": {"dx": 0, "dy": 500}, "result": {"ok": true, "command": "move_by", "message": "avatar moving to (2835, -1980)", "avatar_id": "Agent_0", "llm_control": false, "arrival": "arrived at (2835.4, -2477.4) (dist=2.2)"}}
+{"turn": 2, "role": "assistant", "message": {"role": "assistant", "content": ""}}

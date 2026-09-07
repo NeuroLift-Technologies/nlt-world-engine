@@ -1,0 +1,50 @@
+{
+  "handoff_record": {
+    "session_id": "sess-llm-avatar-control-20260905",
+    "agent_name": "Cline",
+    "date": "2026-09-05",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "feat/llm-avatar-control (branched from feat/training-infrastructure)",
+    "work_completed": [
+      "Created feat/llm-avatar-control from feat/training-infrastructure WITHOUT disturbing the dirty peer WIP (door actor, demo game mode, player controller, level .umaps, DefaultEditor/Input.ini, onboarding-checklist). Only feature files + governance docs are staged.",
+      "AAvatarAIController: added bLLMControlActive + SetLLMControlActive/IsLLMControlActive (mirrors bLearningAgentsActive: attach stops wandering + clears wait timer, release resumes Wander), and ExecuteLLMCommand(Command, Args, OutMessage) supporting move_to / move_by (clamped ±2000) / move_to_object (name match via TActorIterator) / face_towards (SetControlRotation + SetFocalPoint) / stop / release. Wander + OnMoveCompleted guards now also honor bLLMControlActive.",
+      "Engineer the LLM path so CMC stays the movement authority: all movement commands funnel into MoveToLocation/MoveToActor on the AIController; no raw velocity writes.",
+      "UNLTWebServerSubsystem: new loopback-only POST /api/avatar/command (route + OPTIONS + HandleAvatarCommandRequest) that resolves the avatar actor (default first) and dispatches through ExecuteLLMCommand, returning {ok, command, message, avatar_id, llm_control}.",
+      "WorldEngine/Scripts/llm_avatar_agent.py: provider-agnostic (env LLM_BASE_URL/LLM_API_KEY/LLM_MODEL/WE_BASE), stdlib-only OpenAI-compatible tool-calling controller with get_snapshot/move_to/move_by/move_to_object/face_towards/stop/release tools, --dry-run, arrival polling, JSONL action log.",
+      "Docs: WorldEngine/docs/LLM_AVATAR_CONTROL.md (design + endpoint reference + env table + caveats). Registration + this handoff + active-threads entry.",
+      "BUILD VERIFIED: make WorldEngineEditor -> Result: Succeeded (AvatarAIController.cpp + NLTWebServerSubsystem.cpp compile, module link OK). Python py_compile OK, --dry-run live-tested against the running sim (status + 7-avatar snapshot parse, HTTP/1.1 0 tolerance works)."
+    ],
+    "work_in_progress": [
+      "Live test of /api/avatar/command requires restarting the running editor (pid 398063 was launched from the pre-rebuild binary; the route 404s until restart). After restart: curl POST {command:move_by,args:{dx:300,dy:0}}, then python3 llm_avatar_agent.py --task '...' against any OpenAI-compatible endpoint.",
+      "PR not yet opened. validate-governance.sh may need re-run after staging; Hermes bot gate requires 1 human approval before merge."
+    ],
+    "blockers": [
+      "The editor instance currently running (pid 398063) holds ports 8765 and 8000, so a second headless sim cannot bind 8765 to live-test the new route without restarting the editor.",
+      "Peer WIP on the working tree (feat/training-infrastructure changes: NLTDoorActor, NLTDemoGameMode, NLTPlayerController, 2 .umaps, 2 .ini, onboarding-checklist) is NOT part of this feature; whoever merges must decide how to handle that branch/diff."
+    ],
+    "decisions_made": [
+      "Chose the AIController seam (user direction): LLM issues semantic commands, UE AIController does MoveToLocation nav, CMC owns character physics.",
+      "Added a dedicated /api/avatar/command endpoint rather than overloading /api/avatar/action (which stays the low-level Learning-Agents-style action space).",
+      "Kept the LLM client dependency-light (stdlib only) and provider-agnostic by env config — satisfies the no-LLM-provider-lock-in guardrail.",
+      "Treat the UE HttpServer's non-standard 'HTTP/1.1 0' status line as success in the Python client (pre-existing server quirk, shared by all UE endpoints)."
+    ],
+    "decisions_pending": [
+      "[Josh] Approve/merge the PR once opened (Hermes requires 1 human review).",
+      "[Josh] Decide whether LLM control should also persist an intent fragment (FNLTAgentIntentFragment) when e.g. move_to completes — deferred to keep the movement scope minimal.",
+      "[Josh] Optionally expose scene/object ids to the LLM (currently only avatar ids are in the snapshot; move_to_object matches by actor GetName())."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Restart the UE editor or run a fresh headless sim, confirm GET /api/snapshot works, then POST /api/avatar/command. The reference controller script is at WorldEngine/Scripts/llm_avatar_agent.py (python3 -m py_compile to check). Do NOT touch the uncommitted peer WIP files listed under blockers. Branch name: feat/llm-avatar-control.",
+    "files_modified": [
+      "WorldEngine/Source/WorldEngine/Public/Agents/AvatarAIController.h",
+      "WorldEngine/Source/WorldEngine/Private/Agents/AvatarAIController.cpp",
+      "WorldEngine/Source/WorldEngine/Public/NLTWebServerSubsystem.h",
+      "WorldEngine/Source/WorldEngine/Private/NLTWebServerSubsystem.cpp",
+      "WorldEngine/Scripts/llm_avatar_agent.py",
+      "WorldEngine/docs/LLM_AVATAR_CONTROL.md",
+      "docs/active-threads.md",
+      "docs/agent-log/registrations/2026-09-05-cline-llm-avatar-control.json"
+    ]
+  }
+}

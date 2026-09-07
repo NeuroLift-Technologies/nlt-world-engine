@@ -1,0 +1,23 @@
+{
+  "agent_registration": {
+    "agent_name": "Cline",
+    "platform": "Cline (VS Code AI coding agent)",
+    "version": "unknown",
+    "session_id": "sess-llm-avatar-control-20260905",
+    "entry_date": "2026-09-05",
+    "entry_point": "User slash command /ue-character-movement: 'trying to get an LLM to control an avatar in worldengine'",
+    "acknowledged_otoi": true,
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "working_repo": "NeuroLift-Technologies/nlt-world-engine",
+    "working_branch": "feat/llm-avatar-control (branched from feat/training-infrastructure; peer WIP left untouched)",
+    "capabilities_self_reported": [
+      "Unreal Engine C++ (UCharacterMovementComponent, AIController nav/path-following)",
+      "UE webserver JSON API (FHttpServerModule)",
+      "Provider-agnostic OpenAI-compatible LLM client (stdlib only)"
+    ],
+    "known_limitations": [
+      "Could not live-test /api/avatar/command against the running editor: pid 398063 runs the old binary; endpoint requires an editor restart to load the rebuilt module."
+    ],
+    "escalation_needed": false
+  }
+}
