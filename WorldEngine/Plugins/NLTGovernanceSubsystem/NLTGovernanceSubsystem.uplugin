@@ -36,5 +36,8 @@
             ]
         }
     ],
-    "Plugins": []
+    "Plugins": [
+        {"Name":"LearningAgents","Enabled":true},
+        {"Name":"MassGameplay","Enabled":true}
+    ]
 }
