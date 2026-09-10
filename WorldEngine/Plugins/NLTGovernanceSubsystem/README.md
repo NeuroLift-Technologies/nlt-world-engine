@@ -18,25 +18,20 @@ The NLTGovernanceSubsystem integrates ASFDK-C++ (the NeuroLift Technologies Soli
 ```
 NLTGovernanceSubsystem/
 ├── NLTGovernanceSubsystem.uplugin    # Plugin descriptor
+├── ThirdParty/
+│   └── ASFDK/                         # ASFDK-C++ (symlink to asfdk-cplus)
+│       ├── packages/                  # Source + headers (via symlink)
+│       └── lib/
+│           └── libasfdk.a             # Pre-built static library
 └── Source/
     └── NLTGovernanceSubsystem/
         ├── NLTGovernanceSubsystem.Build.cs
         ├── Public/
-        │   ├── NLTGovernanceSubsystem.h      # Module + Subsystem API
-        │   └── NLTGovernanceSubsystem.cpp    # Module implementation
+        │   └── NLTGovernanceSubsystem.h    # Module + Subsystem API
         ├── Private/
-        │   ├── NLTGovernanceSubsystem.cpp    # Subsystem implementation
-        │   ├── AgentGovernanceState.h        # Per-agent wrapper
-        │   └── AgentGovernanceState.cpp      # Per-agent implementation
-        └── ThirdParty/
-            └── ASFDK/                         # ASFDK-C++ headers + libs
-                ├── include/
-                │   ├── asfdk/
-                │   ├── spdlog/
-                │   ├── nlohmann/
-                │   └── tl/
-                └── lib/
-                    └── libasfdk.a
+        │   ├── NLTGovernanceSubsystem.cpp  # Subsystem implementation
+        │   ├── AgentGovernanceState.h      # Per-agent wrapper
+        │   └── AgentGovernanceState.cpp    # Per-agent implementation
 ```
 
 ## Integration Points
@@ -76,20 +71,66 @@ FString Assessment = GovSys->AssessAgent("Agent_1", "I'm feeling stressed");
 ## Dependencies
 
 - ASFDK-C++ (included as ThirdParty)
-- Unreal Engine 5.3+
+- Unreal Engine 5.8+
 - MassEntity module
 - Json/JsonUtilities modules
 
 ## Build Requirements
 
-The plugin requires the ASFDK-C++ static library (`libasfdk.a`) to be built and placed in `Source/NLTGovernanceSubsystem/ThirdParty/ASFDK/lib/`.
+The plugin requires the ASFDK-C++ static library (`libasfdk.a`) to be built and placed in `ThirdParty/ASFDK/lib/`.
 
-Build command for the static library:
+### Prerequisites
+
+- C++ compiler with C++20 support (g++ 12+, clang++ 15+)
+- UE 5.8 defaults to C++20 (`BuildSettingsVersion.V7`); the ASFDK library must match.
+
+### Build command for the static library
+
 ```bash
 cd asfdk-cplus
-g++ -std=c++23 -O2 -c packages/asfdk/src/ASFDK.cpp packages/toi/src/TermsOfInteraction.cpp packages/otoi/src/OTOIManager.cpp packages/rrt-advocate/src/*.cpp packages/sleepwalker/src/*.cpp -I packages/asfdk/include -I packages/toi/include -I packages/otoi/include -I packages/rrt-advocate/include -I packages/sleepwalker/include -I packages/include
+g++ -std=c++20 -O2 -c \
+  packages/asfdk/src/ASFDK.cpp \
+  packages/toi/src/TermsOfInteraction.cpp \
+  packages/toi/src/TOIManager.cpp \
+  packages/otoi/src/OTOIManager.cpp \
+  packages/rrt-advocate/src/BehavioralLayer.cpp \
+  packages/rrt-advocate/src/BurnoutDetector.cpp \
+  packages/rrt-advocate/src/CrisisAssessor.cpp \
+  packages/rrt-advocate/src/CrisisDetector.cpp \
+  packages/rrt-advocate/src/CrisisEngine.cpp \
+  packages/rrt-advocate/src/KeywordLayer.cpp \
+  packages/rrt-advocate/src/RRTAdvocate.cpp \
+  packages/rrt-advocate/src/RRTTypes.cpp \
+  packages/rrt-advocate/src/SentimentLayer.cpp \
+  packages/sleepwalker/src/ConsentManager.cpp \
+  packages/sleepwalker/src/ContinuityManager.cpp \
+  packages/sleepwalker/src/SleepwalkerProtocol.cpp \
+  packages/sleepwalker/src/StateDetector.cpp \
+  -I packages/asfdk/include \
+  -I packages/toi/include \
+  -I packages/otoi/include \
+  -I packages/rrt-advocate/include \
+  -I packages/sleepwalker/include \
+  -I packages/include
 ar rcs libasfdk.a *.o
 ```
+
+### Verify the build (standalone test)
+
+```bash
+g++ -std=c++20 -O2 \
+  packages/asfdk/tests/standalone_test.cpp \
+  libasfdk.a \
+  -I packages/asfdk/include \
+  -I packages/toi/include \
+  -I packages/otoi/include \
+  -I packages/rrt-advocate/include \
+  -I packages/sleepwalker/include \
+  -I packages/include \
+  -o standalone_test && ./standalone_test
+```
+
+All 37 standalone tests should pass.
 
 ## License
 

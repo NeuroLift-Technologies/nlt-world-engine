@@ -56,7 +56,8 @@ public class WorldEngine : ModuleRules
             "AudioMixerCore",
             "HTTPServer",
             "HTTP",
-            "Sockets"
+            "Sockets",
+            "NLTGovernanceSubsystem"
         });
     }
 }
