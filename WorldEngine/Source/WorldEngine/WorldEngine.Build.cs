@@ -58,5 +58,8 @@ public class WorldEngine : ModuleRules
             "HTTP",
             "Sockets"
         });
+
+        // Plugin include paths for NLTGovernanceSubsystem
+        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "..", "..", "Plugins", "NLTGovernanceSubsystem", "Source", "NLTGovernanceSubsystem", "Public"));
     }
 }

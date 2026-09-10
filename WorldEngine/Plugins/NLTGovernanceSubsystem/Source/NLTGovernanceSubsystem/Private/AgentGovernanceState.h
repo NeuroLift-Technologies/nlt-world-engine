@@ -15,7 +15,7 @@
 class FAgentGovernanceState
 {
 public:
-    FAgentGovernanceState(const FString& InAgentId, const FString& InAgentName);
+    FAgentGovernanceState(const FName& InAgentId, const FString& InAgentName);
     ~FAgentGovernanceState();
 
     /** Process an interaction through the governance pipeline */
@@ -25,7 +25,7 @@ public:
     FString Assess(const FString& Input);
 
     /** Get the overall status as JSON */
-    FString GetStatusJson() const;
+    FString GetStatusJson();
 
     FName GetAgentId() const { return AgentId; }
     FString GetAgentName() const { return AgentName; }

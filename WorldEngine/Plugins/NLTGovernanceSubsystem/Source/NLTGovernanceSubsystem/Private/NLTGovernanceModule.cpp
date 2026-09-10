@@ -2,7 +2,11 @@
 #include "AgentGovernanceState.h"
 #include "Modules/ModuleManager.h"
 
-DEFINE_LOG_CATEGORY(LogNLTGovernance);
+// LogNLTGovernance is declared (DECLARE_LOG_CATEGORY_EXTERN) in
+// NLTGovernanceSubsystem.h and defined once in NLTGovernanceSubsystem.cpp.
+// Do not DEFINE_LOG_CATEGORY here too — that was a duplicate-symbol link
+// error (two definitions of the same global log category across two
+// translation units in this module).
 
 void FNLTGovernanceSubsystemModule::StartupModule()
 {

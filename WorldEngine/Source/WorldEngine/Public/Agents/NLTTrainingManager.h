@@ -1,4 +1,4 @@
-// NLTTrainingManager.h
+// NLTTrainingManager.h — Extended for dual-model, dual-actor RL training
 #pragma once
 
 #include "CoreMinimal.h"
@@ -14,17 +14,48 @@
 #include "NLTEpisodeManager.h"
 #include "NLTTrainingManager.generated.h"
 
+USTRUCT()
+struct FNLTAgentModelGroup
+{
+    GENERATED_BODY()
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    int32 GroupId = 0;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    FName GroupName;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    UNLTAvatarInteractor* Interactor = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    ULearningAgentsPolicy* Policy = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    ULearningAgentsCritic* Critic = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    ULearningAgentsPPOTrainer* Trainer = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    FVector SpawnLocation = FVector::ZeroVector;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    int32 AgentId = INDEX_NONE;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    FName GovernanceAgentId;
+};
+
 /**
- * Training Manager that orchestrates PPO training for Avatar/Aide pairs.
+ * Dual-Model Dual-Actor Training Manager.
  * 
- * Training loop:
- * 1. Spawn 20 Avatar/Aide pairs
- * 2. Each tick:
- *    - Aide observes paired Avatar's cognitive state
- *    - Aide picks coaching strategy (0-9)
- *    - Strategy modifies Avatar's stress/focus/burnout
- *    - Reward reflects cognitive state changes
- *    - Episode ends on cognitive thresholds or max steps
+ * Spawns two physically separate actors (Actor A, Actor B), each controlled
+ * by its own RL policy/model, each with its own ASFDK-C++ governance context.
+ * 
+ * Architecture:
+ *   Model A (Policy A) -> Interactor A -> Actor A (governance context A)
+ *   Model B (Policy B) -> Interactor B -> Actor B (governance context B)
  */
 UCLASS()
 class WORLDENGINE_API ANLTTrainingManager : public AActor
@@ -34,67 +65,55 @@ class WORLDENGINE_API ANLTTrainingManager : public AActor
 public:
     ANLTTrainingManager();
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsManager* AgentManager;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    UNLTAvatarInteractor* AvatarInteractor;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    UNLTAideInteractor* AideInteractor;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsPolicy* AvatarPolicy;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsCritic* AvatarCritic;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsPolicy* AidePolicy;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsCritic* AideCritic;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsTrainingEnvironment* TrainingEnvironment;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsPPOTrainer* AvatarTrainer;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    ULearningAgentsPPOTrainer* AideTrainer;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LearningAgents")
-    UNLTEpisodeManager* EpisodeManager;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LearningAgents")
-    int32 MaxAgentNum = 40;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LearningAgents")
-    float TickInterval = 0.1f;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LearningAgents")
-    bool bRunInference = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LearningAgents")
-    bool bRunTraining = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LearningAgents")
-    int32 MaxEpisodeSteps = 512;
-
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
 
-    // Pair mapping: Aide AgentId -> Avatar AgentId
-    UFUNCTION(BlueprintCallable, Category = "LearningAgents")
-    void SetPairMapping(int32 AideAgentId, int32 AvatarAgentId);
+    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    FVector ActorAStartLocation = FVector(-500.0f, 0.0f, 100.0f);
 
-    UFUNCTION(BlueprintPure, Category = "LearningAgents")
-    int32 GetPairedAvatarId(int32 AideAgentId) const;
+    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    FVector ActorBStartLocation = FVector(500.0f, 0.0f, 100.0f);
+
+    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    float TickInterval = 0.1f;
+
+    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    bool bRunInference = true;
+
+    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    bool bRunTraining = true;
+
+    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    int32 MaxEpisodeSteps = 512;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    ULearningAgentsManager* AgentManager = nullptr;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    UNLTEpisodeManager* EpisodeManager = nullptr;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    ULearningAgentsTrainingEnvironment* TrainingEnvironment = nullptr;
+
+    // Internal model groups (not exposed to Blueprints — TArray<USTRUCT> is not blueprint-supported)
+    TArray<FNLTAgentModelGroup> ModelGroups;
+
+    UFUNCTION(BlueprintCallable, Category = "NLT|DualModel")
+    int32 GetModelGroupCount() const { return ModelGroups.Num(); }
+
+    UFUNCTION(BlueprintPure, Category = "NLT|DualModel")
+    int32 GetActorAgentId(int32 GroupIndex) const;
+
+protected:
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-    void SpawnAndRegisterPairs();
-    void OnEpisodeComplete();
-    TMap<int32, int32> PairMap; // AideId -> AvatarId
+    void InitializeModelGroups();
+    void SpawnDualActors();
+    void InitializeGovernanceForGroup(int32 GroupIndex, class AAvatarCharacter* Actor);
+    void RunDualInference();
+    void RunDualTraining();
+
     float TrainingTimer = 0.0f;
+    bool bGovernanceInitialized = false;
 };
