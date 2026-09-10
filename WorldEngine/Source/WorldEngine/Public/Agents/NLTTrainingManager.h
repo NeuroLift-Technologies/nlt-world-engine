@@ -29,13 +29,16 @@ struct FNLTAgentModelGroup
     UNLTAvatarInteractor* Interactor = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    ULearningAgentsPolicy* Policy = nullptr;
+    ULearningAgentsManager* Manager = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    ULearningAgentsCritic* Critic = nullptr;
+    TObjectPtr<ULearningAgentsPolicy> Policy = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    ULearningAgentsPPOTrainer* Trainer = nullptr;
+    TObjectPtr<ULearningAgentsCritic> Critic = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
+    TObjectPtr<ULearningAgentsPPOTrainer> Trainer = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     FVector SpawnLocation = FVector::ZeroVector;
@@ -95,7 +98,10 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
     ULearningAgentsTrainingEnvironment* TrainingEnvironment = nullptr;
 
-    // Internal model groups (not exposed to Blueprints — TArray<USTRUCT> is not blueprint-supported)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    TArray<ULearningAgentsManager*> ModelGroupManagers;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
     TArray<FNLTAgentModelGroup> ModelGroups;
 
     UFUNCTION(BlueprintCallable, Category = "NLT|DualModel")

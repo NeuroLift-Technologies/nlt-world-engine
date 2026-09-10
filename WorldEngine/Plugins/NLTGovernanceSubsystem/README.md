@@ -77,7 +77,7 @@ FString Assessment = GovSys->AssessAgent("Agent_1", "I'm feeling stressed");
 
 ## Build Requirements
 
-The plugin requires the ASFDK-C++ static library (`libasfdk.a`) to be built and placed in `Source/NLTGovernanceSubsystem/ThirdParty/ASFDK/lib/`.
+The plugin requires the ASFDK-C++ static library (`libasfdk.a`) to be built and placed in `ThirdParty/ASFDK/lib/`.
 
 ### Prerequisites
 

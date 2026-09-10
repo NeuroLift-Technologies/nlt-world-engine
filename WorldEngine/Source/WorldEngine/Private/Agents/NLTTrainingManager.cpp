@@ -11,8 +11,6 @@
 #include "LearningAgentsCommunicator.h"
 #include "Core/NLTFusionCore.h"
 
-DEFINE_LOG_CATEGORY(LogNLTFusion);
-
 ANLTTrainingManager::ANLTTrainingManager()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -38,6 +36,14 @@ void ANLTTrainingManager::BeginPlay()
     // 2. Create Manager
     AgentManager = NewObject<ULearningAgentsManager>(this);
     AgentManager->SetMaxAgentNum(4); // 2 actors + room for expansion
+
+    // 2b. Create per-group managers for scoped training
+    ModelGroupManagers.SetNum(2);
+    for (int32 i = 0; i < ModelGroupManagers.Num(); i++)
+    {
+        ModelGroupManagers[i] = NewObject<ULearningAgentsManager>(this);
+        ModelGroupManagers[i]->SetMaxAgentNum(2);
+    }
 
     // 3. Create shared Training Environment
     TrainingEnvironment = NewObject<UNLTTrainingEnvironment>(this);
@@ -68,22 +74,24 @@ void ANLTTrainingManager::InitializeModelGroups()
     ModelGroups[0].SpawnLocation = ActorAStartLocation;
     ModelGroups[0].GovernanceAgentId = TEXT("ActorA");
 
+    ModelGroups[0].Manager = ModelGroupManagers[0];
+
     ModelGroups[0].Interactor = NewObject<UNLTAvatarInteractor>(this);
-    ModelGroups[0].Interactor->SetupInteractor(AgentManager);
+    ModelGroups[0].Interactor->SetupInteractor(ModelGroups[0].Manager);
 
     ModelGroups[0].Policy = NewObject<ULearningAgentsPolicy>(this);
     FLearningAgentsPolicySettings PolicySettingsA;
     PolicySettingsA.HiddenLayerNum = 2;
     PolicySettingsA.HiddenLayerSize = 128;
     PolicySettingsA.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[0].Policy->SetupPolicy(AgentManager, ModelGroups[0].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsA, 1234);
+    ModelGroups[0].Policy->SetupPolicy(ModelGroups[0].Manager, ModelGroups[0].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsA, 1234);
 
     ModelGroups[0].Critic = NewObject<ULearningAgentsCritic>(this);
     FLearningAgentsCriticSettings CriticSettingsA;
     CriticSettingsA.HiddenLayerNum = 2;
     CriticSettingsA.HiddenLayerSize = 128;
     CriticSettingsA.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[0].Critic->SetupCritic(AgentManager, ModelGroups[0].Interactor, ModelGroups[0].Policy, nullptr, true, CriticSettingsA, 1234);
+    ModelGroups[0].Critic->SetupCritic(ModelGroups[0].Manager, ModelGroups[0].Interactor, ModelGroups[0].Policy, nullptr, true, CriticSettingsA, 1234);
 
     ModelGroups[0].Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
     FLearningAgentsCommunicator CommunicatorA = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
@@ -91,7 +99,7 @@ void ANLTTrainingManager::InitializeModelGroups()
     TrainerSettingsA.MaxEpisodeStepNum = MaxEpisodeSteps;
     TrainerSettingsA.MaximumRecordedEpisodesPerIteration = 1000;
     TrainerSettingsA.MaximumRecordedStepsPerIteration = 10000;
-    ModelGroups[0].Trainer->SetupPPOTrainer(AgentManager, ModelGroups[0].Interactor, TrainingEnvironment, ModelGroups[0].Policy, ModelGroups[0].Critic, CommunicatorA, TrainerSettingsA);
+    ModelGroups[0].Trainer->SetupPPOTrainer(ModelGroups[0].Manager, ModelGroups[0].Interactor, TrainingEnvironment, ModelGroups[0].Policy, ModelGroups[0].Critic, CommunicatorA, TrainerSettingsA);
 
     // Model Group B
     ModelGroups[1].GroupId = 1;
@@ -99,22 +107,24 @@ void ANLTTrainingManager::InitializeModelGroups()
     ModelGroups[1].SpawnLocation = ActorBStartLocation;
     ModelGroups[1].GovernanceAgentId = TEXT("ActorB");
 
+    ModelGroups[1].Manager = ModelGroupManagers[1];
+
     ModelGroups[1].Interactor = NewObject<UNLTAvatarInteractor>(this);
-    ModelGroups[1].Interactor->SetupInteractor(AgentManager);
+    ModelGroups[1].Interactor->SetupInteractor(ModelGroups[1].Manager);
 
     ModelGroups[1].Policy = NewObject<ULearningAgentsPolicy>(this);
     FLearningAgentsPolicySettings PolicySettingsB;
     PolicySettingsB.HiddenLayerNum = 2;
     PolicySettingsB.HiddenLayerSize = 128;
     PolicySettingsB.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[1].Policy->SetupPolicy(AgentManager, ModelGroups[1].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsB, 5678);
+    ModelGroups[1].Policy->SetupPolicy(ModelGroups[1].Manager, ModelGroups[1].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsB, 5678);
 
     ModelGroups[1].Critic = NewObject<ULearningAgentsCritic>(this);
     FLearningAgentsCriticSettings CriticSettingsB;
     CriticSettingsB.HiddenLayerNum = 2;
     CriticSettingsB.HiddenLayerSize = 128;
     CriticSettingsB.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[1].Critic->SetupCritic(AgentManager, ModelGroups[1].Interactor, ModelGroups[1].Policy, nullptr, true, CriticSettingsB, 5678);
+    ModelGroups[1].Critic->SetupCritic(ModelGroups[1].Manager, ModelGroups[1].Interactor, ModelGroups[1].Policy, nullptr, true, CriticSettingsB, 5678);
 
     ModelGroups[1].Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
     FLearningAgentsCommunicator CommunicatorB = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
@@ -122,7 +132,7 @@ void ANLTTrainingManager::InitializeModelGroups()
     TrainerSettingsB.MaxEpisodeStepNum = MaxEpisodeSteps;
     TrainerSettingsB.MaximumRecordedEpisodesPerIteration = 1000;
     TrainerSettingsB.MaximumRecordedStepsPerIteration = 10000;
-    ModelGroups[1].Trainer->SetupPPOTrainer(AgentManager, ModelGroups[1].Interactor, TrainingEnvironment, ModelGroups[1].Policy, ModelGroups[1].Critic, CommunicatorB, TrainerSettingsB);
+    ModelGroups[1].Trainer->SetupPPOTrainer(ModelGroups[1].Manager, ModelGroups[1].Interactor, TrainingEnvironment, ModelGroups[1].Policy, ModelGroups[1].Critic, CommunicatorB, TrainerSettingsB);
 
     UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Initialized 2 model groups (A and B)"));
 }
@@ -140,7 +150,22 @@ void ANLTTrainingManager::SpawnDualActors()
         AAvatarCharacter* Actor = World->SpawnActor<AAvatarCharacter>(AAvatarCharacter::StaticClass(), SpawnPos, SpawnRot);
         if (Actor)
         {
-            int32 AgentId = AgentManager->AddAgent(Actor);
+            ULearningAgentsManager* GroupManager = ModelGroups[i].Manager;
+            if (!GroupManager)
+            {
+                UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: %s has no manager"), *ModelGroups[i].GroupName.ToString());
+                Actor->Destroy();
+                continue;
+            }
+
+            int32 AgentId = GroupManager->AddAgent(Actor);
+            if (AgentId == INDEX_NONE)
+            {
+                UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: Failed to register %s with the agent manager"),
+                    *ModelGroups[i].GroupName.ToString());
+                Actor->Destroy();
+                continue;
+            }
             ModelGroups[i].AgentId = AgentId;
 
             // Initialize governance for this actor
@@ -181,12 +206,15 @@ void ANLTTrainingManager::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
 
     // Tick cognitive decay for all agents
-    if (AgentManager)
+    for (const auto& Group : ModelGroups)
     {
-        const TArray<int32>& AllAgentIds = AgentManager->GetAllAgentIds();
+        ULearningAgentsManager* GroupManager = Group.Manager;
+        if (!GroupManager) continue;
+
+        const TArray<int32>& AllAgentIds = GroupManager->GetAllAgentIds();
         for (int32 AgentId : AllAgentIds)
         {
-            UObject* Agent = AgentManager->GetAgent(AgentId);
+            UObject* Agent = GroupManager->GetAgent(AgentId);
             AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
             if (Avatar && Avatar->CognitiveState)
             {
@@ -215,7 +243,9 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         for (const auto& Group : ModelGroups)
         {
             if (Group.AgentId == INDEX_NONE) continue;
-            UObject* Agent = AgentManager->GetAgent(Group.AgentId);
+            ULearningAgentsManager* GroupManager = Group.Manager;
+            if (!GroupManager) continue;
+            UObject* Agent = GroupManager->GetAgent(Group.AgentId);
             AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
             if (Avatar && Avatar->CognitiveState)
             {

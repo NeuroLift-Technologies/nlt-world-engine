@@ -56,10 +56,8 @@ public class WorldEngine : ModuleRules
             "AudioMixerCore",
             "HTTPServer",
             "HTTP",
-            "Sockets"
+            "Sockets",
+            "NLTGovernanceSubsystem"
         });
-
-        // Plugin include paths for NLTGovernanceSubsystem
-        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "..", "..", "Plugins", "NLTGovernanceSubsystem", "Source", "NLTGovernanceSubsystem", "Public"));
     }
 }
