@@ -145,9 +145,21 @@ bool AAvatarAIController::ExecuteLLMCommand(const FString& Command, const TShare
             return true;
         }
 
-        // move_to / move_by: nav path-following via the AI controller. The
-        // CharacterMovementComponent underneath keeps its normal physics.
+        // move_to / move_by: nav path-following via the AI controller.
         SetLLMControlActive(true);
+        
+        // Reject move_to that lands on the avatar's current position (a known
+        // qwen3:0.6b failure mode — it echoes back the coordinates it was given).
+        if (Cmd == TEXT("move_to"))
+        {
+            const float DistSq = FVector::DistSquared2D(FVector(X, Y, Origin.Z), Origin);
+            if (DistSq < 2500.0f) // 50 units — basically "didn't move"
+            {
+                OutMessage = TEXT("move_to target too close to current position");
+                return false;
+            }
+        }
+        
         const EPathFollowingRequestResult::Type Result = MoveToLocation(Destination, AcceptanceRadius, true, true, true, true);
         if (Result == EPathFollowingRequestResult::Failed)
         {
@@ -286,8 +298,8 @@ void AAvatarAIController::RequestLLMMovementCommand()
         Location,
         Velocity,
         CognitiveStateMap,
-        TEXT("Explore your environment continuously — always move to a new location you haven't visited recently. Prefer move_by with dx, dy in [-200, 200] range. Do NOT return to the same spot twice in a row. If you arrived at your last destination, pick a new direction."),
-        TEXT("You are in a simulated training environment with doors leading to Personal, Social, and Academic areas. There is a NavMeshBoundsVolume covering the level. Explore widely.")
+        TEXT("Choose a new destination nearby that you haven't visited recently. Respond with move_to, move_by, face_towards, or stop."),
+        TEXT("You are in a simulated training environment with doors leading to Personal, Social, and Academic areas. There is a NavMeshBoundsVolume covering the level.")
     );
 }
 

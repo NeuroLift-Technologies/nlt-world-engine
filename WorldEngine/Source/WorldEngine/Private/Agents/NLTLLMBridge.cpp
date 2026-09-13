@@ -101,25 +101,28 @@ FString UNLTLLMBridge::BuildPrompt(
     CognitiveStr.RemoveFromEnd(TEXT(", "));
 
     // We instruct the LLM to respond ONLY in valid JSON with a specific schema.
+    // The prompt is engineered for qwen3:0.6b — small models tend to echo back
+    // coordinates rather than explore. We use move_by with relative offsets
+    // and explicitly tell the model to pick a NEW direction each time.
     return FString::Printf(
-        TEXT("You are the brain of an AI agent in a Unreal Engine 5 simulation. "
-             "Your only job is to decide the next movement action. "
-             "Respond with ONLY valid JSON — no prose, no explanations.\n\n"
-             "Actor: %s\n"
-             "Location: {x: %.1f, y: %.1f, z: %.1f}\n"
-             "Velocity: {x: %.1f, y: %.1f, z: %.1f}\n"
-             "Cognitive State: %s\n"
-             "Environment: %s\n"
-             "Goal: %s\n\n"
-             "Available commands: \"move_to\", \"move_by\", \"face_towards\", \"stop\".\n"
-             "JSON schema: {\"command\": string, \"x\": float, \"y\": float}\n"
-             "For \"move_by\", x/y are relative dx/dy. For \"move_to\"/\"face_towards\", x/y are world coordinates.\n"
-             "Only respond with JSON. No markdown, no extra fields.\n"
+        TEXT("You are an AI agent exploring a 2D environment. Pick the next movement. "
+             "Respond ONLY with valid JSON.\n\n"
+             "Current position: (%.1f, %.1f)\n"
+             "Current velocity: (%.1f, %.1f)\n"
+             "Cognitive state: %s\n\n"
+             "You MUST pick a destination that is different from your current position. "
+             "Use move_by with dx and dy in range [-300, 300]. "
+             "Each call must move you to a new area. Do not echo back your current coordinates.\n\n"
+             "Formats:\n"
+             "{\"command\": \"move_by\", \"dx\": <float>, \"dy\": <float>}\n"
+             "{\"command\": \"move_to\", \"x\": <float>, \"y\": <float>}\n"
+             "{\"command\": \"face_towards\", \"x\": <float>, \"y\": <float>}\n"
+             "{\"command\": \"stop\"}\n\n"
+             "Respond now:\n"
              "{\"command\": "),
-        *ActorName,
-        CurrentLocation.X, CurrentLocation.Y, CurrentLocation.Z,
-        CurrentVelocity.X, CurrentVelocity.Y, CurrentVelocity.Z,
-        *CognitiveStr, *EnvironmentContext, *GoalDescription
+        CurrentLocation.X, CurrentLocation.Y,
+        CurrentVelocity.X, CurrentVelocity.Y,
+        *CognitiveStr
     );
 }
 
@@ -197,6 +200,11 @@ void UNLTLLMBridge::ParseResponse(const FString& ResponseBody)
         UE_LOG(LogTemp, Warning, TEXT("NLTLLMBridge: LLM response is not valid JSON: %s"), *ModelResponse);
         return;
     }
+
+    // Debug: log what the LLM actually returned
+    FString Command;
+    CommandJson->TryGetStringField(TEXT("command"), Command);
+    UE_LOG(LogTemp, Log, TEXT("NLTLLMBridge: LLM returned command='%s', raw: %s"), *Command, *ModelResponse);
 
     // Broadcast the validated JSON string so Blueprint listeners can dispatch the command
     OnLLMResponse.Broadcast(ModelResponse);
