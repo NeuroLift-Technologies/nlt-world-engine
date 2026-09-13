@@ -5,11 +5,13 @@
 #include "NavigationSystem.h"
 #include "AIController.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "UObject/ConstructorHelpers.h"
 
 // Initialize static material parameter names
 const FName AAvatarCharacter::ParamTeamColor = TEXT("TeamColor");
@@ -39,25 +41,54 @@ AAvatarCharacter::AAvatarCharacter()
 
     // ============== Initialize Visual Components ==============
     
+    // Load the SimBody static mesh for the avatar's visible body
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> SimBodyMeshObj(
+        TEXT("/Game/Kits/SimBody/SM_SimBody_Base.SM_SimBody_Base"));
+
+    // Create a dedicated BodyMesh static mesh component for the avatar
+    BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
+    BodyMesh->SetupAttachment(GetRootComponent()); // attach to the capsule
+    BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    BodyMesh->SetCastShadow(true);
+    
+    // Load the mesh asset
+    if (SimBodyMeshObj.Succeeded())
+    {
+        BodyMesh->SetStaticMesh(SimBodyMeshObj.Object);
+        SimBodyMesh = SimBodyMeshObj.Object;
+        
+        // Load the material that comes with SimBody
+        static ConstructorHelpers::FObjectFinder<UMaterialInterface> SimBodyMaterialObj(
+            TEXT("/Game/Kits/SimBody/M_SimBody_Base.M_SimBody_Base"));
+        if (SimBodyMaterialObj.Succeeded())
+        {
+            BodyMaterial = SimBodyMaterialObj.Object;
+        }
+    }
+    
+    // Position the mesh so it sits on the ground (centered on capsule)
+    BodyMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -90.0f));
+    BodyMesh->SetRelativeScale3D(FVector(0.5f, 0.5f, 1.0f));
+    
     // Create particle system components
     StressParticleComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("StressParticles"));
-    StressParticleComponent->SetupAttachment(GetRootComponent());
+    StressParticleComponent->SetupAttachment(BodyMesh);
     StressParticleComponent->bAutoActivate = false;
     StressParticleComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
 
     FocusAuraComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("FocusAuraParticles"));
-    FocusAuraComponent->SetupAttachment(GetRootComponent());
+    FocusAuraComponent->SetupAttachment(BodyMesh);
     FocusAuraComponent->bAutoActivate = false;
     FocusAuraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
 
     InteractionParticleComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("InteractionParticles"));
-    InteractionParticleComponent->SetupAttachment(GetRootComponent());
+    InteractionParticleComponent->SetupAttachment(BodyMesh);
     InteractionParticleComponent->bAutoActivate = false;
     InteractionParticleComponent->SetRelativeLocation(FVector(50.0f, 0.0f, 50.0f));
 
     // Create post process component
     PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcessComponent"));
-    PostProcessComponent->SetupAttachment(GetRootComponent());
+    PostProcessComponent->SetupAttachment(BodyMesh);
     PostProcessComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f));
 
     // Create the cognitive-state-driven avatar visual component
@@ -73,17 +104,11 @@ void AAvatarCharacter::BeginPlay()
 {
     Super::BeginPlay();
     
-    // Initialize dynamic materials
-    if (BodyMaterial && GetMesh())
+    // Initialize dynamic materials on BodyMesh
+    if (BodyMaterial && BodyMesh)
     {
-        DynamicBodyMaterial = UMaterialInstanceDynamic::Create(BodyMaterial, GetMesh());
-        GetMesh()->SetMaterial(0, DynamicBodyMaterial);
-    }
-    
-    if (HeadMaterial && GetMesh() && GetMesh()->GetNumMaterials() > 1)
-    {
-        DynamicHeadMaterial = UMaterialInstanceDynamic::Create(HeadMaterial, GetMesh());
-        GetMesh()->SetMaterial(1, DynamicHeadMaterial);
+        DynamicBodyMaterial = UMaterialInstanceDynamic::Create(BodyMaterial, BodyMesh);
+        BodyMesh->SetMaterial(0, DynamicBodyMaterial);
     }
     
     // Set particle systems if assigned
@@ -101,6 +126,7 @@ void AAvatarCharacter::BeginPlay()
     {
         InteractionParticleComponent->SetTemplate(InteractionParticles);
     }
+    
     // Update all visual systems
     UpdateVisualState();
     UpdateMaterials();
@@ -152,17 +178,13 @@ void AAvatarCharacter::UpdateVisualState()
     {
         NewState = ECharacterVisualState::Focused;
     }
-    // else if (bIsInteracting) // Add interaction detection logic here
-    // {
-    //     NewState = ECharacterVisualState::Interacting;
-    // }
     
     CurrentVisualState = NewState;
 }
 
 void AAvatarCharacter::UpdateMaterials()
 {
-    if (!GetMesh()) return;
+    if (!BodyMesh) return;
     
     FLinearColor TeamColor = GetTeamColor();
     float StressLevel = GetStressLevel();
@@ -180,15 +202,6 @@ void AAvatarCharacter::UpdateMaterials()
         // Convert enum to float for material
         int32 StateInt = static_cast<int32>(CurrentVisualState);
         DynamicBodyMaterial->SetScalarParameterValue(ParamVisualState, static_cast<float>(StateInt));
-    }
-    
-    // Update head material if exists
-    if (DynamicHeadMaterial)
-    {
-        DynamicHeadMaterial->SetVectorParameterValue(ParamTeamColor, TeamColor);
-        DynamicHeadMaterial->SetScalarParameterValue(ParamStressLevel, StressLevel);
-        DynamicHeadMaterial->SetScalarParameterValue(ParamFocusLevel, FocusLevel);
-        DynamicHeadMaterial->SetScalarParameterValue(ParamPulseIntensity, PulseIntensity);
     }
 }
 

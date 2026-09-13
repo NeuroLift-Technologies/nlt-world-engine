@@ -6,6 +6,7 @@
 #include "AIController.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Agents/NLTAvatarVisualComponent.h"
 #include "AvatarCharacter.generated.h"
 
@@ -63,6 +64,14 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Materials")
     UMaterialInterface* BodyMaterial;
 
+    // Default skeletal mesh for the avatar body (for blueprint override)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Mesh")
+    TObjectPtr<USkeletalMesh> DefaultMesh;
+
+    // SimBody static mesh as fallback / loaded at runtime
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Mesh")
+    TObjectPtr<UStaticMesh> SimBodyMesh;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Materials")
     UMaterialInterface* HeadMaterial;
 
@@ -75,6 +84,10 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visual|Materials")
     UMaterialInstanceDynamic* DynamicHeadMaterial;
+
+    // The static mesh component for the avatar's visible body (SimBody mesh)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Visual|Mesh")
+    UStaticMeshComponent* BodyMesh;
 
     // ============== Particle Effects ==============
 

@@ -1,34 +1,19 @@
 #!/usr/bin/env bash
-# run_nlt_training_editor.sh — Launch UE editor with NLTTrainingGameMode for viewing
+# Launch the WorldEngine editor with NLTTrainingGameMode for visual debugging
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-PROJECT_FILE="$PROJECT_ROOT/WorldEngine.uproject"
+PROJECT_FILE="$SCRIPT_DIR/../WorldEngine.uproject"
+ENGINE_DIR="$HOME/Documents/NLT/Engine"
 
-UE_EDITOR="$HOME/Documents/NLT/Engine/Binaries/Linux/UnrealEditor"
-if [[ ! -x "$UE_EDITOR" ]]; then
-    echo "ERROR: UnrealEditor not found at $UE_EDITOR"
-    exit 1
-fi
+cd "$SCRIPT_DIR/.."
 
-echo "=== NLT WorldEditor Training (Editor Mode) ==="
-echo "Project: $PROJECT_FILE"
-echo ""
-
-# Clean up stale shared memory
-rm -f /dev/shm/\{*\} 2>/dev/null || true
-rm -rf "$PROJECT_ROOT/WorldEngine/Intermediate/LearningCore"/NLTTraining* 2>/dev/null || true
-pkill -9 -f "train[.]ppo" 2>/dev/null || true
-pkill -9 -f "UnrealEditor" 2>/dev/null || true
-sleep 1
-
-echo "Opening editor..."
-echo "  Map:      /Game/Scenarios/Levels/Workplace_Level.Workplace_Level"
-echo "  GameMode: /Script/WorldEngine.NLTTrainingGameMode"
-echo ""
-
-exec "$UE_EDITOR" \
-    "$PROJECT_FILE" \
-    /Game/Scenarios/Levels/Workplace_Level.Workplace_Level \
-    -GameMode=/Script/WorldEngine.NLTTrainingGameMode
+"$ENGINE_DIR/Binaries/Linux/UnrealEditor" "$PROJECT_FILE" \
+    -game \
+    -AllowProcessAsync=0 \
+    -NoAutoCompile \
+    -RenderOffScreen \
+    -nopause \
+    -run=AutomationDriver \
+    -debugcpu \
+    2>&1
