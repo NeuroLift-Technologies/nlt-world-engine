@@ -1,4 +1,4 @@
-// NLTTrainingManager.h — Extended for dual-model, dual-actor RL training
+// NLTTrainingManager.h — Dual-model, dual-actor RL training
 #pragma once
 
 #include "CoreMinimal.h"
@@ -27,16 +27,12 @@ struct FNLTAgentModelGroup
 
     ULearningAgentsInteractor* Interactor = nullptr;
 
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     ULearningAgentsManager* Manager = nullptr;
 
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     ULearningAgentsPolicy* Policy = nullptr;
 
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     ULearningAgentsCritic* Critic = nullptr;
 
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     ULearningAgentsPPOTrainer* Trainer = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
@@ -49,16 +45,6 @@ struct FNLTAgentModelGroup
     FName GovernanceAgentId;
 };
 
-/**
- * Dual-Model Dual-Actor Training Manager.
- * 
- * Spawns two physically separate actors (Actor A, Actor B), each controlled
- * by its own RL policy/model, each with its own ASFDK-C++ governance context.
- * 
- * Architecture:
- *   Model A (Policy A) -> Interactor A -> Actor A (governance context A)
- *   Model B (Policy B) -> Interactor B -> Actor B (governance context B)
- */
 UCLASS()
 class WORLDENGINE_API ANLTTrainingManager : public AActor
 {
@@ -116,6 +102,8 @@ private:
     void InitializeGovernanceForGroup(int32 GroupIndex, class AAvatarCharacter* Actor);
     void RunDualInference();
     void RunDualTraining();
+
+    UFUNCTION()
     void OnEpisodeComplete();
 
     float TrainingTimer = 0.0f;

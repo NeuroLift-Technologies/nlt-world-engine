@@ -11,7 +11,7 @@ UNLTAvatarInteractor::UNLTAvatarInteractor()
 {
 }
 
-void UNLTAvatarInteractor::SpecifyAgentObservation(
+void UNLTAvatarInteractor::SpecifyAgentObservation_Implementation(
     FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
     ULearningAgentsObservationSchema* InObservationSchema)
 {
@@ -23,7 +23,7 @@ void UNLTAvatarInteractor::SpecifyAgentObservation(
     OutObservationSchemaElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, ObsElements);
 }
 
-void UNLTAvatarInteractor::GatherAgentObservation(
+void UNLTAvatarInteractor::GatherAgentObservation_Implementation(
     FLearningAgentsObservationObjectElement& OutObservationObjectElement,
     ULearningAgentsObservationObject* InObservationObject,
     const int32 AgentId)
@@ -60,7 +60,7 @@ void UNLTAvatarInteractor::GatherAgentObservation(
         InObservationObject, ObsElements);
 }
 
-void UNLTAvatarInteractor::SpecifyAgentAction(
+void UNLTAvatarInteractor::SpecifyAgentAction_Implementation(
     FLearningAgentsActionSchemaElement& OutActionSchemaElement,
     ULearningAgentsActionSchema* InActionSchema)
 {
@@ -73,7 +73,7 @@ void UNLTAvatarInteractor::SpecifyAgentAction(
     OutActionSchemaElement = ULearningAgentsActions::SpecifyStructAction(InActionSchema, ActionElements);
 }
 
-void UNLTAvatarInteractor::PerformAgentAction(
+void UNLTAvatarInteractor::PerformAgentAction_Implementation(
     const ULearningAgentsActionObject* InActionObject,
     const FLearningAgentsActionObjectElement& InActionObjectElement,
     const int32 AgentId)
@@ -85,7 +85,7 @@ void UNLTAvatarInteractor::PerformAgentAction(
     AAvatarAIController* AIController = Cast<AAvatarAIController>(Avatar->GetController());
     if (!AIController) return;
 
-    // Get move direction from the struct action (by name)
+    // Get move direction
     FLearningAgentsActionObjectElement MoveDirectionElement;
     ULearningAgentsActions::GetStructActionElement(
         MoveDirectionElement, InActionObject, InActionObjectElement, TEXT("MoveDirection"));
@@ -104,7 +104,7 @@ void UNLTAvatarInteractor::PerformAgentAction(
         }
     }
 
-    // Get interaction value from the struct action
+    // Get interaction
     FLearningAgentsActionObjectElement InteractionElement;
     ULearningAgentsActions::GetStructActionElement(
         InteractionElement, InActionObject, InActionObjectElement, TEXT("Interaction"));
@@ -112,5 +112,4 @@ void UNLTAvatarInteractor::PerformAgentAction(
     int32 InteractionChoice = 0;
     ULearningAgentsActions::GetExclusiveDiscreteAction(
         InteractionChoice, InActionObject, InteractionElement, true, TEXT("Interaction"));
-    // TODO: Apply interaction choice (set intent on Avatar, interact with SmartObject, etc.)
 }

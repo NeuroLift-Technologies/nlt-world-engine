@@ -61,7 +61,7 @@ void ANLTTrainingManager::BeginPlay()
         EpisodeManager->StartEpisode();
     }
 
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Dual-model training initialized with %d model groups"), ModelGroups.Num());
+    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Dual-model training initialized with %d model groups"), ModelGroups.Num());
 }
 
 void ANLTTrainingManager::InitializeModelGroups()
@@ -134,7 +134,7 @@ void ANLTTrainingManager::InitializeModelGroups()
     TrainerSettingsB.MaximumRecordedStepsPerIteration = 10000;
     ModelGroups[1].Trainer->SetupPPOTrainer(ModelGroupManagers[1], ModelGroups[1].Interactor, TrainingEnvironment, ModelGroups[1].Policy, ModelGroups[1].Critic, CommunicatorB, TrainerSettingsB);
 
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Initialized 2 model groups (A and B)"));
+    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Initialized 2 model groups (A and B)"));
 }
 
 void ANLTTrainingManager::SpawnDualActors()
@@ -153,7 +153,7 @@ void ANLTTrainingManager::SpawnDualActors()
             ULearningAgentsManager* GroupManager = ModelGroups[i].Manager;
             if (!GroupManager)
             {
-                UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: %s has no manager"), *ModelGroups[i].GroupName.ToString());
+                UE_LOG(LogTemp, Error, TEXT("NLTTrainingManager: %s has no manager"), *ModelGroups[i].GroupName.ToString());
                 Actor->Destroy();
                 continue;
             }
@@ -161,7 +161,7 @@ void ANLTTrainingManager::SpawnDualActors()
             int32 AgentId = GroupManager->AddAgent(Actor);
             if (AgentId == INDEX_NONE)
             {
-                UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: Failed to register %s with the agent manager"),
+                UE_LOG(LogTemp, Error, TEXT("NLTTrainingManager: Failed to register %s with the agent manager"),
                     *ModelGroups[i].GroupName.ToString());
                 Actor->Destroy();
                 continue;
@@ -171,12 +171,12 @@ void ANLTTrainingManager::SpawnDualActors()
             // Initialize governance for this actor
             InitializeGovernanceForGroup(i, Actor);
 
-            UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Spawned %s at (%s), AgentId=%d"),
+            UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Spawned %s at (%s), AgentId=%d"),
                 *ModelGroups[i].GroupName.ToString(), *SpawnPos.ToString(), AgentId);
         }
         else
         {
-            UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: Failed to spawn %s"), *ModelGroups[i].GroupName.ToString());
+            UE_LOG(LogTemp, Error, TEXT("NLTTrainingManager: Failed to spawn %s"), *ModelGroups[i].GroupName.ToString());
         }
     }
 }
@@ -185,27 +185,24 @@ void ANLTTrainingManager::InitializeGovernanceForGroup(int32 GroupIndex, AAvatar
 {
     if (!Actor || !AgentManager) return;
 
-    // Get the governance subsystem for this world
     UNLTGovernanceSubsystem* Governance = UNLTGovernanceSubsystem::Get(Actor->GetWorld());
     if (Governance)
     {
         FName GovId = ModelGroups[GroupIndex].GovernanceAgentId;
         FString GovName = ModelGroups[GroupIndex].GroupName.ToString();
         Governance->InitializeAgent(GovId, GovName);
-        UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Governance initialized for %s"), *GovId.ToString());
+        UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Governance initialized for %s"), *GovId.ToString());
     }
     else
     {
-        UE_LOG(LogNLTFusion, Warning, TEXT("NLTTrainingManager: No NLTGovernanceSubsystem found for %s"),
+        UE_LOG(LogTemp, Warning, TEXT("NLTTrainingManager: No NLTGovernanceSubsystem found for %s"),
             *ModelGroups[GroupIndex].GroupName.ToString());
     }
 }
 
 void ANLTTrainingManager::OnEpisodeComplete()
 {
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Episode complete — resetting for next iteration"));
-    // Episode complete — could trigger scenario reset, log stats, etc.
-    // For now, Learning Agents' internal trainer handles episode boundaries
+    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Episode complete"));
 }
 
 void ANLTTrainingManager::Tick(float DeltaTime)
@@ -309,7 +306,6 @@ int32 ANLTTrainingManager::GetActorAgentId(int32 GroupIndex) const
 
 void ANLTTrainingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    // Shutdown governance for all agents
     UWorld* World = GetWorld();
     if (World)
     {

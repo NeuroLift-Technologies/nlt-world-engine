@@ -5,11 +5,6 @@
 #include "LearningAgentsInteractor.h"
 #include "NLTAvatarInteractor.generated.h"
 
-/**
- * Avatar interactor for Learning Agents.
- * Observations: Position(3) + Velocity(3) + Cognitive(7) = 13 dims
- * Actions: MoveDirection(3 continuous) + Interaction(4 discrete)
- */
 UCLASS()
 class WORLDENGINE_API UNLTAvatarInteractor : public ULearningAgentsInteractor
 {
@@ -19,24 +14,24 @@ public:
     UNLTAvatarInteractor();
 
     /** Specify observation schema. Called once during setup. */
-    virtual void SpecifyAgentObservation(
+    virtual void SpecifyAgentObservation_Implementation(
         FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
-        ULearningAgentsObservationSchema* InObservationSchema);
+        ULearningAgentsObservationSchema* InObservationSchema) override;
 
     /** Gather observation data for a single agent. Called each tick. */
-    virtual void GatherAgentObservation(
+    virtual void GatherAgentObservation_Implementation(
         FLearningAgentsObservationObjectElement& OutObservationObjectElement,
         ULearningAgentsObservationObject* InObservationObject,
-        const int32 AgentId);
+        const int32 AgentId) override;
 
     /** Specify action schema. Called once during setup. */
-    virtual void SpecifyAgentAction(
+    virtual void SpecifyAgentAction_Implementation(
         FLearningAgentsActionSchemaElement& OutActionSchemaElement,
-        ULearningAgentsActionSchema* InActionSchema);
+        ULearningAgentsActionSchema* InActionSchema) override;
 
     /** Perform action for a single agent. Called each tick after policy evaluation. */
-    virtual void PerformAgentAction(
+    virtual void PerformAgentAction_Implementation(
         const ULearningAgentsActionObject* InActionObject,
         const FLearningAgentsActionObjectElement& InActionObjectElement,
-        const int32 AgentId);
+        const int32 AgentId) override;
 };

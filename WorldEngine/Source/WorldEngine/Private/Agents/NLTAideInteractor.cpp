@@ -1,108 +1,61 @@
 // NLTAideInteractor.cpp
 #include "Agents/NLTAideInteractor.h"
 #include "Agents/AvatarCharacter.h"
-#include "Agents/AvatarAIController.h"
 #include "Agents/LTCognitiveStateComponent.h"
 #include "LearningAgentsObservations.h"
 #include "LearningAgentsActions.h"
 #include "LearningAgentsManager.h"
-#include "Core/NLTFusionCore.h"
 
 UNLTAideInteractor::UNLTAideInteractor()
 {
 }
 
-void UNLTAideInteractor::SetPairMapping(const TMap<int32, int32>& InPairMap)
-{
-    PairMap = InPairMap;
-}
-
-void UNLTAideInteractor::SpecifyAgentObservation(
+void UNLTAideInteractor::SpecifyAgentObservation_Implementation(
     FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
     ULearningAgentsObservationSchema* InObservationSchema)
 {
     TMap<FName, FLearningAgentsObservationSchemaElement> ObsElements;
-    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema));
-    ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 3));
-    ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 7));
+    ObsElements.Add(TEXT("AvatarState"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 13));
+    ObsElements.Add(TEXT("AideState"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 7));
     
     OutObservationSchemaElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, ObsElements);
 }
 
-void UNLTAideInteractor::GatherAgentObservation(
+void UNLTAideInteractor::GatherAgentObservation_Implementation(
     FLearningAgentsObservationObjectElement& OutObservationObjectElement,
     ULearningAgentsObservationObject* InObservationObject,
     const int32 AgentId)
 {
-    // Aide observes the PAIRED Avatar's state
-    const int32* AvatarAgentIdPtr = PairMap.Find(AgentId);
-    if (!AvatarAgentIdPtr) return;
+    UObject* Agent = GetAgent(AgentId);
     
-    int32 AvatarAgentId = *AvatarAgentIdPtr;
-    UObject* Agent = GetAgent(AvatarAgentId);
-    AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
-    if (!Avatar) return;
-
-    FVector Position = Avatar->GetActorLocation();
-    FVector Velocity = Avatar->GetVelocity();
-
     TMap<FName, FLearningAgentsObservationObjectElement> ObsElements;
-    
-    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::MakeLocationObservation(
-        InObservationObject, Position, FTransform::Identity, true, TEXT("AideObsPosition")));
-    
-    TArray<float> VelValues = {Velocity.X, Velocity.Y, Velocity.Z};
-    ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-        InObservationObject, VelValues, true, TEXT("AideObsVelocity")));
-    
-    ULTCognitiveStateComponent* Cognitive = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
-    if (Cognitive)
-    {
-        ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, Cognitive->GetObservationValues(), true, TEXT("AideObsCognitive")));
-    }
-    else
-    {
-        ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f}, true, TEXT("AideObsCognitive")));
-    }
+    ObsElements.Add(TEXT("AvatarState"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
+        InObservationObject, {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f}, true, TEXT("AvatarState")));
+    ObsElements.Add(TEXT("AideState"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
+        InObservationObject, {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f}, true, TEXT("AideState")));
 
     OutObservationObjectElement = ULearningAgentsObservations::MakeStructObservation(
         InObservationObject, ObsElements);
 }
 
-void UNLTAideInteractor::SpecifyAgentAction(
+void UNLTAideInteractor::SpecifyAgentAction_Implementation(
     FLearningAgentsActionSchemaElement& OutActionSchemaElement,
     ULearningAgentsActionSchema* InActionSchema)
 {
-    // 10 discrete strategies (0-9)
-    OutActionSchemaElement = ULearningAgentsActions::SpecifyExclusiveDiscreteAction(
-        InActionSchema, 10, {});
+    OutActionSchemaElement = ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 10, {});
 }
 
-void UNLTAideInteractor::PerformAgentAction(
+void UNLTAideInteractor::PerformAgentAction_Implementation(
     const ULearningAgentsActionObject* InActionObject,
     const FLearningAgentsActionObjectElement& InActionObjectElement,
     const int32 AgentId)
 {
-    int32 ActionChoice = 0;
+    int32 StrategyChoice = 0;
     ULearningAgentsActions::GetExclusiveDiscreteAction(
-        ActionChoice, InActionObject, InActionObjectElement, true, TEXT("DiscreteExclusiveAction"));
+        StrategyChoice, InActionObject, InActionObjectElement, true, TEXT("Strategy"));
+}
 
-    // Apply coaching effect to the PAIRED Avatar
-    const int32* AvatarAgentIdPtr = PairMap.Find(AgentId);
-    if (!AvatarAgentIdPtr) return;
-    
-    int32 AvatarAgentId = *AvatarAgentIdPtr;
-    UObject* Agent = GetAgent(AvatarAgentId);
-    AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
-    if (!Avatar) return;
-
-    ULTCognitiveStateComponent* Cognitive = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
-    if (Cognitive)
-    {
-        Cognitive->ApplyCoachingEffect(ActionChoice);
-    }
-
-    UE_LOG(LogNLTFusion, Log, TEXT("Aide Agent %d coached Avatar %d with strategy %d"), AgentId, AvatarAgentId, ActionChoice);
+void UNLTAideInteractor::SetPairMapping(const TMap<int32, int32>& InPairMap)
+{
+    PairMap = InPairMap;
 }

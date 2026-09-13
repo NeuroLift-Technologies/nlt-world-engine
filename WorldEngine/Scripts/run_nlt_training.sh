@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_nlt_training.sh — Launch headless UE sim with NLTTrainingManager
+# run_nlt_training.sh — Launch headless UE sim with NLTTrainingGameMode
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -32,5 +32,4 @@ exec "$UE_EDITOR" \
     -nullrhi \
     -unattended \
     -stdout \
-    -FullStdOutLogOutput \
-    -GameMode=/Script/WorldEngine.NLTTrainingGameMode
+    -FullStdOutLogOutput
