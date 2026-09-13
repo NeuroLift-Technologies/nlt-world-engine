@@ -79,4 +79,39 @@ void ULTCognitiveStateComponent::ResetCognitiveState()
     Independence = 0.20f;
     FusionReady = 0.0f;
     SuccessRate = 0.50f;
+    EmotionalState = NAME_None;
+}
+
+void ULTCognitiveStateComponent::UpdateEmotionalState()
+{
+    // Derive EmotionalState FName from cognitive dimensions.
+    // This mirrors the priority logic in UNLTEmotionStateComponent::ComputeTargetEmotion.
+    if (Stress > 0.7f || CognitiveLoad > 0.85f)
+    {
+        EmotionalState = FName(TEXT("Overwhelmed"));
+    }
+    else if (Stress > 0.5f)
+    {
+        EmotionalState = FName(TEXT("Struggling"));
+    }
+    else if (Burnout > 0.6f)
+    {
+        EmotionalState = FName(TEXT("Fatigued"));
+    }
+    else if (CognitiveLoad > 0.7f && Focus > 0.7f)
+    {
+        EmotionalState = FName(TEXT("Hyperfocus"));
+    }
+    else if (Focus < 0.3f)
+    {
+        EmotionalState = FName(TEXT("Drifting"));
+    }
+    else if (Focus > 0.7f && CognitiveLoad > 0.2f)
+    {
+        EmotionalState = FName(TEXT("Focused"));
+    }
+    else
+    {
+        EmotionalState = FName(TEXT("Neutral"));
+    }
 }

@@ -286,8 +286,8 @@ void AAvatarAIController::RequestLLMMovementCommand()
         Location,
         Velocity,
         CognitiveStateMap,
-        TEXT("Explore your environment and maintain balanced cognitive state"),
-        TEXT("You are in a simulated training environment with doors leading to Personal, Social, and Academic areas.")
+        TEXT("Explore your environment continuously — always move to a new location you haven't visited recently. Prefer move_by with dx, dy in [-200, 200] range. Do NOT return to the same spot twice in a row. If you arrived at your last destination, pick a new direction."),
+        TEXT("You are in a simulated training environment with doors leading to Personal, Social, and Academic areas. There is a NavMeshBoundsVolume covering the level. Explore widely.")
     );
 }
 

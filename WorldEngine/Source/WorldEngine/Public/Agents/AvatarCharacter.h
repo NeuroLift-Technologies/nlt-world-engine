@@ -8,6 +8,9 @@
 #include "Components/PostProcessComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Agents/NLTAvatarVisualComponent.h"
+#include "Agents/NLTEmotionStateComponent.h"
+#include "Agents/NLTCharacterAnimationComponent.h"
+#include "Agents/NLTPairChoreographyComponent.h"
 #include "AvatarCharacter.generated.h"
 
 // Visual state for character
@@ -130,6 +133,39 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cognitive")
     class ULTCognitiveStateComponent* CognitiveState;
 
+    // ============== Emotion State Machine ==============
+    // Drives expressive body language from cognitive dimensions.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Emotion")
+    class UNLTEmotionStateComponent* EmotionState;
+
+    // ============== Character Animation ==============
+    // Manages animation state machine, montages, and procedural posing.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Animation")
+    class UNLTCharacterAnimationComponent* CharacterAnimation;
+
+    // ============== Pair Choreography ==============
+    // Manages Avatar↔Aide social choreography (facing, co-reaction, coaching).
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Choreography")
+    class UNLTPairChoreographyComponent* PairChoreography;
+
+    // ============== Role & Mesh ==============
+    // Whether this character is an Avatar or an Aide in the coaching pair.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Role")
+    ENLTAgentRole CharacterRole = ENLTAgentRole::Avatar;
+
+    // If true, use a SkeletalMesh for rigged character animation
+    // instead of the SimBody static mesh fallback.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Mesh")
+    bool bUseSkeletalMeshCharacter = false;
+
+    // Skeleton asset to assign to the SkeletalMesh when bUseSkeletalMeshCharacter is true.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual|Mesh")
+    TObjectPtr<USkeletalMesh> SkeletalMeshCharacter;
+
+    // Assign a partner actor for pair choreography (Aide ↔ Avatar).
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Choreography")
+    TObjectPtr<AActor> ChoreographyPartner;
+
     // ============== Avatar Visual Component ==============
     // Driven by cognitive state (status ring, emissive glow, state particles).
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|AvatarVisual")
@@ -150,6 +186,11 @@ protected:
     FLinearColor GetTeamColor() const;
     float GetStressLevel() const;
     float GetFocusLevel() const;
+
+    // ============== Emotion / Animation helpers ==============
+    void InitializeCharacterMesh();
+    void BindEmotionToComponents();
+    void UpdateChoreography(float DeltaTime);
 
     // Material parameter names
     static const FName ParamTeamColor;

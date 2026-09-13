@@ -42,6 +42,7 @@ public class WorldEngine : ModuleRules
             "Sockets",
             "Niagara",
             "NiagaraCore",
+            "AnimGraphRuntime",
             "LearningAgents",
             "LearningAgentsTraining",
             "Learning",
