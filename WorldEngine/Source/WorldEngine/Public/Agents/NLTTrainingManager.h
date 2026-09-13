@@ -1,4 +1,4 @@
-// NLTTrainingManager.h — Single policy, single critic, dual-actor RL training
+// NLTTrainingManager.h
 #pragma once
 
 #include "CoreMinimal.h"
@@ -52,8 +52,6 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
     ULearningAgentsTrainingEnvironment* TrainingEnvironment = nullptr;
 
-    UNLTAvatarInteractor* Interactor = nullptr;
-
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
     ULearningAgentsPolicy* Policy = nullptr;
 
@@ -67,10 +65,8 @@ protected:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+    void SpawnSingleActor();
     void InitializeTraining();
-    void SpawnDualActors();
-    void InitializeGovernanceForActor(class AAvatarCharacter* Actor, FName GovId);
-    void RunInference();
     void RunTrainingStep();
 
     UFUNCTION()
