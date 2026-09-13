@@ -1,5 +1,6 @@
 #include "NLTGovernanceSubsystem.h"
 #include "AgentGovernanceState.h"
+#include <nlohmann/json.hpp> // used directly below (GetGovernanceStatus); was previously only reaching this TU transitively via AgentGovernanceState.h -> asfdk/ASFDK.h
 
 DEFINE_LOG_CATEGORY(LogNLTGovernance);
 

@@ -1,10 +1,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "NLTGovernanceSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTGovernance, Log, All);
+
+class FNLTGovernanceSubsystemModule : public IModuleInterface
+{
+public:
+    virtual void StartupModule() override;
+    virtual void ShutdownModule() override;
+};
 
 /**
  * NLTGovernanceSubsystem — World-level governance manager for Unreal Engine 5.

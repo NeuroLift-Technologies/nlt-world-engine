@@ -1,7 +1,7 @@
 #include "AgentGovernanceState.h"
 
-FAgentGovernanceState::FAgentGovernanceState(const FString& InAgentId, const FString& InAgentName)
-    : AgentId(*InAgentId)
+FAgentGovernanceState::FAgentGovernanceState(const FName& InAgentId, const FString& InAgentName)
+    : AgentId(InAgentId)
     , AgentName(InAgentName)
 {}
 
@@ -12,7 +12,7 @@ FString FAgentGovernanceState::ProcessInteraction(const FString& Input, const FS
     std::string InputStr = std::string(TCHAR_TO_UTF8(*Input));
     std::string ChannelStr = std::string(TCHAR_TO_UTF8(*Channel));
 
-    asfdk::Envelope Envelope = Asfdk.Process(InputStr, ChannelStr);
+    asfdk::Envelope Envelope = Asfdk.process(InputStr, ChannelStr);
 
     nlohmann::json Result;
     Result["trusted"] = Envelope.trusted;
@@ -29,7 +29,7 @@ FString FAgentGovernanceState::Assess(const FString& Input)
 {
     std::string InputStr = std::string(TCHAR_TO_UTF8(*Input));
 
-    asfdk::AssessmentResult Result = Asfdk.Assess(InputStr);
+    asfdk::AssessmentResult Result = Asfdk.assess(InputStr);
 
     nlohmann::json Json;
     Json["requiresRrtaHandoff"] = Result.requiresRrtaHandoff;
@@ -52,9 +52,9 @@ FString FAgentGovernanceState::Assess(const FString& Input)
     return FString(Json.dump().c_str());
 }
 
-FString FAgentGovernanceState::GetStatusJson() const
+FString FAgentGovernanceState::GetStatusJson()
 {
-    asfdk::FoundationStatus Status = Asfdk.GetStatus();
+    asfdk::FoundationStatus Status = Asfdk.getStatus();
 
     nlohmann::json Json;
     Json["toiActive"] = Status.toi_active;
