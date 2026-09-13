@@ -5,32 +5,24 @@
 #include "GameFramework/GameModeBase.h"
 #include "NLTDemoGameMode.generated.h"
 
-/**
- * Demo game mode for NLT Fusion scenario simulation.
- * On BeginPlay, loads a default scenario, spawns level doors, and starts the simulation.
- * Uses ANLTPlayerController for interactive door/level traversal.
- */
 UCLASS()
 class WORLDENGINE_API ANLTDemoGameMode : public AGameModeBase
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	ANLTDemoGameMode();
+    ANLTDemoGameMode();
 
-	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    virtual void BeginPlay() override;
+    virtual void Tick(float DeltaSeconds) override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 protected:
-	/** Default scenario to load on startup. */
-	UPROPERTY(EditAnywhere, Category = "NLT|Scenario")
-	FName DefaultScenarioId = TEXT("wp_1");
+    UPROPERTY(EditAnywhere, Category = "NLT|Scenario")
+    FName DefaultScenarioId = TEXT("wp_1");
 
-	/** Spawn doors that lead to other levels. */
-	void SpawnLevelDoors();
+    void SpawnLevelDoors();
 
 private:
-	/** Spawn a single door at the given location. */
-	class ANLTDoorActor* SpawnDoor(const FName& TargetLevel, const FText& DisplayName, const FVector& Location, const FRotator& Rotation = FRotator::ZeroRotator);
+    class ANLTDoorActor* SpawnDoor(const FName& TargetLevel, const FText& DisplayName, const FVector& Location, const FRotator& Rotation = FRotator::ZeroRotator);
 };
