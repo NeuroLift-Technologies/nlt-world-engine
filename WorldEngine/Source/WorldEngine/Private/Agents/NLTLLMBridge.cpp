@@ -201,11 +201,6 @@ void UNLTLLMBridge::ParseResponse(const FString& ResponseBody)
         return;
     }
 
-    // Debug: log what the LLM actually returned
-    FString Command;
-    CommandJson->TryGetStringField(TEXT("command"), Command);
-    UE_LOG(LogTemp, Log, TEXT("NLTLLMBridge: LLM returned command='%s', raw: %s"), *Command, *ModelResponse);
-
     // Broadcast the validated JSON string so Blueprint listeners can dispatch the command
     OnLLMResponse.Broadcast(ModelResponse);
 }
