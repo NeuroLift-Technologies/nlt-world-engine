@@ -134,17 +134,11 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         }
     }
 
-    // RunTraining handles inference internally (GatherCompletions -> GatherRewards -> ProcessExperience -> RunInference)
-    // so we must NOT call Policy->RunInference() separately here, or observation/action iterations will
-    // advance 2x faster than reward/completion and ProcessExperience will skip every agent.
-    //
-    // On the first eligible Tick, we call RunTraining with bTrain=true to perform
-    // one training step (collect experience -> train in Python -> receive networks).
-    // After that, the Python subprocess exits, so subsequent Ticks must use
-    // bTrain=false to run inference only — calling RunTraining with bTrain=true
-    // again would restart the training session and crash with
-    // "Unexpected communication received" / "Training has failed".
-    if (bRunTraining && Trainer)
+    // After the first training iteration, the Python subprocess exits.
+    // Calling Trainer->RunTraining() again would try to send the initial
+    // policy back to the dead process, causing "Unexpected communication received".
+    // Instead, switch to pure inference mode: call Policy->RunInference() each tick.
+    if (bRunTraining && Trainer && !bTrainingCompleted)
     {
         FLearningAgentsPPOTrainingSettings TrainingSettings;
         TrainingSettings.NumberOfIterations = 1;
@@ -158,15 +152,15 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         GameSettings.bUseFixedTimeStep = true;
         GameSettings.FixedTimeStepFrequency = 60.0f;
 
-        if (!bTrainingCompleted)
-        {
-            Trainer->RunTraining(TrainingSettings, GameSettings, false, true);
-            bTrainingCompleted = true;
-        }
-        else
-        {
-            Trainer->RunTraining(TrainingSettings, GameSettings, false, false);
-        }
+        Trainer->RunTraining(TrainingSettings, GameSettings, false, true);
+        bTrainingCompleted = true;
+    }
+
+    // After training is done (or if we're only doing inference),
+    // run the policy directly to generate actions every tick.
+    if (Policy && bRunTraining)
+    {
+        Policy->RunInference(0.0f);
     }
 }
 
