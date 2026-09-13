@@ -2,14 +2,20 @@
 #include "Agents/AvatarCharacter.h"
 #include "Agents/AvatarAIController.h"
 #include "Agents/LTCognitiveStateComponent.h"
+#include "Agents/NLTAvatarVisualComponent.h"
+#include "Agents/NLTEmotionStateComponent.h"
+#include "Agents/NLTCharacterAnimationComponent.h"
+#include "Agents/NLTPairChoreographyComponent.h"
 #include "NavigationSystem.h"
 #include "AIController.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "UObject/ConstructorHelpers.h"
 
 // Initialize static material parameter names
 const FName AAvatarCharacter::ParamTeamColor = TEXT("TeamColor");
@@ -29,6 +35,15 @@ AAvatarCharacter::AAvatarCharacter()
     // Create cognitive state component
     CognitiveState = CreateDefaultSubobject<ULTCognitiveStateComponent>(TEXT("CognitiveState"));
 
+    // Create emotion state machine (reads from CognitiveState, drives animation + visuals)
+    EmotionState = CreateDefaultSubobject<UNLTEmotionStateComponent>(TEXT("EmotionState"));
+
+    // Create character animation component (manages animation state machine)
+    CharacterAnimation = CreateDefaultSubobject<UNLTCharacterAnimationComponent>(TEXT("CharacterAnimation"));
+
+    // Create pair choreography component (Avatar↔Aide social choreography)
+    PairChoreography = CreateDefaultSubobject<UNLTPairChoreographyComponent>(TEXT("PairChoreography"));
+
     // Configure character movement
     if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
     {
@@ -39,25 +54,61 @@ AAvatarCharacter::AAvatarCharacter()
 
     // ============== Initialize Visual Components ==============
     
+    // Load the SimBody static mesh for the avatar's visible body
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> SimBodyMeshObj(
+        TEXT("/Game/Kits/SimBody/SM_SimBody_Base.SM_SimBody_Base"));
+
+    // Create a dedicated BodyMesh static mesh component for the avatar
+    BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
+    BodyMesh->SetupAttachment(GetRootComponent()); // attach to the capsule
+    BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    BodyMesh->SetCastShadow(true);
+    
+    // Load the mesh asset
+    if (SimBodyMeshObj.Succeeded())
+    {
+        BodyMesh->SetStaticMesh(SimBodyMeshObj.Object);
+        SimBodyMesh = SimBodyMeshObj.Object;
+        
+        // Load the material that comes with SimBody
+        static ConstructorHelpers::FObjectFinder<UMaterialInterface> SimBodyMaterialObj(
+            TEXT("/Game/Kits/SimBody/Source/M_SimBody_Base.M_SimBody_Base"));
+        if (SimBodyMaterialObj.Succeeded())
+        {
+            BodyMaterial = SimBodyMaterialObj.Object;
+        }
+    }
+    
+    // Position the mesh so it sits on the ground (centered on capsule)
+    BodyMesh->SetRelativeLocation(FVector(0.0f, 0.0f, -90.0f));
+    BodyMesh->SetRelativeScale3D(FVector(0.5f, 0.5f, 1.0f));
+
+    // ============== Emotion-Driven Character Animation ==============
+    // If a SkeletalMesh asset is assigned, use it for rigged character animation
+    // instead of (or in addition to) the SimBody static mesh fallback.
+    // NOTE: InitializeCharacterMesh() is deferred to BeginPlay() so that
+    // Blueprint-overridden bUseSkeletalMeshCharacter / SkeletalMeshCharacter
+    // values are finalized before we evaluate them.
+    
     // Create particle system components
     StressParticleComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("StressParticles"));
-    StressParticleComponent->SetupAttachment(GetRootComponent());
+    StressParticleComponent->SetupAttachment(BodyMesh);
     StressParticleComponent->bAutoActivate = false;
     StressParticleComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
 
     FocusAuraComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("FocusAuraParticles"));
-    FocusAuraComponent->SetupAttachment(GetRootComponent());
+    FocusAuraComponent->SetupAttachment(BodyMesh);
     FocusAuraComponent->bAutoActivate = false;
     FocusAuraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
 
     InteractionParticleComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("InteractionParticles"));
-    InteractionParticleComponent->SetupAttachment(GetRootComponent());
+    InteractionParticleComponent->SetupAttachment(BodyMesh);
     InteractionParticleComponent->bAutoActivate = false;
     InteractionParticleComponent->SetRelativeLocation(FVector(50.0f, 0.0f, 50.0f));
 
     // Create post process component
     PostProcessComponent = CreateDefaultSubobject<UPostProcessComponent>(TEXT("PostProcessComponent"));
-    PostProcessComponent->SetupAttachment(GetRootComponent());
+    PostProcessComponent->SetupAttachment(BodyMesh);
     PostProcessComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f));
 
     // Create the cognitive-state-driven avatar visual component
@@ -73,17 +124,11 @@ void AAvatarCharacter::BeginPlay()
 {
     Super::BeginPlay();
     
-    // Initialize dynamic materials
-    if (BodyMaterial && GetMesh())
+    // Initialize dynamic materials on BodyMesh
+    if (BodyMaterial && BodyMesh)
     {
-        DynamicBodyMaterial = UMaterialInstanceDynamic::Create(BodyMaterial, GetMesh());
-        GetMesh()->SetMaterial(0, DynamicBodyMaterial);
-    }
-    
-    if (HeadMaterial && GetMesh() && GetMesh()->GetNumMaterials() > 1)
-    {
-        DynamicHeadMaterial = UMaterialInstanceDynamic::Create(HeadMaterial, GetMesh());
-        GetMesh()->SetMaterial(1, DynamicHeadMaterial);
+        DynamicBodyMaterial = UMaterialInstanceDynamic::Create(BodyMaterial, BodyMesh);
+        BodyMesh->SetMaterial(0, DynamicBodyMaterial);
     }
     
     // Set particle systems if assigned
@@ -101,6 +146,7 @@ void AAvatarCharacter::BeginPlay()
     {
         InteractionParticleComponent->SetTemplate(InteractionParticles);
     }
+    
     // Update all visual systems
     UpdateVisualState();
     UpdateMaterials();
@@ -116,17 +162,59 @@ void AAvatarCharacter::BeginPlay()
             CognitiveState->CognitiveLoad,
             CognitiveState->EmotionalState);
     }
+
+    // Initialize mesh selection (deferred from constructor so that
+    // Blueprint-overridden properties are finalized)
+    InitializeCharacterMesh();
+
+    // Bind emotion component to character components
+    BindEmotionToComponents();
+
+    // Set up pair choreography if a partner is assigned
+    if (PairChoreography)
+    {
+        if (ChoreographyPartner)
+        {
+            PairChoreography->SetPartner(ChoreographyPartner.Get());
+        }
+        PairChoreography->SetPairRole(
+            CharacterRole == ENLTAgentRole::Aide ? ENLTPairRole::Aide : ENLTPairRole::Avatar);
+    }
+
+    // If we're an aide, set the bIsAide flag on the emotion component
+    if (EmotionState)
+    {
+        EmotionState->bIsAide = (CharacterRole == ENLTAgentRole::Aide);
+    }
 }
 
 void AAvatarCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-    
+
+    // Refresh cognitive emotional state FName (keeps it in sync for networking/debug)
+    if (CognitiveState)
+    {
+        CognitiveState->UpdateEmotionalState();
+    }
+
     // Update all visual systems
     UpdateVisualState();
     UpdateMaterials();
     UpdateParticleEffects();
     UpdatePostProcessing();
+
+    // Update pair choreography (facing, co-reaction, coaching)
+    UpdateChoreography(DeltaTime);
+
+    // Drive the emotion-aware visual component from the emotion state machine
+    if (AvatarVisualComponent && EmotionState)
+    {
+        AvatarVisualComponent->UpdateFromEmotion(
+            EmotionState->CurrentEmotion,
+            EmotionState->CurrentAnimationState,
+            EmotionState->EmotionalIntensity);
+    }
 }
 
 void AAvatarCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -152,17 +240,13 @@ void AAvatarCharacter::UpdateVisualState()
     {
         NewState = ECharacterVisualState::Focused;
     }
-    // else if (bIsInteracting) // Add interaction detection logic here
-    // {
-    //     NewState = ECharacterVisualState::Interacting;
-    // }
     
     CurrentVisualState = NewState;
 }
 
 void AAvatarCharacter::UpdateMaterials()
 {
-    if (!GetMesh()) return;
+    if (!BodyMesh) return;
     
     FLinearColor TeamColor = GetTeamColor();
     float StressLevel = GetStressLevel();
@@ -180,15 +264,6 @@ void AAvatarCharacter::UpdateMaterials()
         // Convert enum to float for material
         int32 StateInt = static_cast<int32>(CurrentVisualState);
         DynamicBodyMaterial->SetScalarParameterValue(ParamVisualState, static_cast<float>(StateInt));
-    }
-    
-    // Update head material if exists
-    if (DynamicHeadMaterial)
-    {
-        DynamicHeadMaterial->SetVectorParameterValue(ParamTeamColor, TeamColor);
-        DynamicHeadMaterial->SetScalarParameterValue(ParamStressLevel, StressLevel);
-        DynamicHeadMaterial->SetScalarParameterValue(ParamFocusLevel, FocusLevel);
-        DynamicHeadMaterial->SetScalarParameterValue(ParamPulseIntensity, PulseIntensity);
     }
 }
 
@@ -312,4 +387,97 @@ float AAvatarCharacter::GetFocusLevel() const
         return CognitiveState->Focus;
     }
     return 0.0f;
+}
+
+// ============== Emotion / Animation helpers ==============
+
+void AAvatarCharacter::InitializeCharacterMesh()
+{
+    // If using a SkeletalMesh character asset, assign it to the default
+    // SkeletalMeshComponent (ACharacter::Mesh) and disable the SimBody
+    // static mesh so only the rigged character renders.
+    if (bUseSkeletalMeshCharacter && SkeletalMeshCharacter && GetMesh())
+    {
+        GetMesh()->SetSkeletalMesh(SkeletalMeshCharacter);
+        GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+        GetMesh()->SetSimulatePhysics(false);
+
+        // Hide the SimBody static mesh when using SkeletalMesh
+        if (BodyMesh)
+        {
+            BodyMesh->SetVisibility(false);
+            BodyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        }
+
+        // Attach particle systems and post-process to the SkeletalMesh
+        if (StressParticleComponent)
+            StressParticleComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+        if (FocusAuraComponent)
+            FocusAuraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+        if (InteractionParticleComponent)
+            InteractionParticleComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+        if (PostProcessComponent)
+            PostProcessComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+
+        // Position the SkeletalMesh to align with the capsule
+        GetMesh()->SetRelativeLocation(FVector(0.0f, 0.0f, -90.0f));
+        GetMesh()->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f)); // UE mannequin default
+    }
+    else
+    {
+        // Fallback: keep SimBody static mesh, hide the SkeletalMesh
+        if (GetMesh())
+        {
+            GetMesh()->SetVisibility(false);
+            GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        }
+    }
+}
+
+void AAvatarCharacter::BindEmotionToComponents()
+{
+    // Link emotion component to cognitive state
+    if (EmotionState && CognitiveState)
+    {
+        EmotionState->CognitiveState = CognitiveState;
+    }
+
+    // Link animation component to emotion + mesh
+    if (CharacterAnimation)
+    {
+        CharacterAnimation->SetEmotionComponent(EmotionState);
+
+        // Bind the appropriate mesh to the animation component
+        if (bUseSkeletalMeshCharacter && GetMesh())
+        {
+            CharacterAnimation->BindSkeletalMesh(GetMesh());
+        }
+        else if (BodyMesh)
+        {
+            CharacterAnimation->BindStaticMesh(BodyMesh);
+        }
+    }
+
+    // Bind pair choreography to emotion
+    if (PairChoreography && EmotionState)
+    {
+        PairChoreography->SetPartner(ChoreographyPartner.Get());
+    }
+}
+
+void AAvatarCharacter::UpdateChoreography(float DeltaTime)
+{
+    // The pair choreography component handles facing/positioning in its own tick.
+    // Here we just ensure the partner reference is up-to-date.
+    // NOTE (PR #43 review): EmotionState->bIsMoving is owned by
+    // NLTCharacterAnimationComponent (PrePhysics tick, single writer) — do NOT
+    // write it here or the two writers race depending on tick order.
+    (void)DeltaTime;
+    if (PairChoreography)
+    {
+        if (ChoreographyPartner && !PairChoreography->bHasPartner)
+        {
+            PairChoreography->SetPartner(ChoreographyPartner.Get());
+        }
+    }
 }

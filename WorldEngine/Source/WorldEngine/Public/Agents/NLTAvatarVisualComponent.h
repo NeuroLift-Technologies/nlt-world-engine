@@ -5,6 +5,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/StaticMeshComponent.h"
+#include "Core/NLTFusionCore.h"
 #include "NLTAvatarVisualComponent.generated.h"
 
 class USkeletalMeshComponent;
@@ -20,8 +21,13 @@ public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	/** Update visual state from raw cognitive values + a named emotional state. */
 	UFUNCTION(BlueprintCallable, Category = "NLT|Avatar|Visual")
 	void UpdateFromCognitiveState(float Focus, float Stress, float CognitiveLoad, FName EmotionalState);
+
+	/** Update visual state from the new typed emotion system. */
+	UFUNCTION(BlueprintCallable, Category = "NLT|Avatar|Visual")
+	void UpdateFromEmotion(ENLTEmotionState Emotion, ENLTAnimationState AnimState, float Intensity);
 
 	UFUNCTION(BlueprintCallable, Category = "NLT|Avatar|Visual")
 	void SetStatusRingColor(const FLinearColor& Color);
@@ -81,6 +87,10 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<USkeletalMeshComponent> SkeletalMesh;
+
+	/** Fallback static mesh (e.g. SimBody) — used when no SkeletalMesh is present. */
+	UPROPERTY()
+	TObjectPtr<UStaticMeshComponent> StaticMeshComp;
 
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> StatusRingMeshAsset;

@@ -11,7 +11,7 @@ UNLTAvatarInteractor::UNLTAvatarInteractor()
 {
 }
 
-void UNLTAvatarInteractor::SpecifyAgentObservation(
+void UNLTAvatarInteractor::SpecifyAgentObservation_Implementation(
     FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
     ULearningAgentsObservationSchema* InObservationSchema)
 {
@@ -19,11 +19,10 @@ void UNLTAvatarInteractor::SpecifyAgentObservation(
     ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema));
     ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 3));
     ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema, 7));
-    
     OutObservationSchemaElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, ObsElements);
 }
 
-void UNLTAvatarInteractor::GatherAgentObservation(
+void UNLTAvatarInteractor::GatherAgentObservation_Implementation(
     FLearningAgentsObservationObjectElement& OutObservationObjectElement,
     ULearningAgentsObservationObject* InObservationObject,
     const int32 AgentId)
@@ -35,45 +34,33 @@ void UNLTAvatarInteractor::GatherAgentObservation(
     FVector Position = Avatar->GetActorLocation();
     FVector Velocity = Avatar->GetVelocity();
 
-    TMap<FName, FLearningAgentsObservationObjectElement> ObsElements;
-    
-    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::MakeLocationObservation(
-        InObservationObject, Position, FTransform::Identity, true, TEXT("AvatarPosition")));
-    
     TArray<float> VelValues = {Velocity.X, Velocity.Y, Velocity.Z};
-    ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-        InObservationObject, VelValues, true, TEXT("AvatarVelocity")));
-    
-    ULTCognitiveStateComponent* Cognitive = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
-    if (Cognitive)
+    TArray<float> CognitiveValues = {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f};
+
+    ULTCognitiveStateComponent* CognitiveState = Avatar->FindComponentByClass<ULTCognitiveStateComponent>();
+    if (CognitiveState)
     {
-        ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, Cognitive->GetObservationValues(), true, TEXT("AvatarCognitive")));
-    }
-    else
-    {
-        ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(
-            InObservationObject, {0.5f, 0.2f, 0.15f, 0.05f, 0.2f, 0.0f, 0.5f}, true, TEXT("AvatarCognitive")));
+        CognitiveValues = CognitiveState->GetObservationValues();
     }
 
-    OutObservationObjectElement = ULearningAgentsObservations::MakeStructObservation(
-        InObservationObject, ObsElements);
+    TMap<FName, FLearningAgentsObservationObjectElement> ObsElements;
+    ObsElements.Add(TEXT("Position"), ULearningAgentsObservations::MakeLocationObservation(InObservationObject, Position, FTransform::Identity, true));
+    ObsElements.Add(TEXT("Velocity"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(InObservationObject, VelValues, true));
+    ObsElements.Add(TEXT("Cognitive"), ULearningAgentsObservations::MakeContinuousObservationFromArrayView(InObservationObject, CognitiveValues, true));
+    OutObservationObjectElement = ULearningAgentsObservations::MakeStructObservation(InObservationObject, ObsElements);
 }
 
-void UNLTAvatarInteractor::SpecifyAgentAction(
+void UNLTAvatarInteractor::SpecifyAgentAction_Implementation(
     FLearningAgentsActionSchemaElement& OutActionSchemaElement,
     ULearningAgentsActionSchema* InActionSchema)
 {
     TMap<FName, FLearningAgentsActionSchemaElement> ActionElements;
-    ActionElements.Add(TEXT("MoveDirection"), 
-        ULearningAgentsActions::SpecifyContinuousAction(InActionSchema, 3));
-    ActionElements.Add(TEXT("Interaction"),
-        ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 4, {}));
-
+    ActionElements.Add(TEXT("MoveDirection"), ULearningAgentsActions::SpecifyContinuousAction(InActionSchema, 3));
+    ActionElements.Add(TEXT("Interaction"), ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 4, {}));
     OutActionSchemaElement = ULearningAgentsActions::SpecifyStructAction(InActionSchema, ActionElements);
 }
 
-void UNLTAvatarInteractor::PerformAgentAction(
+void UNLTAvatarInteractor::PerformAgentAction_Implementation(
     const ULearningAgentsActionObject* InActionObject,
     const FLearningAgentsActionObjectElement& InActionObjectElement,
     const int32 AgentId)
@@ -85,32 +72,33 @@ void UNLTAvatarInteractor::PerformAgentAction(
     AAvatarAIController* AIController = Cast<AAvatarAIController>(Avatar->GetController());
     if (!AIController) return;
 
-    // Get move direction from the struct action (by name)
+    // Tell the controller that LearningAgents is now in control so it stops
+    // its autonomous wandering and lets us drive movement directly.
+    AIController->SetLearningAgentsActive(true);
+
     FLearningAgentsActionObjectElement MoveDirectionElement;
-    ULearningAgentsActions::GetStructActionElement(
-        MoveDirectionElement, InActionObject, InActionObjectElement, TEXT("MoveDirection"));
+    ULearningAgentsActions::GetStructActionElement(MoveDirectionElement, InActionObject, InActionObjectElement, TEXT("MoveDirection"), true);
 
     TArray<float> MoveDirectionValues;
-    ULearningAgentsActions::GetContinuousAction(
-        MoveDirectionValues, InActionObject, MoveDirectionElement, true, TEXT("MoveDirection"));
+    ULearningAgentsActions::GetContinuousAction(MoveDirectionValues, InActionObject, MoveDirectionElement, true);
 
-    if (MoveDirectionValues.Num() >= 3)
+    if (MoveDirectionValues.Num() >= 2)
     {
-        FVector MoveDirection(MoveDirectionValues[0], MoveDirectionValues[1], MoveDirectionValues[2]);
+        // PPO continuous actions are in [-1, 1]. Scale to a movement vector.
+        FVector MoveDirection(MoveDirectionValues[0], MoveDirectionValues[1], 0.0f);
+        MoveDirection.Normalize();
         if (!MoveDirection.IsNearlyZero())
         {
-            FVector TargetLocation = Avatar->GetActorLocation() + MoveDirection * 500.0f;
-            AIController->MoveToLocation(TargetLocation);
+            float SpeedScale = FMath::Clamp(MoveDirectionValues[0] * MoveDirectionValues[0]
+                + MoveDirectionValues[1] * MoveDirectionValues[1], 0.0f, 1.0f);
+            FVector TargetLocation = Avatar->GetActorLocation() + MoveDirection * 500.0f * SpeedScale;
+            AIController->MoveToLocation(TargetLocation, 10.0f, true, true, true, true);
         }
     }
 
-    // Get interaction value from the struct action
     FLearningAgentsActionObjectElement InteractionElement;
-    ULearningAgentsActions::GetStructActionElement(
-        InteractionElement, InActionObject, InActionObjectElement, TEXT("Interaction"));
+    ULearningAgentsActions::GetStructActionElement(InteractionElement, InActionObject, InActionObjectElement, TEXT("Interaction"), true);
 
     int32 InteractionChoice = 0;
-    ULearningAgentsActions::GetExclusiveDiscreteAction(
-        InteractionChoice, InActionObject, InteractionElement, true, TEXT("Interaction"));
-    // TODO: Apply interaction choice (set intent on Avatar, interact with SmartObject, etc.)
+    ULearningAgentsActions::GetExclusiveDiscreteAction(InteractionChoice, InActionObject, InteractionElement, true);
 }

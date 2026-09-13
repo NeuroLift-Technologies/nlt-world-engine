@@ -1,0 +1,118 @@
+{
+    "TaskName": "NLTTraining",
+    "TaskDirectory": "../../Saved/LearningAgents/NLT",
+    "WorldSettings": {
+        "Map": "/Game/Scenarios/Levels/Workplace_Level.Workplace_Level",
+        "GameMode": "/Script/WorldEngine.NLTDemoGameMode"
+    },
+    "Schemas": {
+        "Observations": [
+            {
+                "Id": 0,
+                "Name": "Default",
+                "Schema": {
+                    "VectorSize": 13,
+                    "EncodedSize": 13,
+                    "Type": "And",
+                    "Elements": {
+                        "Cognitive": {
+                            "VectorSize": 7,
+                            "EncodedSize": 7,
+                            "Type": "Continuous",
+                            "Num": 7,
+                            "Normalization": "Manual",
+                            "Index": 0
+                        },
+                        "Position": {
+                            "VectorSize": 3,
+                            "EncodedSize": 3,
+                            "Type": "Continuous",
+                            "Num": 3,
+                            "Normalization": "Manual",
+                            "Index": 1
+                        },
+                        "Velocity": {
+                            "VectorSize": 3,
+                            "EncodedSize": 3,
+                            "Type": "Continuous",
+                            "Num": 3,
+                            "Normalization": "Manual",
+                            "Index": 2
+                        }
+                    }
+                }
+            }
+        ],
+        "Actions": [
+            {
+                "Id": 0,
+                "Name": "Default",
+                "Schema": {
+                    "VectorSize": 7,
+                    "DistributionSize": 10,
+                    "EncodedSize": 10,
+                    "ModifierSize": 13,
+                    "Type": "And",
+                    "Elements": {
+                        "Interaction": {
+                            "VectorSize": 4,
+                            "DistributionSize": 4,
+                            "EncodedSize": 4,
+                            "ModifierSize": 5,
+                            "Type": "DiscreteExclusive",
+                            "Num": 4,
+                            "Index": 0
+                        },
+                        "MoveDirection": {
+                            "VectorSize": 3,
+                            "DistributionSize": 6,
+                            "EncodedSize": 6,
+                            "ModifierSize": 7,
+                            "Type": "Continuous",
+                            "Num": 3,
+                            "Normalization": "Manual",
+                            "Index": 1
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "PPOSettings": {
+        "IterationNum": 1000,
+        "LearningRatePolicy": 0.0001,
+        "LearningRateCritic": 0.001,
+        "LearningRateDecay": 0.9999,
+        "WeightDecay": 0.0001,
+        "PolicyBatchSize": 256,
+        "CriticBatchSize": 256,
+        "PolicyWindow": 10,
+        "IterationsPerGather": 10,
+        "CriticWarmupIterations": 5,
+        "EpsilonClip": 0.2,
+        "ActionSurrogateWeight": 1.0,
+        "ActionRegularizationWeight": 0.01,
+        "ActionEntropyWeight": 0.01,
+        "ReturnRegularizationWeight": 0.0,
+        "GaeLambda": 0.95,
+        "AdvantageNormalization": true,
+        "AdvantageMin": -10.0,
+        "AdvantageMax": 10.0,
+        "UseGradNormMaxClipping": true,
+        "GradNormMax": 0.5,
+        "TrimEpisodeStartStepNum": 0,
+        "TrimEpisodeEndStepNum": 0,
+        "Seed": 42,
+        "DiscountFactor": 0.99,
+        "SaveSnapshots": true,
+        "IterationsPerSnapshot": 100
+    },
+    "TrainingSettings": {
+        "MaxEpisodeStepNum": 512,
+        "MaximumRecordedEpisodesPerIteration": 1000,
+        "MaximumRecordedStepsPerIteration": 10000,
+        "NumberOfIterations": 1000,
+        "bUseFixedTimeStep": true,
+        "FixedTimeStepFrequency": 60.0
+    }
+}

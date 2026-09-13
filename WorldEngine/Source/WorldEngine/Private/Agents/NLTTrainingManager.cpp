@@ -1,8 +1,9 @@
-// NLTTrainingManager.cpp — Dual-model, dual-actor RL training
+// NLTTrainingManager.cpp — Single shared policy/critic/trainer, single actor
 #include "Agents/NLTTrainingManager.h"
 #include "Agents/AvatarCharacter.h"
 #include "Agents/AvatarAIController.h"
 #include "Agents/LTCognitiveStateComponent.h"
+#include "Agents/NLTLLMBridge.h"
 #include "NLTGovernanceSubsystem.h"
 #include "LearningAgentsManager.h"
 #include "LearningAgentsPolicy.h"
@@ -17,204 +18,132 @@ ANLTTrainingManager::ANLTTrainingManager()
     TickInterval = 0.1f;
     bRunInference = true;
     bRunTraining = true;
+    bUseLLMControl = true;
     MaxEpisodeSteps = 512;
     TrainingTimer = 0.0f;
-    bGovernanceInitialized = false;
+}
+
+void ANLTTrainingManager::SpawnSingleActor()
+{
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    AAvatarCharacter* Actor = World->SpawnActor<AAvatarCharacter>(
+        AAvatarCharacter::StaticClass(),
+        ActorAStartLocation,
+        FRotator::ZeroRotator
+    );
+    
+    if (Actor)
+    {
+        int32 AgentId = AgentManager->AddAgent(Actor);
+        if (AgentId == INDEX_NONE)
+        {
+            UE_LOG(LogTemp, Error, TEXT("NLTTrainingManager: Failed to register actor"));
+            Actor->Destroy();
+            return;
+        }
+
+        UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Spawned actor at (%s), AgentId=%d"),
+            *ActorAStartLocation.ToString(), AgentId);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("NLTTrainingManager: Failed to spawn actor"));
+    }
 }
 
 void ANLTTrainingManager::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 1. Create Episode Manager
+    if (bUseLLMControl)
+    {
+        // LLM-driven mode: no PPO training, no LearningAgents interactor.
+        // The avatar's AIController uses the UNLTLLMBridge to get movement
+        // commands from Ollama via async HTTP.
+        UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: LLM control mode active (endpoint: %s, model: %s)"),
+            *LLMEndpoint, *LLMModel);
+
+        AgentManager = NewObject<ULearningAgentsManager>(this);
+        AgentManager->SetMaxAgentNum(1);
+        AgentManager->RegisterComponent();
+
+        SpawnSingleActor();
+        return;
+    }
+
     EpisodeManager = NewObject<UNLTEpisodeManager>(this);
     EpisodeManager->RegisterComponent();
     EpisodeManager->MaxEpisodeSteps = MaxEpisodeSteps;
-    EpisodeManager->StepInterval = TickInterval;
+    // Removed StepInterval = TickInterval to avoid desync with AgentManager iterations
     EpisodeManager->OnEpisodeComplete.AddDynamic(this, &ANLTTrainingManager::OnEpisodeComplete);
 
-    // 2. Create Manager
     AgentManager = NewObject<ULearningAgentsManager>(this);
-    AgentManager->SetMaxAgentNum(4); // 2 actors + room for expansion
+    AgentManager->SetMaxAgentNum(1);
+    AgentManager->RegisterComponent();
 
-    // 2b. Create per-group managers for scoped training
-    ModelGroupManagers.SetNum(2);
-    for (int32 i = 0; i < ModelGroupManagers.Num(); i++)
-    {
-        ModelGroupManagers[i] = NewObject<ULearningAgentsManager>(this);
-        ModelGroupManagers[i]->SetMaxAgentNum(2);
-    }
-
-    // 3. Create shared Training Environment
     TrainingEnvironment = NewObject<UNLTTrainingEnvironment>(this);
     TrainingEnvironment->SetupTrainingEnvironment(AgentManager);
 
-    // 4. Initialize model groups (A and B)
-    InitializeModelGroups();
+    InitializeTraining();
+    SpawnSingleActor();
 
-    // 5. Spawn the two actors
-    SpawnDualActors();
-
-    // 6. Start episode
     if (EpisodeManager)
     {
         EpisodeManager->StartEpisode();
     }
 
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Dual-model training initialized with %d model groups"), ModelGroups.Num());
+    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Training initialized"));
 }
 
-void ANLTTrainingManager::InitializeModelGroups()
+void ANLTTrainingManager::InitializeTraining()
 {
-    ModelGroups.SetNum(2);
+    UNLTAvatarInteractor* AvatInteractor = NewObject<UNLTAvatarInteractor>(this);
+    ULearningAgentsInteractor* LearningInteractor = AvatInteractor;
+    AvatInteractor->SetupInteractor(AgentManager);
 
-    // Model Group A
-    ModelGroups[0].GroupId = 0;
-    ModelGroups[0].GroupName = TEXT("ModelA");
-    ModelGroups[0].SpawnLocation = ActorAStartLocation;
-    ModelGroups[0].GovernanceAgentId = TEXT("ActorA");
+    Policy = NewObject<ULearningAgentsPolicy>(this);
+    FLearningAgentsPolicySettings PolicySettings;
+    PolicySettings.HiddenLayerNum = 2;
+    PolicySettings.HiddenLayerSize = 128;
+    PolicySettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
+    Policy->SetupPolicy(AgentManager, LearningInteractor, nullptr, nullptr, nullptr, true, true, true, PolicySettings, 1234);
 
-    ModelGroups[0].Manager = ModelGroupManagers[0];
+    Critic = NewObject<ULearningAgentsCritic>(this);
+    FLearningAgentsCriticSettings CriticSettings;
+    CriticSettings.HiddenLayerNum = 2;
+    CriticSettings.HiddenLayerSize = 128;
+    CriticSettings.ActivationFunction = ELearningAgentsActivationFunction::ELU;
+    Critic->SetupCritic(AgentManager, LearningInteractor, Policy, nullptr, true, CriticSettings, 1234);
 
-    ModelGroups[0].Interactor = NewObject<UNLTAvatarInteractor>(this);
-    ModelGroups[0].Interactor->SetupInteractor(ModelGroups[0].Manager);
-
-    ModelGroups[0].Policy = NewObject<ULearningAgentsPolicy>(this);
-    FLearningAgentsPolicySettings PolicySettingsA;
-    PolicySettingsA.HiddenLayerNum = 2;
-    PolicySettingsA.HiddenLayerSize = 128;
-    PolicySettingsA.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[0].Policy->SetupPolicy(ModelGroups[0].Manager, ModelGroups[0].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsA, 1234);
-
-    ModelGroups[0].Critic = NewObject<ULearningAgentsCritic>(this);
-    FLearningAgentsCriticSettings CriticSettingsA;
-    CriticSettingsA.HiddenLayerNum = 2;
-    CriticSettingsA.HiddenLayerSize = 128;
-    CriticSettingsA.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[0].Critic->SetupCritic(ModelGroups[0].Manager, ModelGroups[0].Interactor, ModelGroups[0].Policy, nullptr, true, CriticSettingsA, 1234);
-
-    ModelGroups[0].Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
-    FLearningAgentsCommunicator CommunicatorA = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
-    FLearningAgentsPPOTrainerSettings TrainerSettingsA;
-    TrainerSettingsA.MaxEpisodeStepNum = MaxEpisodeSteps;
-    TrainerSettingsA.MaximumRecordedEpisodesPerIteration = 1000;
-    TrainerSettingsA.MaximumRecordedStepsPerIteration = 10000;
-    ModelGroups[0].Trainer->SetupPPOTrainer(ModelGroups[0].Manager, ModelGroups[0].Interactor, TrainingEnvironment, ModelGroups[0].Policy, ModelGroups[0].Critic, CommunicatorA, TrainerSettingsA);
-
-    // Model Group B
-    ModelGroups[1].GroupId = 1;
-    ModelGroups[1].GroupName = TEXT("ModelB");
-    ModelGroups[1].SpawnLocation = ActorBStartLocation;
-    ModelGroups[1].GovernanceAgentId = TEXT("ActorB");
-
-    ModelGroups[1].Manager = ModelGroupManagers[1];
-
-    ModelGroups[1].Interactor = NewObject<UNLTAvatarInteractor>(this);
-    ModelGroups[1].Interactor->SetupInteractor(ModelGroups[1].Manager);
-
-    ModelGroups[1].Policy = NewObject<ULearningAgentsPolicy>(this);
-    FLearningAgentsPolicySettings PolicySettingsB;
-    PolicySettingsB.HiddenLayerNum = 2;
-    PolicySettingsB.HiddenLayerSize = 128;
-    PolicySettingsB.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[1].Policy->SetupPolicy(ModelGroups[1].Manager, ModelGroups[1].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsB, 5678);
-
-    ModelGroups[1].Critic = NewObject<ULearningAgentsCritic>(this);
-    FLearningAgentsCriticSettings CriticSettingsB;
-    CriticSettingsB.HiddenLayerNum = 2;
-    CriticSettingsB.HiddenLayerSize = 128;
-    CriticSettingsB.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[1].Critic->SetupCritic(ModelGroups[1].Manager, ModelGroups[1].Interactor, ModelGroups[1].Policy, nullptr, true, CriticSettingsB, 5678);
-
-    ModelGroups[1].Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
-    FLearningAgentsCommunicator CommunicatorB = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
-    FLearningAgentsPPOTrainerSettings TrainerSettingsB;
-    TrainerSettingsB.MaxEpisodeStepNum = MaxEpisodeSteps;
-    TrainerSettingsB.MaximumRecordedEpisodesPerIteration = 1000;
-    TrainerSettingsB.MaximumRecordedStepsPerIteration = 10000;
-    ModelGroups[1].Trainer->SetupPPOTrainer(ModelGroups[1].Manager, ModelGroups[1].Interactor, TrainingEnvironment, ModelGroups[1].Policy, ModelGroups[1].Critic, CommunicatorB, TrainerSettingsB);
-
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Initialized 2 model groups (A and B)"));
+    Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
+    FLearningAgentsTrainerProcessSettings TPS;
+    TPS.TaskName = TEXT("NLTTraining");
+    TPS.TrainerFileName = TEXT("train_ppo");
+    FLearningAgentsCommunicator Communicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess(TPS);
+    FLearningAgentsPPOTrainerSettings TrainerSettings;
+    TrainerSettings.MaxEpisodeStepNum = MaxEpisodeSteps;
+    TrainerSettings.MaximumRecordedEpisodesPerIteration = 1000;
+    TrainerSettings.MaximumRecordedStepsPerIteration = 10000;
+    Trainer->SetupPPOTrainer(AgentManager, LearningInteractor, TrainingEnvironment, Policy, Critic, Communicator, TrainerSettings);
 }
 
-void ANLTTrainingManager::SpawnDualActors()
+void ANLTTrainingManager::OnEpisodeComplete()
 {
-    UWorld* World = GetWorld();
-    if (!World) return;
-
-    for (int32 i = 0; i < ModelGroups.Num(); i++)
-    {
-        FVector SpawnPos = ModelGroups[i].SpawnLocation;
-        FRotator SpawnRot = FRotator::ZeroRotator;
-
-        AAvatarCharacter* Actor = World->SpawnActor<AAvatarCharacter>(AAvatarCharacter::StaticClass(), SpawnPos, SpawnRot);
-        if (Actor)
-        {
-            ULearningAgentsManager* GroupManager = ModelGroups[i].Manager;
-            if (!GroupManager)
-            {
-                UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: %s has no manager"), *ModelGroups[i].GroupName.ToString());
-                Actor->Destroy();
-                continue;
-            }
-
-            int32 AgentId = GroupManager->AddAgent(Actor);
-            if (AgentId == INDEX_NONE)
-            {
-                UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: Failed to register %s with the agent manager"),
-                    *ModelGroups[i].GroupName.ToString());
-                Actor->Destroy();
-                continue;
-            }
-            ModelGroups[i].AgentId = AgentId;
-
-            // Initialize governance for this actor
-            InitializeGovernanceForGroup(i, Actor);
-
-            UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Spawned %s at (%s), AgentId=%d"),
-                *ModelGroups[i].GroupName.ToString(), *SpawnPos.ToString(), AgentId);
-        }
-        else
-        {
-            UE_LOG(LogNLTFusion, Error, TEXT("NLTTrainingManager: Failed to spawn %s"), *ModelGroups[i].GroupName.ToString());
-        }
-    }
-}
-
-void ANLTTrainingManager::InitializeGovernanceForGroup(int32 GroupIndex, AAvatarCharacter* Actor)
-{
-    if (!Actor || !AgentManager) return;
-
-    // Get the governance subsystem for this world
-    UNLTGovernanceSubsystem* Governance = UNLTGovernanceSubsystem::Get(Actor->GetWorld());
-    if (Governance)
-    {
-        FName GovId = ModelGroups[GroupIndex].GovernanceAgentId;
-        FString GovName = ModelGroups[GroupIndex].GroupName.ToString();
-        Governance->InitializeAgent(GovId, GovName);
-        UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Governance initialized for %s"), *GovId.ToString());
-    }
-    else
-    {
-        UE_LOG(LogNLTFusion, Warning, TEXT("NLTTrainingManager: No NLTGovernanceSubsystem found for %s"),
-            *ModelGroups[GroupIndex].GroupName.ToString());
-    }
+    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: Episode complete"));
 }
 
 void ANLTTrainingManager::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    // Tick cognitive decay for all agents
-    for (const auto& Group : ModelGroups)
+    if (AgentManager)
     {
-        ULearningAgentsManager* GroupManager = Group.Manager;
-        if (!GroupManager) continue;
-
-        const TArray<int32>& AllAgentIds = GroupManager->GetAllAgentIds();
+        const TArray<int32>& AllAgentIds = AgentManager->GetAllAgentIds();
         for (int32 AgentId : AllAgentIds)
         {
-            UObject* Agent = GroupManager->GetAgent(AgentId);
+            UObject* Agent = AgentManager->GetAgent(AgentId);
             AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
             if (Avatar && Avatar->CognitiveState)
             {
@@ -223,101 +152,69 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         }
     }
 
-    // Run inference for both models
-    if (bRunInference)
+    // If LLM control is enabled, skip PPO training entirely.
+    // The AvatarAIController's Tick will request movement commands from the
+    // LLM via the REST API bridge (UNLTLLMBridge).
+    if (bUseLLMControl)
     {
-        RunDualInference();
-    }
-
-    // Throttle training
-    TrainingTimer += DeltaTime;
-    if (bRunTraining && TrainingTimer >= 1.0f)
-    {
-        TrainingTimer = 0.0f;
-        RunDualTraining();
-    }
-
-    // Check cognitive-based episode completion
-    if (EpisodeManager && EpisodeManager->bEpisodeActive)
-    {
-        for (const auto& Group : ModelGroups)
+        // Ensure LLM control is active on the avatar's controller
+        const TArray<int32>& AllAgentIds = AgentManager ? AgentManager->GetAllAgentIds() : TArray<int32>();
+        for (int32 AgentId : AllAgentIds)
         {
-            if (Group.AgentId == INDEX_NONE) continue;
-            ULearningAgentsManager* GroupManager = Group.Manager;
-            if (!GroupManager) continue;
-            UObject* Agent = GroupManager->GetAgent(Group.AgentId);
+            UObject* Agent = AgentManager->GetAgent(AgentId);
             AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
-            if (Avatar && Avatar->CognitiveState)
+            if (Avatar)
             {
-                EpisodeManager->CheckCognitiveCompletion(
-                    Avatar->CognitiveState->Independence,
-                    Avatar->CognitiveState->Burnout);
+                AAvatarAIController* AIController = Cast<AAvatarAIController>(Avatar->GetController());
+                if (AIController && !AIController->IsLLMControlActive())
+                {
+                    AIController->SetLLMControlActive(true);
+
+                    // Configure the LLM bridge endpoint/model
+                    if (AIController->LLMBridge)
+                    {
+                        AIController->LLMBridge->EndpointURL = LLMEndpoint;
+                        AIController->LLMBridge->ModelName = LLMModel;
+                    }
+
+                    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: LLM control activated for avatar"));
+                }
             }
         }
+        return; // Skip PPO training/inference entirely
     }
-}
 
-void ANLTTrainingManager::RunDualInference()
-{
-    for (const auto& Group : ModelGroups)
+    // After the first training iteration, the Python subprocess exits.
+    // Calling Trainer->RunTraining() again would try to send the initial
+    // policy back to the dead process, causing "Unexpected communication received".
+    // Instead, switch to pure inference mode: call Policy->RunInference() each tick.
+    if (bRunTraining && Trainer && !bTrainingCompleted)
     {
-        if (Group.Policy)
-        {
-            Group.Policy->RunInference(1.0f);
-        }
+        FLearningAgentsPPOTrainingSettings TrainingSettings;
+        TrainingSettings.NumberOfIterations = 1;
+        TrainingSettings.LearningRatePolicy = 1e-4f;
+        TrainingSettings.LearningRateCritic = 1e-3f;
+        TrainingSettings.DiscountFactor = 0.99f;
+        TrainingSettings.GaeLambda = 0.95f;
+        TrainingSettings.EpsilonClip = 0.2f;
+
+        FLearningAgentsTrainingGameSettings GameSettings;
+        GameSettings.bUseFixedTimeStep = true;
+        GameSettings.FixedTimeStepFrequency = 60.0f;
+
+        Trainer->RunTraining(TrainingSettings, GameSettings, false, true);
+        bTrainingCompleted = true;
     }
-}
 
-void ANLTTrainingManager::RunDualTraining()
-{
-    FLearningAgentsPPOTrainingSettings TrainingSettings;
-    TrainingSettings.NumberOfIterations = 1;
-    TrainingSettings.LearningRatePolicy = 1e-4f;
-    TrainingSettings.LearningRateCritic = 1e-3f;
-    TrainingSettings.DiscountFactor = 0.99f;
-    TrainingSettings.GaeLambda = 0.95f;
-    TrainingSettings.EpsilonClip = 0.2f;
-
-    FLearningAgentsTrainingGameSettings GameSettings;
-    GameSettings.bUseFixedTimeStep = true;
-    GameSettings.FixedTimeStepFrequency = 60.0f;
-
-    for (const auto& Group : ModelGroups)
+    // After training is done (or if we're only doing inference),
+    // run the policy directly to generate actions every tick.
+    if (Policy && bRunInference)
     {
-        if (Group.Trainer)
-        {
-            Group.Trainer->RunTraining(TrainingSettings, GameSettings, true, true);
-        }
+        Policy->RunInference(0.0f);
     }
-}
-
-int32 ANLTTrainingManager::GetActorAgentId(int32 GroupIndex) const
-{
-    if (ModelGroups.IsValidIndex(GroupIndex))
-    {
-        return ModelGroups[GroupIndex].AgentId;
-    }
-    return INDEX_NONE;
 }
 
 void ANLTTrainingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    // Shutdown governance for all agents
-    UWorld* World = GetWorld();
-    if (World)
-    {
-        UNLTGovernanceSubsystem* Governance = UNLTGovernanceSubsystem::Get(World);
-        if (Governance)
-        {
-            for (const auto& Group : ModelGroups)
-            {
-                if (Group.GovernanceAgentId != NAME_None)
-                {
-                    Governance->ShutdownAgent(Group.GovernanceAgentId);
-                }
-            }
-        }
-    }
-
     Super::EndPlay(EndPlayReason);
 }

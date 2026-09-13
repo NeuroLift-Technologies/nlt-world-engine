@@ -64,6 +64,62 @@ enum class ENLTAgentNeed : uint8
     Privacy     UMETA(DisplayName = "Privacy")
 };
 
+/**
+ * Emotional state derived from cognitive dimensions (Focus, Stress, CognitiveLoad, Burnout).
+ * Drives animation posture, facial expression, thought bubbles, and particle effects.
+ * The state machine lives in UNLTEmotionStateComponent.
+ */
+UENUM(BlueprintType)
+enum class ENLTEmotionState : uint8
+{
+    Neutral     UMETA(DisplayName = "Neutral"),
+    Focused     UMETA(DisplayName = "Focused"),
+    Working     UMETA(DisplayName = "Working"),
+    Struggling  UMETA(DisplayName = "Struggling"),
+    Overwhelmed UMETA(DisplayName = "Overwhelmed"),
+    Drifting    UMETA(DisplayName = "Drifting"),
+    Hyperfocus  UMETA(DisplayName = "Hyperfocus"),
+    Coached     UMETA(DisplayName = "Coached"),
+    Fatigued    UMETA(DisplayName = "Fatigued"),
+    Celebrating UMETA(DisplayName = "Celebrating")
+};
+
+/**
+ * Animation state that corresponds to an ENLTEmotionState.
+ * Drives animation montage selection and procedural posing.
+ */
+UENUM(BlueprintType)
+enum class ENLTAnimationState : uint8
+{
+    Idle        UMETA(DisplayName = "Idle"),
+    Walk        UMETA(DisplayName = "Walk"),
+    Work        UMETA(DisplayName = "Work"),
+    Struggle    UMETA(DisplayName = "Struggle"),
+    Hyperfocus  UMETA(DisplayName = "Hyperfocus"),
+    CoachGesture UMETA(DisplayName = "Coach Gesture"),
+    IdleTired   UMETA(DisplayName = "Idle Tired"),
+    Celebrate   UMETA(DisplayName = "Celebrate"),
+    Nod         UMETA(DisplayName = "Nod"),
+    Drift       UMETA(DisplayName = "Drift"),
+    None        UMETA(DisplayName = "None")
+};
+
+/**
+ * Facial expression target for blend-shape or curve-driven facial animation.
+ */
+UENUM(BlueprintType)
+enum class ENLTFacialExpression : uint8
+{
+    Neutral     UMETA(DisplayName = "Neutral"),
+    Happy       UMETA(DisplayName = "Happy"),
+    Sad         UMETA(DisplayName = "Sad"),
+    Focused     UMETA(DisplayName = "Focused"),
+    Tired       UMETA(DisplayName = "Tired"),
+    Stressed    UMETA(DisplayName = "Stressed"),
+    Surprised   UMETA(DisplayName = "Surprised"),
+    Thinking    UMETA(DisplayName = "Thinking")
+};
+
 namespace NLTFusion
 {
     constexpr float NeedThreshold = 0.7f;

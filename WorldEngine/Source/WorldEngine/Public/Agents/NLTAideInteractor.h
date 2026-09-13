@@ -5,10 +5,6 @@
 #include "LearningAgentsInteractor.h"
 #include "NLTAideInteractor.generated.h"
 
-/**
- * Aide interactor for Learning Agents.
- * Observes the paired Avatar's state, outputs coaching strategy (0-9 = 10 strategies).
- */
 UCLASS()
 class WORLDENGINE_API UNLTAideInteractor : public ULearningAgentsInteractor
 {
@@ -17,29 +13,24 @@ class WORLDENGINE_API UNLTAideInteractor : public ULearningAgentsInteractor
 public:
     UNLTAideInteractor();
 
-    /** Specify observation schema. Called once during setup. */
-    virtual void SpecifyAgentObservation(
+    virtual void SpecifyAgentObservation_Implementation(
         FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
-        ULearningAgentsObservationSchema* InObservationSchema);
+        ULearningAgentsObservationSchema* InObservationSchema) override;
 
-    /** Gather observation data for a single agent. Called each tick. */
-    virtual void GatherAgentObservation(
+    virtual void GatherAgentObservation_Implementation(
         FLearningAgentsObservationObjectElement& OutObservationObjectElement,
         ULearningAgentsObservationObject* InObservationObject,
-        const int32 AgentId);
+        const int32 AgentId) override;
 
-    /** Specify action schema. Called once during setup. */
-    virtual void SpecifyAgentAction(
+    virtual void SpecifyAgentAction_Implementation(
         FLearningAgentsActionSchemaElement& OutActionSchemaElement,
-        ULearningAgentsActionSchema* InActionSchema);
+        ULearningAgentsActionSchema* InActionSchema) override;
 
-    /** Perform action for a single agent. Called each tick after policy evaluation. */
-    virtual void PerformAgentAction(
+    virtual void PerformAgentAction_Implementation(
         const ULearningAgentsActionObject* InActionObject,
         const FLearningAgentsActionObjectElement& InActionObjectElement,
-        const int32 AgentId);
+        const int32 AgentId) override;
 
-    /** Set pair mapping: Aide AgentId -> Avatar AgentId */
     void SetPairMapping(const TMap<int32, int32>& InPairMap);
 
 private:

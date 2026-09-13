@@ -28,7 +28,15 @@ void UNLTAvatarVisualComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Look for a SkeletalMeshComponent (rigged character).
 	SkeletalMesh = Cast<USkeletalMeshComponent>(GetOwner()->GetComponentByClass(USkeletalMeshComponent::StaticClass()));
+
+	// Fallback: look for a StaticMeshComponent (SimBody procedural body).
+	// Use static-mesh fallback when skeletal exists but has no mesh asset.
+	if (!SkeletalMesh || !SkeletalMesh->GetSkeletalMeshAsset())
+	{
+		StaticMeshComp = Cast<UStaticMeshComponent>(GetOwner()->GetComponentByClass(UStaticMeshComponent::StaticClass()));
+	}
 
 	if (bShowStatusRing)
 		CreateStatusRing();
@@ -159,15 +167,107 @@ void UNLTAvatarVisualComponent::CreateParticleComponents()
 	}
 }
 
+void UNLTAvatarVisualComponent::UpdateFromEmotion(ENLTEmotionState Emotion, ENLTAnimationState AnimState, float Intensity)
+{
+	// Map emotion → status ring color + particle state.
+	// Intensity (0–1) dims the glow for low-intensity emotions.
+	// AnimState further modulates: Walk lifts dim states so moving avatars
+	// stay readable at a distance.
+	const float EffectiveGlow = FMath::Max(0.1f, Intensity) * MaxGlowIntensity;
+	const float MoveBoost = (AnimState == ENLTAnimationState::Walk) ? 0.15f * EffectiveGlow : 0.0f;
+
+	FLinearColor RingColor;
+	FString EmotionName;
+
+	switch (Emotion)
+	{
+	case ENLTEmotionState::Neutral:
+		TargetGlow = 0.3f * EffectiveGlow;
+		RingColor = FLinearColor(0.2f, 0.8f, 0.4f, 1.0f);
+		EmotionName = TEXT("Neutral");
+		break;
+	case ENLTEmotionState::Focused:
+	case ENLTEmotionState::Working:
+		TargetGlow = 0.7f * EffectiveGlow;
+		RingColor = FocusGlowColor;
+		EmotionName = TEXT("Focused");
+		break;
+	case ENLTEmotionState::Struggling:
+		TargetGlow = 0.6f * EffectiveGlow;
+		RingColor = StressGlowColor;
+		EmotionName = TEXT("Struggling");
+		break;
+	case ENLTEmotionState::Overwhelmed:
+		TargetGlow = 1.0f * EffectiveGlow;
+		RingColor = StressGlowColor;
+		EmotionName = TEXT("Overwhelmed");
+		break;
+	case ENLTEmotionState::Drifting:
+		TargetGlow = 0.3f * EffectiveGlow;
+		RingColor = FLinearColor(0.5f, 0.5f, 0.8f, 1.0f);
+		EmotionName = TEXT("Drifting");
+		break;
+	case ENLTEmotionState::Hyperfocus:
+		TargetGlow = 0.8f * EffectiveGlow;
+		RingColor = FLinearColor(0.0f, 0.8f, 1.0f, 1.0f);
+		EmotionName = TEXT("Hyperfocus");
+		break;
+	case ENLTEmotionState::Coached:
+		TargetGlow = 0.6f * EffectiveGlow;
+		RingColor = FLinearColor(0.6f, 0.4f, 1.0f, 1.0f);
+		EmotionName = TEXT("Coached");
+		break;
+	case ENLTEmotionState::Fatigued:
+		TargetGlow = 0.2f * EffectiveGlow;
+		RingColor = BurnoutGlowColor;
+		EmotionName = TEXT("Fatigued");
+		break;
+	case ENLTEmotionState::Celebrating:
+		TargetGlow = 1.0f * EffectiveGlow;
+		RingColor = FLinearColor(1.0f, 0.8f, 0.2f, 1.0f);
+		EmotionName = TEXT("Celebrating");
+		break;
+	default:
+		TargetGlow = 0.3f * EffectiveGlow;
+		RingColor = FLinearColor(0.2f, 0.8f, 0.4f, 1.0f);
+		EmotionName = TEXT("Unknown");
+		break;
+	}
+
+	//~ FIX (PR #43 review nit): AnimState was an unused param — Walk now
+	//~ lifts dim states so moving avatars stay readable at a distance.
+	TargetGlow += MoveBoost;
+
+	SetStatusRingColor(RingColor);
+}
+
 UMaterialInstanceDynamic* UNLTAvatarVisualComponent::GetAvatarMaterial()
 {
 	if (AvatarMaterialInstance) return AvatarMaterialInstance;
-	if (!SkeletalMesh) return nullptr;
 
-	UMaterialInterface* BaseMat = SkeletalMesh->GetMaterial(0);
-	if (!BaseMat) return nullptr;
+	// Try SkeletalMesh first (rigged character)
+	if (SkeletalMesh)
+	{
+		UMaterialInterface* BaseMat = SkeletalMesh->GetMaterial(0);
+		if (BaseMat)
+		{
+			AvatarMaterialInstance = UMaterialInstanceDynamic::Create(BaseMat, SkeletalMesh);
+			SkeletalMesh->SetMaterial(0, AvatarMaterialInstance);
+			return AvatarMaterialInstance;
+		}
+	}
 
-	AvatarMaterialInstance = UMaterialInstanceDynamic::Create(BaseMat, SkeletalMesh);
-	SkeletalMesh->SetMaterial(0, AvatarMaterialInstance);
-	return AvatarMaterialInstance;
+	// Fallback: StaticMesh (SimBody procedural body)
+	if (StaticMeshComp)
+	{
+		UMaterialInterface* BaseMat = StaticMeshComp->GetMaterial(0);
+		if (BaseMat)
+		{
+			AvatarMaterialInstance = UMaterialInstanceDynamic::Create(BaseMat, StaticMeshComp);
+			StaticMeshComp->SetMaterial(0, AvatarMaterialInstance);
+			return AvatarMaterialInstance;
+		}
+	}
+
+	return nullptr;
 }

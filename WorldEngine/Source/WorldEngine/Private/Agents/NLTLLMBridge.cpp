@@ -1,0 +1,270 @@
+// NLTLLMBridge.cpp
+#include "Agents/NLTLLMBridge.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Json.h"
+#include "JsonUtilities.h"
+
+UNLTLLMBridge::UNLTLLMBridge()
+{
+    PrimaryComponentTick.bCanEverTick = true;
+    // Default to Ollama on localhost
+    EndpointURL = TEXT("http://localhost:11434/api/generate");
+    ModelName = TEXT("qwen3:0.6b");
+}
+
+void UNLTLLMBridge::Initialize(const FString& InEndpoint, const FString& InModel)
+{
+    EndpointURL = InEndpoint;
+    ModelName = InModel;
+}
+
+void UNLTLLMBridge::BeginPlay()
+{
+    Super::BeginPlay();
+}
+
+void UNLTLLMBridge::TickComponent(float DeltaTime, ELevelTick Tick, FActorComponentTickFunction* ThisTickFunction)
+{
+    Super::TickComponent(DeltaTime, Tick, ThisTickFunction);
+    if (CooldownTimer > 0.0f)
+    {
+        CooldownTimer -= DeltaTime;
+    }
+}
+
+bool UNLTLLMBridge::IsReady() const
+{
+    return !bPendingRequest && EndpointURL.Len() > 0 && CooldownTimer <= 0.0f;
+}
+
+void UNLTLLMBridge::SendPrompt(const FString& Prompt)
+{
+    if (!IsReady()) return;
+
+    bPendingRequest = true;
+
+    // Build the Ollama /api/generate JSON payload
+    TSharedRef<FJsonObject> RequestBody = MakeShareable(new FJsonObject);
+    RequestBody->SetStringField(TEXT("model"), ModelName);
+    RequestBody->SetBoolField(TEXT("stream"), false);
+
+    // Ollama expects a "prompt" field. We embed structured context inside
+    // the prompt text so the model can reason over it.
+    RequestBody->SetStringField(TEXT("prompt"), Prompt);
+
+    FString RequestBodyStr;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBodyStr);
+    FJsonSerializer::Serialize(RequestBody, Writer);
+
+    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
+    HttpRequest->SetURL(EndpointURL);
+    HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+    HttpRequest->SetVerb(TEXT("POST"));
+    HttpRequest->SetContentAsString(RequestBodyStr);
+    HttpRequest->OnProcessRequestComplete().BindUObject(this, &UNLTLLMBridge::OnProcessRequestComplete);
+
+    if (!HttpRequest->ProcessRequest())
+    {
+        bPendingRequest = false;
+        CooldownTimer = RequestCooldown;
+    }
+}
+
+void UNLTLLMBridge::RequestMovementCommand(
+    const FString& ActorName,
+    const FVector& CurrentLocation,
+    const FVector& CurrentVelocity,
+    const TMap<FString, float>& CognitiveState,
+    const FString& GoalDescription,
+    const FString& EnvironmentContext)
+{
+    if (!IsReady()) return;
+
+    FString Prompt = BuildPrompt(ActorName, CurrentLocation, CurrentVelocity, CognitiveState, GoalDescription, EnvironmentContext);
+    SendPrompt(Prompt);
+}
+
+FString UNLTLLMBridge::BuildPrompt(
+    const FString& ActorName,
+    const FVector& CurrentLocation,
+    const FVector& CurrentVelocity,
+    const TMap<FString, float>& CognitiveState,
+    const FString& GoalDescription,
+    const FString& EnvironmentContext) const
+{
+    FString CognitiveStr;
+    for (const auto& Pair : CognitiveState)
+    {
+        CognitiveStr += FString::Printf(TEXT("%s: %.3f, "), *Pair.Key, Pair.Value);
+    }
+    CognitiveStr.RemoveFromEnd(TEXT(", "));
+
+    // We instruct the LLM to respond ONLY in valid JSON with a specific schema.
+    // The prompt is engineered for qwen3:0.6b — small models tend to echo back
+    // coordinates rather than explore. We use move_by with relative offsets
+    // and explicitly tell the model to pick a NEW direction each time.
+    // NOTE: no trailing pre-filled JSON fragment — the model must emit a
+    // complete object so ParseResponse's strict validation can accept it.
+    return FString::Printf(
+        TEXT("You are %s, an AI agent exploring a 2D environment. Pick the next movement. "
+             "Respond ONLY with valid JSON.\n\n"
+             "Current position: (%.1f, %.1f)\n"
+             "Current velocity: (%.1f, %.1f)\n"
+             "Cognitive state: %s\n"
+             "Goal: %s\n"
+             "Environment: %s\n\n"
+             "You MUST pick a destination that is different from your current position. "
+             "Use move_by with dx and dy in range [-300, 300]. "
+             "Each call must move you to a new area. Do not echo back your current coordinates.\n\n"
+             "Formats:\n"
+             "{\"command\": \"move_by\", \"dx\": <float>, \"dy\": <float>}\n"
+             "{\"command\": \"move_to\", \"x\": <float>, \"y\": <float>}\n"
+             "{\"command\": \"face_towards\", \"x\": <float>, \"y\": <float>}\n"
+             "{\"command\": \"stop\"}\n"),
+        *ActorName,
+        CurrentLocation.X, CurrentLocation.Y,
+        CurrentVelocity.X, CurrentVelocity.Y,
+        *CognitiveStr,
+        *GoalDescription,
+        *EnvironmentContext
+    );
+}
+
+void UNLTLLMBridge::OnProcessRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+    bPendingRequest = false;
+    CooldownTimer = RequestCooldown;
+
+    if (!bWasSuccessful || !Response.IsValid())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("NLTLLMBridge: HTTP request failed."));
+        return;
+    }
+
+    if (Response->GetResponseCode() != 200)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("NLTLLMBridge: HTTP %d: %s"),
+            Response->GetResponseCode(), *Response->GetContentAsString());
+        return;
+    }
+
+    FString Body = Response->GetContentAsString();
+    ParseResponse(Body);
+}
+
+void UNLTLLMBridge::ParseResponse(const FString& ResponseBody)
+{
+    // Ollama's /api/generate returns: {"model":"...","response":"...","done":true}
+    // The actual model output is in the "response" field.
+    TSharedPtr<FJsonObject> JsonObj = MakeShareable(new FJsonObject);
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseBody);
+
+    if (!FJsonSerializer::Deserialize(Reader, JsonObj) || !JsonObj.IsValid())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("NLTLLMBridge: Failed to parse response JSON: %s"), *ResponseBody);
+        return;
+    }
+
+    FString ModelResponse;
+    //~ FIX (PR #43 review): safe field extraction — GetStringField asserts on
+    //~ type mismatch; TryGet* returns false instead.
+    if (!JsonObj->TryGetStringField(TEXT("response"), ModelResponse))
+    {
+        // Some APIs (e.g. /api/chat) return {"message":{"content":"..."}}
+        const TSharedPtr<FJsonObject>* MessageObj = nullptr;
+        if (JsonObj->TryGetObjectField(TEXT("message"), MessageObj) && MessageObj && MessageObj->IsValid())
+        {
+            (*MessageObj)->TryGetStringField(TEXT("content"), ModelResponse);
+        }
+        if (ModelResponse.IsEmpty())
+        {
+            // The raw body might itself be the JSON we want
+            ModelResponse = ResponseBody;
+        }
+    }
+
+    // Trim whitespace and potential markdown fences (```json and bare ```).
+    ModelResponse = ModelResponse.TrimStartAndEnd();
+    if (ModelResponse.StartsWith(TEXT("```")))
+    {
+        // Strip the opening fence line (``` or ```json + optional language tag).
+        const int32 NewlineIdx = ModelResponse.Find(TEXT("\n"));
+        ModelResponse = (NewlineIdx != INDEX_NONE) ? ModelResponse.Mid(NewlineIdx + 1) : ModelResponse.Mid(3);
+    }
+    if (ModelResponse.EndsWith(TEXT("```")))
+    {
+        ModelResponse.LeftChopInline(3);
+    }
+    ModelResponse = ModelResponse.TrimStartAndEnd();
+
+    // The model may echo the prompt's schema help or emit trailing prose —
+    // extract the first balanced {...} object before strict validation.
+    ModelResponse = ExtractFirstJsonObject(ModelResponse);
+
+    // Validate that we have JSON by trying to parse it
+    TSharedRef<TJsonReader<>> Validator = TJsonReaderFactory<>::Create(ModelResponse);
+    TSharedPtr<FJsonObject> CommandJson = MakeShareable(new FJsonObject);
+    if (!FJsonSerializer::Deserialize(Validator, CommandJson) || !CommandJson.IsValid())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("NLTLLMBridge: LLM response is not valid JSON: %s"), *ModelResponse);
+        return;
+    }
+
+    // Broadcast the validated JSON string so Blueprint listeners can dispatch the command
+    OnLLMResponse.Broadcast(ModelResponse);
+}
+
+FString UNLTLLMBridge::ExtractFirstJsonObject(const FString& Text)
+{
+    int32 SearchIdx = 0;
+    while (SearchIdx < Text.Len())
+    {
+        int32 StartIdx = Text.Find(TEXT("{"), ESearchCase::CaseSensitive, ESearchDir::FromStart, SearchIdx);
+        if (StartIdx == INDEX_NONE)
+            return Text;
+
+        int32 Depth = 0;
+        bool bInString = false;
+        bool bEscaped = false;
+        int32 EndIdx = INDEX_NONE;
+        for (int32 i = StartIdx; i < Text.Len(); ++i)
+        {
+            const TCHAR C = Text[i];
+            if (bInString)
+            {
+                if (bEscaped) { bEscaped = false; }
+                else if (C == TCHAR('\\')) { bEscaped = true; }
+                else if (C == TCHAR('"')) { bInString = false; }
+                continue;
+            }
+            if (C == TCHAR('"')) { bInString = true; }
+            else if (C == TCHAR('{')) { ++Depth; }
+            else if (C == TCHAR('}'))
+            {
+                if (--Depth == 0)
+                {
+                    EndIdx = i;
+                    break;
+                }
+            }
+        }
+
+        if (EndIdx == INDEX_NONE)
+            return Text.Mid(StartIdx);
+
+        // Found a balanced object - try to deserialize it
+        const FString Candidate = Text.Mid(StartIdx, EndIdx - StartIdx + 1);
+        TSharedRef<TJsonReader<>> Validator = TJsonReaderFactory<>::Create(Candidate);
+        TSharedPtr<FJsonObject> CandidateJson = MakeShareable(new FJsonObject);
+        if (FJsonSerializer::Deserialize(Validator, CandidateJson) && CandidateJson.IsValid())
+        {
+            return Candidate;
+        }
+
+        // This candidate didn't parse - continue searching from after it
+        SearchIdx = EndIdx + 1;
+    }
+
+    return Text;
+}

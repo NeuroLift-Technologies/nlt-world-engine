@@ -31,6 +31,12 @@ public:
     /** Reset all cognitive values to defaults */
     void ResetCognitiveState();
 
+    /** Update the EmotionalState FName based on current cognitive values.
+        Called each tick by the owning character to keep the FName in sync
+        with the sim-driven EmotionalState enum. */
+    UFUNCTION(BlueprintCallable, Category = "Cognitive")
+    void UpdateEmotionalState();
+
     // Core cognitive dimensions
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cognitive")
     float Focus = 0.65f;

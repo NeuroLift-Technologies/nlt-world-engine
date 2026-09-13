@@ -1,10 +1,15 @@
 // AvatarAIController.cpp
 #include "Agents/AvatarAIController.h"
+#include "Agents/NLTLLMBridge.h"
+#include "Agents/AvatarCharacter.h"
+#include "Agents/LTCognitiveStateComponent.h"
 #include "NavigationSystem.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "GameFramework/Pawn.h"
 #include "EngineUtils.h"
 #include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 // Maximum relative step a single move_by command may request (world units).
 // Keeps the LLM from teleporting avatars across the map in one command.
@@ -20,6 +25,10 @@ AAvatarAIController::AAvatarAIController()
     bIsWaiting = false;
     bLearningAgentsActive = false;
     bLLMControlActive = false;
+
+    // Create the LLM bridge component
+    LLMBridge = CreateDefaultSubobject<UNLTLLMBridge>(TEXT("LLMBridge"));
+    LLMBridge->RequestCooldown = 3.0f;
 }
 
 void AAvatarAIController::SetLLMControlActive(bool bActive)
@@ -32,14 +41,25 @@ void AAvatarAIController::SetLLMControlActive(bool bActive)
     bLLMControlActive = bActive;
     if (bActive)
     {
-        // LLM takes over: stop autonomous wandering/timers immediately.
+        // LLM takes over: stop autonomous wandering/timers immediately,
+        // and set up the bridge callback for incoming LLM movement commands.
         StopMovement();
         GetWorldTimerManager().ClearTimer(WaitTimer);
         bIsWaiting = false;
+
+        // Bind the LLM response handler (raw function pointer binding)
+        if (LLMBridge)
+        {
+            LLMBridge->OnLLMResponse.AddDynamic(this, &AAvatarAIController::HandleLLMResponse);
+        }
     }
     else
     {
         // LLM relinquishes control: resume autonomous behavior.
+        if (LLMBridge)
+        {
+            LLMBridge->OnLLMResponse.RemoveAll(this);
+        }
         Wander();
     }
 }
@@ -101,15 +121,22 @@ bool AAvatarAIController::ExecuteLLMCommand(const FString& Command, const TShare
                 return false;
             }
         }
-        else // move_by: relative offset, clamped to MaxLLMStepDistance.
+        else // move_by: relative offset, clamped radially to MaxLLMStepDistance.
         {
             if (!Args.IsValid() || !Args->TryGetNumberField(TEXT("dx"), X) || !Args->TryGetNumberField(TEXT("dy"), Y))
             {
                 OutMessage = TEXT("move_by requires numeric dx and dy args");
                 return false;
             }
-            X = FMath::Clamp(X, -MaxLLMStepDistance, MaxLLMStepDistance);
-            Y = FMath::Clamp(Y, -MaxLLMStepDistance, MaxLLMStepDistance);
+            //~ FIX (PR #43 review): radial clamp — per-axis clamp allowed
+            //~ (2000,2000) ~= 2828uu, defeating the max-step guard.
+            FVector2D Offset(X, Y);
+            if (Offset.Size() > MaxLLMStepDistance)
+            {
+                Offset = Offset.GetSafeNormal() * MaxLLMStepDistance;
+                X = Offset.X;
+                Y = Offset.Y;
+            }
             X += Origin.X;
             Y += Origin.Y;
         }
@@ -125,12 +152,29 @@ bool AAvatarAIController::ExecuteLLMCommand(const FString& Command, const TShare
             return true;
         }
 
-        // move_to / move_by: nav path-following via the AI controller. The
-        // CharacterMovementComponent underneath keeps its normal physics.
+        //~ FIX (PR #43 review): validate BEFORE SetLLMControlActive so a
+        //~ rejected command can't flip control state, and apply the anti-echo
+        //~ minimum-distance guard to move_by as well as move_to.
+        //~ (A stuck LLM emitting dx=0,dy=0 used to loop forever.)
+        static constexpr float MinLLMStepDistSq = 2500.0f; // 50uu — "didn't move"
+        const float DistSq = FVector::DistSquared2D(Destination, Origin);
+        if (DistSq < MinLLMStepDistSq)
+        {
+            OutMessage = FString::Printf(TEXT("%s target too close to current position"), *Cmd);
+            return false;
+        }
+
+        // move_to / move_by: nav path-following via the AI controller.
+        // Capture the previous LLM control state so we can restore it
+        // if MoveToLocation fails (don't leave bLLMControlActive stuck as true).
+        const bool bPreviousLLMControlActive = bLLMControlActive;
         SetLLMControlActive(true);
+
         const EPathFollowingRequestResult::Type Result = MoveToLocation(Destination, AcceptanceRadius, true, true, true, true);
         if (Result == EPathFollowingRequestResult::Failed)
         {
+            // Restore the previous LLM control state on failure.
+            SetLLMControlActive(bPreviousLLMControlActive);
             OutMessage = FString::Printf(TEXT("move failed: destination (%f, %f) unreachable"), Destination.X, Destination.Y);
             return false;
         }
@@ -194,6 +238,81 @@ void AAvatarAIController::OnPossess(APawn* InPawn)
 void AAvatarAIController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    // When LLM control is active and the bridge is ready, request the next
+    // movement command asynchronously. The bridge has its own cooldown timer
+    // so we won't flood the LLM.
+    if (bLLMControlActive && LLMBridge && LLMBridge->IsReady())
+    {
+        RequestLLMMovementCommand();
+    }
+}
+
+void AAvatarAIController::HandleLLMResponse(const FString& JsonResponse)
+{
+    // Parse the JSON the LLM returned and dispatch the command.
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonResponse);
+    TSharedPtr<FJsonObject> JsonObj = MakeShareable(new FJsonObject);
+
+    if (!FJsonSerializer::Deserialize(Reader, JsonObj) || !JsonObj.IsValid())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AvatarAIController: Failed to parse LLM JSON: %s"), *JsonResponse);
+        return;
+    }
+
+    FString Command;
+    if (!JsonObj->TryGetStringField(TEXT("command"), Command) || Command.IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AvatarAIController: LLM response missing command field"));
+        return;
+    }
+
+    FString OutMessage;
+    if (!ExecuteLLMCommand(Command, JsonObj, OutMessage))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AvatarAIController: LLM command failed: %s"), *OutMessage);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("AvatarAIController: LLM command OK: %s"), *OutMessage);
+    }
+}
+
+void AAvatarAIController::RequestLLMMovementCommand()
+{
+    APawn* MyPawn = GetPawn();
+    if (!MyPawn || !LLMBridge) return;
+
+    AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(MyPawn);
+    if (!Avatar) return;
+
+    // Gather cognitive state from the avatar's component
+    TMap<FString, float> CognitiveStateMap;
+    if (Avatar->CognitiveState)
+    {
+        TArray<float> StateValues = Avatar->CognitiveState->GetObservationValues();
+        static const TArray<FName> StateNames = {
+            TEXT("focus"), TEXT("cognitive_load"), TEXT("stress"),
+            TEXT("burnout"), TEXT("independence"), TEXT("fusion_ready"),
+            TEXT("success_rate")
+        };
+        for (int32 i = 0; i < StateValues.Num() && i < StateNames.Num(); ++i)
+        {
+            CognitiveStateMap.Add(StateNames[i].ToString(), StateValues[i]);
+        }
+    }
+
+    const FVector Location = MyPawn->GetActorLocation();
+    const FVector Velocity = MyPawn->GetVelocity();
+
+    LLMBridge->RequestMovementCommand(
+        MyPawn->GetName(),
+        Location,
+        Velocity,
+        CognitiveStateMap,
+        TEXT("Choose a new destination nearby that you haven't visited recently. Respond with move_to, move_by, face_towards, or stop."),
+        TEXT("You are in a simulated training environment with doors leading to Personal, Social, and Academic areas. There is a NavMeshBoundsVolume covering the level.")
+    );
 }
 
 void AAvatarAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result)

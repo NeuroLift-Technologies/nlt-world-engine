@@ -47,6 +47,10 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LLM Control")
     bool bLLMControlActive = false;
 
+    /** The LLM REST API bridge component. */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LLM Control")
+    class UNLTLLMBridge* LLMBridge;
+
     UFUNCTION(BlueprintCallable, Category = "LLM Control")
     void SetLLMControlActive(bool bActive);
 
@@ -54,25 +58,21 @@ public:
     bool IsLLMControlActive() const { return bLLMControlActive; }
 
     /**
-     * Execute a semantic command emitted by an LLM controller.
-     *
-     * Supported commands (Args is a JSON object, may be empty):
-     *   move_to         { "x": float, "y": float }       -> nav-move to waypoint
-     *   move_by         { "dx": float, "dy": float }     -> nav-move by relative offset (clamped)
-     *   move_to_object  { "object_id": string }          -> nav-move to first actor with that name
-     *   face_towards    { "x": float, "y": float }       -> rotate to face a world point
-     *   stop            {}                               -> StopMovement() (keep LLM control)
-     *   release         {}                               -> stop + hand control back to wander AI
-     *
-     * @param Command   The command name (case-insensitive).
-     * @param Args      JSON args object (may be null).
-     * @param OutMessage Human-readable outcome for logging / HTTP response.
-     * @return true when the command was recognized and dispatched.
-     *
-     * NOTE: intentionally NOT a UFUNCTION — TSharedPtr<FJsonObject> cannot be
-     * reflected by UHT. This is called from C++ (e.g. the web server).
+     * Called by the web server when an external LLM sends a movement command.
+     * This is separate from the internal REST bridge — external LLM co-pilots
+     * can POST commands to the UE HTTP server.
      */
     bool ExecuteLLMCommand(const FString& Command, const TSharedPtr<FJsonObject>& Args, FString& OutMessage);
+
+    /**
+     * Process a JSON response from the LLM bridge and execute the movement command.
+     * Expected JSON: {"command": "move_to", "x": 100, "y": 500}
+     */
+    UFUNCTION()
+    void HandleLLMResponse(const FString& JsonResponse);
+
+    /** Request the next movement command from the LLM based on current state. */
+    void RequestLLMMovementCommand();
 
 private:
     void Wander();
