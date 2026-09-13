@@ -121,15 +121,22 @@ bool AAvatarAIController::ExecuteLLMCommand(const FString& Command, const TShare
                 return false;
             }
         }
-        else // move_by: relative offset, clamped to MaxLLMStepDistance.
+        else // move_by: relative offset, clamped radially to MaxLLMStepDistance.
         {
             if (!Args.IsValid() || !Args->TryGetNumberField(TEXT("dx"), X) || !Args->TryGetNumberField(TEXT("dy"), Y))
             {
                 OutMessage = TEXT("move_by requires numeric dx and dy args");
                 return false;
             }
-            X = FMath::Clamp(X, -MaxLLMStepDistance, MaxLLMStepDistance);
-            Y = FMath::Clamp(Y, -MaxLLMStepDistance, MaxLLMStepDistance);
+            //~ FIX (PR #43 review): radial clamp — per-axis clamp allowed
+            //~ (2000,2000) ~= 2828uu, defeating the max-step guard.
+            FVector2D Offset(X, Y);
+            if (Offset.Size() > MaxLLMStepDistance)
+            {
+                Offset = Offset.GetSafeNormal() * MaxLLMStepDistance;
+                X = Offset.X;
+                Y = Offset.Y;
+            }
             X += Origin.X;
             Y += Origin.Y;
         }
@@ -145,21 +152,21 @@ bool AAvatarAIController::ExecuteLLMCommand(const FString& Command, const TShare
             return true;
         }
 
+        //~ FIX (PR #43 review): validate BEFORE SetLLMControlActive so a
+        //~ rejected command can't flip control state, and apply the anti-echo
+        //~ minimum-distance guard to move_by as well as move_to.
+        //~ (A stuck LLM emitting dx=0,dy=0 used to loop forever.)
+        static constexpr float MinLLMStepDistSq = 2500.0f; // 50uu — "didn't move"
+        const float DistSq = FVector::DistSquared2D(Destination, Origin);
+        if (DistSq < MinLLMStepDistSq)
+        {
+            OutMessage = FString::Printf(TEXT("%s target too close to current position"), *Cmd);
+            return false;
+        }
+
         // move_to / move_by: nav path-following via the AI controller.
         SetLLMControlActive(true);
-        
-        // Reject move_to that lands on the avatar's current position (a known
-        // qwen3:0.6b failure mode — it echoes back the coordinates it was given).
-        if (Cmd == TEXT("move_to"))
-        {
-            const float DistSq = FVector::DistSquared2D(FVector(X, Y, Origin.Z), Origin);
-            if (DistSq < 2500.0f) // 50 units — basically "didn't move"
-            {
-                OutMessage = TEXT("move_to target too close to current position");
-                return false;
-            }
-        }
-        
+
         const EPathFollowingRequestResult::Type Result = MoveToLocation(Destination, AcceptanceRadius, true, true, true, true);
         if (Result == EPathFollowingRequestResult::Failed)
         {

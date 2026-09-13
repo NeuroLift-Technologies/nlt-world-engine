@@ -112,6 +112,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Choreography|Tuning")
 	float AideFollowSpeed = 200.0f;
 
+	/** Interpolation speed (1/s) used when the owner is NOT a character (no movement component).
+	    For ACharacter owners the Aide is driven via AddMovementInput and the
+	    CharacterMovementComponent's MaxWalkSpeed instead. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Choreography|Tuning")
+	float AideFollowInterpSpeed = 2.0f;
+
 	/** If true, the Aide automatically walks to coaching distance when entering coaching mode. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Choreography|Tuning")
 	bool bAideAutoPositions = true;

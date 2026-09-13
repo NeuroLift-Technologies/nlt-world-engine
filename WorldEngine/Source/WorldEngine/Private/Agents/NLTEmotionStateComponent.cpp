@@ -100,7 +100,7 @@ void UNLTEmotionStateComponent::UpdateFromCognitiveState(float DeltaTime)
 	}
 	EmotionalIntensity = FMath::FInterpTo(EmotionalIntensity, TargetIntensity, DeltaTime, EmotionTransitionSpeed);
 
-	// --- Commit emotion state change ---
+	//--- Commit emotion state change ---
 	if (CurrentEmotion != TargetEmotion)
 	{
 		ENLTEmotionState Prev = CurrentEmotion;
@@ -108,7 +108,6 @@ void UNLTEmotionStateComponent::UpdateFromCognitiveState(float DeltaTime)
 		PreviousEmotion = Prev;
 
 		// Update derived properties
-		ENLTAnimationState NewAnim = MapEmotionToAnimation(CurrentEmotion);
 		ENLTFacialExpression NewExpr = MapEmotionToExpression(CurrentEmotion);
 		FString NewBubble = MapEmotionToThoughtBubble(CurrentEmotion);
 		FVector NewPosture = MapEmotionToPosture(CurrentEmotion);
@@ -127,19 +126,22 @@ void UNLTEmotionStateComponent::UpdateFromCognitiveState(float DeltaTime)
 			CurrentThoughtBubble.Empty();
 		}
 
-		// Fire animation state change event
-		if (NewAnim != CurrentAnimationState)
-		{
-			ENLTAnimationState PrevAnim = CurrentAnimationState;
-			CurrentAnimationState = NewAnim;
-			OnAnimationStateChanged.Broadcast(NewAnim, PrevAnim);
-		}
-
 		OnEmotionStateChanged.Broadcast(CurrentEmotion, Prev);
 
 		UE_LOG(LogNLTEmotion, Verbose, TEXT("Emotion: %d -> %d (Focus=%.2f Stress=%.2f CogLoad=%.2f)"),
 			static_cast<int32>(Prev), static_cast<int32>(CurrentEmotion),
 			Focus, Stress, CognitiveLoad);
+	}
+
+	//~ FIX (PR #43 review): recompute the animation state EVERY tick so
+	//~ movement-only transitions (idle<->walk) apply immediately instead of
+	//~ lagging until the next emotion change.
+	const ENLTAnimationState TickAnim = MapEmotionToAnimation(CurrentEmotion);
+	if (TickAnim != CurrentAnimationState)
+	{
+		const ENLTAnimationState PrevAnim = CurrentAnimationState;
+		CurrentAnimationState = TickAnim;
+		OnAnimationStateChanged.Broadcast(TickAnim, PrevAnim);
 	}
 }
 
@@ -300,6 +302,11 @@ void UNLTEmotionStateComponent::SetOverrideEmotion(ENLTEmotionState InOverrideEm
 	OverrideEmotion = InOverrideEmotion;
 	OverrideTimer = Duration;
 	bHasOverride = Duration > 0.0f;
+	if (!bHasOverride)
+	{
+		//~ FIX (PR #43 review nit): don't leave a stale timer behind.
+		OverrideTimer = 0.0f;
+	}
 }
 
 void UNLTEmotionStateComponent::TriggerCelebration(float Duration)

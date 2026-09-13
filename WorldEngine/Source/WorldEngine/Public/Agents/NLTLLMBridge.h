@@ -76,6 +76,9 @@ private:
     /** Parse the LLM JSON response and dispatch the result. */
     void ParseResponse(const FString& ResponseBody);
 
+    /** Extract the first balanced {...} JSON object (handles prose/fence bleed). */
+    static FString ExtractFirstJsonObject(const FString& Text);
+
     /** Build the prompt string from structured inputs. */
     FString BuildPrompt(
         const FString& ActorName,

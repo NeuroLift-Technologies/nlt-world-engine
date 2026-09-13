@@ -135,6 +135,10 @@ private:
 	UPROPERTY()
 	TObjectPtr<UStaticMeshComponent> StaticMesh;
 
+	/** Initial relative transform of the bound static mesh (captured in BindStaticMesh). */
+	FVector InitialStaticMeshLocation = FVector::ZeroVector;
+	bool bHasInitialStaticMeshLocation = false;
+
 	UPROPERTY()
 	TObjectPtr<UNLTEmotionStateComponent> EmotionComponent;
 

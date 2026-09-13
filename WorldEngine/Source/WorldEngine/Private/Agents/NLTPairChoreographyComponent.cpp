@@ -64,8 +64,18 @@ void UNLTPairChoreographyComponent::TickComponent(float DeltaTime, ELevelTick Ti
 
 void UNLTPairChoreographyComponent::SetPartner(AActor* InPartner)
 {
+	//~ FIX (PR #43 review): swapping partners must invalidate the cached
+	//~ partner emotion + reaction state, otherwise we keep reading the old
+	//~ partner's component.
+	if (Partner != InPartner)
+	{
+		CachedPartnerEmotion = nullptr;
+		LastPartnerEmotion = ENLTEmotionState::Neutral;
+		ReactionRemainingTime = -1.0f;
+		bIsFacingPartner = false;
+	}
 	Partner = InPartner;
-	bHasPartner = Partner;
+	bHasPartner = Partner != nullptr;
 }
 
 void UNLTPairChoreographyComponent::SetPairRole(ENLTPairRole InRole)
@@ -126,8 +136,12 @@ void UNLTPairChoreographyComponent::UpdateFacing(float DeltaTime)
 	if (Direction.IsNearlyZero())
 		return;
 
-	const FRotator TargetRot = Direction.Rotation();
-	const FRotator CurrentRot = GetOwner()->GetActorRotation();
+	//~ FIX (PR #43 review): yaw-only facing — Direction.Rotation() includes
+	//~ pitch, which would tilt the whole character when partner Z differs.
+	FRotator TargetRot(0.0f, Direction.Rotation().Yaw, 0.0f);
+	FRotator CurrentRot = GetOwner()->GetActorRotation();
+	CurrentRot.Pitch = 0.0f;
+	CurrentRot.Roll = 0.0f;
 	const FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, DeltaTime, FaceTurnSpeed);
 
 	GetOwner()->SetActorRotation(NewRot);
@@ -145,20 +159,25 @@ void UNLTPairChoreographyComponent::UpdateAidePosition(float DeltaTime)
 
 	if (Distance > CoachingDistance)
 	{
-		const FVector Normalized = Direction.GetSafeNormal();
-		const FVector TargetPos = PartnerLoc + Normalized * CoachingDistance;
-		const FVector CurrentPos = GetOwner()->GetActorLocation();
+		const FVector ToPartner = PartnerLoc - GetOwner()->GetActorLocation();
+		const FVector MoveDir = ToPartner.GetSafeNormal();
 
 		if (ACharacter* AideChar = Cast<ACharacter>(GetOwner()))
 		{
-			// Use simple interpolation for following
-			const FVector NewPos = FMath::VInterpTo(CurrentPos, TargetPos, DeltaTime, AideFollowSpeed / 100.0f);
-			AideChar->SetActorLocation(NewPos);
+			//~ FIX (PR #43 review): drive via movement input so collision/nav
+			//~ and CharacterMovementComponent stay authoritative — never
+			//~ SetActorLocation a character.
+			AideChar->AddMovementInput(MoveDir, 1.0f, false);
 		}
-		else
+		else if (AActor* Owner = GetOwner())
 		{
-			const FVector NewPos = FMath::VInterpTo(CurrentPos, TargetPos, DeltaTime, AideFollowSpeed / 100.0f);
-			GetOwner()->SetActorLocation(NewPos);
+			// Non-character fallback: direct interpolation at an explicit
+			// interp speed (tunable via AideFollowInterpSpeed).
+			const FVector Normalized = Direction.GetSafeNormal();
+			const FVector TargetPos = PartnerLoc + Normalized * CoachingDistance;
+			const FVector CurrentPos = Owner->GetActorLocation();
+			const FVector NewPos = FMath::VInterpTo(CurrentPos, TargetPos, DeltaTime, AideFollowInterpSpeed);
+			Owner->SetActorLocation(NewPos, true);
 		}
 	}
 }

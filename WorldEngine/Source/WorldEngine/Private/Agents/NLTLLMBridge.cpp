@@ -104,12 +104,16 @@ FString UNLTLLMBridge::BuildPrompt(
     // The prompt is engineered for qwen3:0.6b — small models tend to echo back
     // coordinates rather than explore. We use move_by with relative offsets
     // and explicitly tell the model to pick a NEW direction each time.
+    // NOTE: no trailing pre-filled JSON fragment — the model must emit a
+    // complete object so ParseResponse's strict validation can accept it.
     return FString::Printf(
-        TEXT("You are an AI agent exploring a 2D environment. Pick the next movement. "
+        TEXT("You are %s, an AI agent exploring a 2D environment. Pick the next movement. "
              "Respond ONLY with valid JSON.\n\n"
              "Current position: (%.1f, %.1f)\n"
              "Current velocity: (%.1f, %.1f)\n"
-             "Cognitive state: %s\n\n"
+             "Cognitive state: %s\n"
+             "Goal: %s\n"
+             "Environment: %s\n\n"
              "You MUST pick a destination that is different from your current position. "
              "Use move_by with dx and dy in range [-300, 300]. "
              "Each call must move you to a new area. Do not echo back your current coordinates.\n\n"
@@ -117,12 +121,13 @@ FString UNLTLLMBridge::BuildPrompt(
              "{\"command\": \"move_by\", \"dx\": <float>, \"dy\": <float>}\n"
              "{\"command\": \"move_to\", \"x\": <float>, \"y\": <float>}\n"
              "{\"command\": \"face_towards\", \"x\": <float>, \"y\": <float>}\n"
-             "{\"command\": \"stop\"}\n\n"
-             "Respond now:\n"
-             "{\"command\": "),
+             "{\"command\": \"stop\"}\n"),
+        *ActorName,
         CurrentLocation.X, CurrentLocation.Y,
         CurrentVelocity.X, CurrentVelocity.Y,
-        *CognitiveStr
+        *CognitiveStr,
+        *GoalDescription,
+        *EnvironmentContext
     );
 }
 
@@ -162,35 +167,40 @@ void UNLTLLMBridge::ParseResponse(const FString& ResponseBody)
     }
 
     FString ModelResponse;
-    if (JsonObj->HasField(TEXT("response")))
+    //~ FIX (PR #43 review): safe field extraction — GetStringField asserts on
+    //~ type mismatch; TryGet* returns false instead.
+    if (!JsonObj->TryGetStringField(TEXT("response"), ModelResponse))
     {
-        ModelResponse = JsonObj->GetStringField(TEXT("response"));
-    }
-    else
-    {
-        // Some APIs (e.g. /api/chat) return {"message":{"content":"..."}} 
-        if (JsonObj->HasField(TEXT("message")) && JsonObj->GetObjectField(TEXT("message")) && JsonObj->GetObjectField(TEXT("message"))->HasField(TEXT("content")))
+        // Some APIs (e.g. /api/chat) return {"message":{"content":"..."}}
+        const TSharedPtr<FJsonObject>* MessageObj = nullptr;
+        if (JsonObj->TryGetObjectField(TEXT("message"), MessageObj) && MessageObj && MessageObj->IsValid())
         {
-            ModelResponse = JsonObj->GetObjectField(TEXT("message"))->GetStringField(TEXT("content"));
+            (*MessageObj)->TryGetStringField(TEXT("content"), ModelResponse);
         }
-        else
+        if (ModelResponse.IsEmpty())
         {
             // The raw body might itself be the JSON we want
             ModelResponse = ResponseBody;
         }
     }
 
-    // Trim whitespace and potential markdown fences
+    // Trim whitespace and potential markdown fences (```json and bare ```).
     ModelResponse = ModelResponse.TrimStartAndEnd();
-    if (ModelResponse.StartsWith(TEXT("```json")))
+    if (ModelResponse.StartsWith(TEXT("```")))
     {
-        ModelResponse = ModelResponse.Mid(7);
+        // Strip the opening fence line (``` or ```json + optional language tag).
+        const int32 NewlineIdx = ModelResponse.Find(TEXT("\n"));
+        ModelResponse = (NewlineIdx != INDEX_NONE) ? ModelResponse.Mid(NewlineIdx + 1) : ModelResponse.Mid(3);
     }
     if (ModelResponse.EndsWith(TEXT("```")))
     {
         ModelResponse.LeftChopInline(3);
     }
     ModelResponse = ModelResponse.TrimStartAndEnd();
+
+    // The model may echo the prompt's schema help or emit trailing prose —
+    // extract the first balanced {...} object before strict validation.
+    ModelResponse = ExtractFirstJsonObject(ModelResponse);
 
     // Validate that we have JSON by trying to parse it
     TSharedRef<TJsonReader<>> Validator = TJsonReaderFactory<>::Create(ModelResponse);
@@ -203,4 +213,37 @@ void UNLTLLMBridge::ParseResponse(const FString& ResponseBody)
 
     // Broadcast the validated JSON string so Blueprint listeners can dispatch the command
     OnLLMResponse.Broadcast(ModelResponse);
+}
+
+FString UNLTLLMBridge::ExtractFirstJsonObject(const FString& Text)
+{
+    int32 StartIdx = Text.Find(TEXT("{"));
+    if (StartIdx == INDEX_NONE)
+    {
+        return Text;
+    }
+    int32 Depth = 0;
+    bool bInString = false;
+    bool bEscaped = false;
+    for (int32 i = StartIdx; i < Text.Len(); ++i)
+    {
+        const TCHAR C = Text[i];
+        if (bInString)
+        {
+            if (bEscaped) { bEscaped = false; }
+            else if (C == TCHAR('\\')) { bEscaped = true; }
+            else if (C == TCHAR('"')) { bInString = false; }
+            continue;
+        }
+        if (C == TCHAR('"')) { bInString = true; }
+        else if (C == TCHAR('{')) { ++Depth; }
+        else if (C == TCHAR('}'))
+        {
+            if (--Depth == 0)
+            {
+                return Text.Mid(StartIdx, i - StartIdx + 1);
+            }
+        }
+    }
+    return Text.Mid(StartIdx);
 }

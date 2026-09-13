@@ -463,20 +463,15 @@ void AAvatarCharacter::UpdateChoreography(float DeltaTime)
 {
     // The pair choreography component handles facing/positioning in its own tick.
     // Here we just ensure the partner reference is up-to-date.
+    // NOTE (PR #43 review): EmotionState->bIsMoving is owned by
+    // NLTCharacterAnimationComponent (PrePhysics tick, single writer) — do NOT
+    // write it here or the two writers race depending on tick order.
+    (void)DeltaTime;
     if (PairChoreography)
     {
         if (ChoreographyPartner && !PairChoreography->bHasPartner)
         {
             PairChoreography->SetPartner(ChoreographyPartner.Get());
-        }
-
-        // Sync bIsMoving to emotion component
-        if (EmotionState)
-        {
-            if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-            {
-                EmotionState->bIsMoving = MoveComp->Velocity.Size2D() > 5.0f;
-            }
         }
     }
 }

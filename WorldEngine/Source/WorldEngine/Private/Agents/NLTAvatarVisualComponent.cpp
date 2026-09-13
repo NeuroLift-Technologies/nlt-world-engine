@@ -170,7 +170,10 @@ void UNLTAvatarVisualComponent::UpdateFromEmotion(ENLTEmotionState Emotion, ENLT
 {
 	// Map emotion → status ring color + particle state.
 	// Intensity (0–1) dims the glow for low-intensity emotions.
+	// AnimState further modulates: Walk lifts dim states so moving avatars
+	// stay readable at a distance.
 	const float EffectiveGlow = FMath::Max(0.1f, Intensity) * MaxGlowIntensity;
+	const float MoveBoost = (AnimState == ENLTAnimationState::Walk) ? 0.15f * EffectiveGlow : 0.0f;
 
 	FLinearColor RingColor;
 	FString EmotionName;
@@ -229,6 +232,10 @@ void UNLTAvatarVisualComponent::UpdateFromEmotion(ENLTEmotionState Emotion, ENLT
 		EmotionName = TEXT("Unknown");
 		break;
 	}
+
+	//~ FIX (PR #43 review nit): AnimState was an unused param — Walk now
+	//~ lifts dim states so moving avatars stay readable at a distance.
+	TargetGlow += MoveBoost;
 
 	SetStatusRingColor(RingColor);
 }

@@ -103,6 +103,8 @@ void UNLTCharacterAnimationComponent::BindStaticMesh(UStaticMeshComponent* InSta
 	StaticMesh = InStaticMesh;
 	if (StaticMesh)
 	{
+		InitialStaticMeshLocation = StaticMesh->GetRelativeLocation();
+		bHasInitialStaticMeshLocation = true;
 		UE_LOG(LogNLTAnim, Log, TEXT("Bound StaticMesh fallback for procedural animation"));
 	}
 }
@@ -171,13 +173,17 @@ void UNLTCharacterAnimationComponent::PlayMontageForState(ENLTAnimationState Sta
 		return;
 	}
 
+	//~ FIX (PR #43 review): track the outgoing montage so the crossfade check
+	//~ compares old-vs-new instead of the new montage against itself.
+	UAnimMontage* OldMontage = CurrentMontage;
 	CurrentMontage = Montage;
 
-	// Crossfade from current montage to new one
+	// Crossfade from previous montage to new one
 	constexpr float FadeTime = 0.2f;
-	if (CurrentMontage && AnimInst->Montage_IsPlaying(CurrentMontage))
+	if (OldMontage && OldMontage != Montage && AnimInst->Montage_IsPlaying(OldMontage))
 	{
-		AnimInst->Montage_Play(Montage, 1.0f, EMontagePlayReturnType::MontageLength, FadeTime);
+		AnimInst->Montage_Stop(FadeTime, OldMontage);
+		AnimInst->Montage_Play(Montage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, false);
 	}
 	else
 	{
@@ -195,21 +201,32 @@ void UNLTCharacterAnimationComponent::ApplyProceduralPosture(float DeltaTime)
 
 	// Apply posture as mesh rotation (SimBody is a static mesh; we tilt it
 	// to approximate emotional body language).
+	//~ FIX (PR #43 review): actually use LeanForward (Pitch) and preserve the
+	//~ mesh's initial X/Y offset instead of snapping to (0,0,Z).
 	const float LeanForward = CurrentPosture.X * MaxProceduralTilt;
 	const float Slump = CurrentPosture.Y * MaxProceduralTilt * 0.5f;
 
-	const FRotator TargetRot(0.0f, 0.0f, Slump);
+	const FRotator TargetRot(LeanForward, 0.0f, Slump);
 	FRotator CurrentRot = StaticMesh->GetRelativeRotation();
 	FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, DeltaTime, 5.0f);
 	StaticMesh->SetRelativeRotation(NewRot);
 
-	// Subtle vertical bob for idle states
+	// Keep the mesh at its initial height except for the subtle idle bob.
+	const FVector BaseLoc = bHasInitialStaticMeshLocation
+		? InitialStaticMeshLocation
+		: StaticMesh->GetRelativeLocation();
+
 	if (CurrentState == ENLTAnimationState::Idle || CurrentState == ENLTAnimationState::IdleTired)
 	{
 		const float BobAmount = CurrentPosture.Z * 2.0f;
-		float CurrentZ = StaticMesh->GetRelativeLocation().Z;
-		float TargetZ = BobAmount;
-		CurrentZ = FMath::FInterpTo(CurrentZ, TargetZ, DeltaTime, 3.0f);
-		StaticMesh->SetRelativeLocation(FVector(0, 0, CurrentZ));
+		const float TargetZ = BaseLoc.Z + BobAmount;
+		const float NewZ = FMath::FInterpTo(StaticMesh->GetRelativeLocation().Z, TargetZ, DeltaTime, 3.0f);
+		StaticMesh->SetRelativeLocation(FVector(BaseLoc.X, BaseLoc.Y, NewZ));
+	}
+	else
+	{
+		// Ease back to the bind-pose location when not idling.
+		const FVector NewLoc = FMath::VInterpTo(StaticMesh->GetRelativeLocation(), BaseLoc, DeltaTime, 3.0f);
+		StaticMesh->SetRelativeLocation(NewLoc);
 	}
 }
