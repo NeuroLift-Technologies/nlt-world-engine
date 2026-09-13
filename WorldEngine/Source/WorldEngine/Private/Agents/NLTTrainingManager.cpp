@@ -100,7 +100,10 @@ void ANLTTrainingManager::InitializeTraining()
     Critic->SetupCritic(AgentManager, LearningInteractor, Policy, nullptr, true, CriticSettings, 1234);
 
     Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
-    FLearningAgentsCommunicator Communicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
+    FLearningAgentsTrainerProcessSettings TPS;
+    TPS.TaskName = TEXT("NLTTraining");
+    TPS.TrainerFileName = TEXT("train_ppo");
+    FLearningAgentsCommunicator Communicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess(TPS);
     FLearningAgentsPPOTrainerSettings TrainerSettings;
     TrainerSettings.MaxEpisodeStepNum = MaxEpisodeSteps;
     TrainerSettings.MaximumRecordedEpisodesPerIteration = 1000;
