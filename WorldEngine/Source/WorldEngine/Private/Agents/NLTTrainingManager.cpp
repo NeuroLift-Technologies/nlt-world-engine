@@ -135,8 +135,15 @@ void ANLTTrainingManager::Tick(float DeltaTime)
     }
 
     // RunTraining handles inference internally (GatherCompletions -> GatherRewards -> ProcessExperience -> RunInference)
-    // so we must NOT call Policy->RunInflance() separately here, or observation/action iterations will
+    // so we must NOT call Policy->RunInference() separately here, or observation/action iterations will
     // advance 2x faster than reward/completion and ProcessExperience will skip every agent.
+    //
+    // On the first eligible Tick, we call RunTraining with bTrain=true to perform
+    // one training step (collect experience -> train in Python -> receive networks).
+    // After that, the Python subprocess exits, so subsequent Ticks must use
+    // bTrain=false to run inference only — calling RunTraining with bTrain=true
+    // again would restart the training session and crash with
+    // "Unexpected communication received" / "Training has failed".
     if (bRunTraining && Trainer)
     {
         FLearningAgentsPPOTrainingSettings TrainingSettings;
@@ -151,7 +158,15 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         GameSettings.bUseFixedTimeStep = true;
         GameSettings.FixedTimeStepFrequency = 60.0f;
 
-        Trainer->RunTraining(TrainingSettings, GameSettings, false, true);
+        if (!bTrainingCompleted)
+        {
+            Trainer->RunTraining(TrainingSettings, GameSettings, false, true);
+            bTrainingCompleted = true;
+        }
+        else
+        {
+            Trainer->RunTraining(TrainingSettings, GameSettings, false, false);
+        }
     }
 }
 

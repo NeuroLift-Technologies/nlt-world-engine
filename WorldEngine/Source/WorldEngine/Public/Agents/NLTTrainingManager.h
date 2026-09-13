@@ -73,4 +73,10 @@ private:
     void OnEpisodeComplete();
 
     float TrainingTimer = 0.0f;
+
+    /** Tracks whether the first training iteration has completed.
+     *  After the first RunTraining call with bTrain=true, the Python subprocess
+     *  exits. Subsequent Ticks should only run inference (bTrain=false) to
+     *  avoid "Unexpected communication received" / "Training has failed". */
+    bool bTrainingCompleted = false;
 };

@@ -8,6 +8,16 @@ UNLTTrainingEnvironment::UNLTTrainingEnvironment()
 {
 }
 
+void UNLTTrainingEnvironment::ResetAgentEpisode_Implementation(const int32 AgentId)
+{
+    UObject* Agent = GetAgent(AgentId);
+    AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
+    if (Avatar && Avatar->CognitiveState)
+    {
+        Avatar->CognitiveState->ResetCognitiveState();
+    }
+}
+
 void UNLTTrainingEnvironment::GatherAgentReward_Implementation(float& OutReward, const int32 AgentId)
 {
     UObject* Agent = GetAgent(AgentId);
