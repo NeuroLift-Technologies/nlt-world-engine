@@ -165,11 +165,16 @@ bool AAvatarAIController::ExecuteLLMCommand(const FString& Command, const TShare
         }
 
         // move_to / move_by: nav path-following via the AI controller.
+        // Capture the previous LLM control state so we can restore it
+        // if MoveToLocation fails (don't leave bLLMControlActive stuck as true).
+        const bool bPreviousLLMControlActive = bLLMControlActive;
         SetLLMControlActive(true);
 
         const EPathFollowingRequestResult::Type Result = MoveToLocation(Destination, AcceptanceRadius, true, true, true, true);
         if (Result == EPathFollowingRequestResult::Failed)
         {
+            // Restore the previous LLM control state on failure.
+            SetLLMControlActive(bPreviousLLMControlActive);
             OutMessage = FString::Printf(TEXT("move failed: destination (%f, %f) unreachable"), Destination.X, Destination.Y);
             return false;
         }

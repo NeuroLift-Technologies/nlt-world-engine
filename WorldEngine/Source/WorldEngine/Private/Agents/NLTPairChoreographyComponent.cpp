@@ -40,7 +40,8 @@ void UNLTPairChoreographyComponent::TickComponent(float DeltaTime, ELevelTick Ti
 	}
 
 	// Aide follows Avatar at coaching distance when in coaching mode
-	if (CurrentMode == ENLTPairChoreographyMode::Coaching && PairRole == ENLTPairRole::Aide)
+	// and auto-positioning is enabled.
+	if (CurrentMode == ENLTPairChoreographyMode::Coaching && PairRole == ENLTPairRole::Aide && bAideAutoPositions)
 	{
 		UpdateAidePosition(DeltaTime);
 	}

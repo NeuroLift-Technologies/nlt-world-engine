@@ -192,7 +192,7 @@ void UNLTCharacterAnimationComponent::PlayMontageForState(ENLTAnimationState Sta
 	constexpr float FadeTime = 0.2f;
 	if (OldMontage && OldMontage != Montage && AnimInst->Montage_IsPlaying(OldMontage))
 	{
-		AnimInst->Montage_Stop(FadeTime, OldMontage);
+		AnimInst->Montage_Stop(BlendTime, OldMontage);
 		AnimInst->Montage_Play(Montage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, false);
 	}
 	else
@@ -216,7 +216,7 @@ void UNLTCharacterAnimationComponent::ApplyProceduralPosture(float DeltaTime)
 	const float LeanForward = CurrentPosture.X * MaxProceduralTilt;
 	const float Slump = CurrentPosture.Y * MaxProceduralTilt * 0.5f;
 
-	const FRotator TargetRot(LeanForward, 0.0f, Slump);
+	const FRotator TargetRot(Slump, 0.0f, LeanForward);
 	FRotator CurrentRot = StaticMesh->GetRelativeRotation();
 	FRotator NewRot = FMath::RInterpTo(CurrentRot, TargetRot, DeltaTime, 5.0f);
 	StaticMesh->SetRelativeRotation(NewRot);

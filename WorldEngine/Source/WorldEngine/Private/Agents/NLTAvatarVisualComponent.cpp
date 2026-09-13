@@ -32,7 +32,8 @@ void UNLTAvatarVisualComponent::BeginPlay()
 	SkeletalMesh = Cast<USkeletalMeshComponent>(GetOwner()->GetComponentByClass(USkeletalMeshComponent::StaticClass()));
 
 	// Fallback: look for a StaticMeshComponent (SimBody procedural body).
-	if (!SkeletalMesh)
+	// Use static-mesh fallback when skeletal exists but has no mesh asset.
+	if (!SkeletalMesh || !SkeletalMesh->GetSkeletalMeshAsset())
 	{
 		StaticMeshComp = Cast<UStaticMeshComponent>(GetOwner()->GetComponentByClass(UStaticMeshComponent::StaticClass()));
 	}

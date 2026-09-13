@@ -217,33 +217,54 @@ void UNLTLLMBridge::ParseResponse(const FString& ResponseBody)
 
 FString UNLTLLMBridge::ExtractFirstJsonObject(const FString& Text)
 {
-    int32 StartIdx = Text.Find(TEXT("{"));
-    if (StartIdx == INDEX_NONE)
+    int32 SearchIdx = 0;
+    while (SearchIdx < Text.Len())
     {
-        return Text;
-    }
-    int32 Depth = 0;
-    bool bInString = false;
-    bool bEscaped = false;
-    for (int32 i = StartIdx; i < Text.Len(); ++i)
-    {
-        const TCHAR C = Text[i];
-        if (bInString)
+        int32 StartIdx = Text.Find(TEXT("{"), ESearchCase::CaseSensitive, ESearchDir::FromStart, SearchIdx);
+        if (StartIdx == INDEX_NONE)
+            return Text;
+
+        int32 Depth = 0;
+        bool bInString = false;
+        bool bEscaped = false;
+        int32 EndIdx = INDEX_NONE;
+        for (int32 i = StartIdx; i < Text.Len(); ++i)
         {
-            if (bEscaped) { bEscaped = false; }
-            else if (C == TCHAR('\\')) { bEscaped = true; }
-            else if (C == TCHAR('"')) { bInString = false; }
-            continue;
-        }
-        if (C == TCHAR('"')) { bInString = true; }
-        else if (C == TCHAR('{')) { ++Depth; }
-        else if (C == TCHAR('}'))
-        {
-            if (--Depth == 0)
+            const TCHAR C = Text[i];
+            if (bInString)
             {
-                return Text.Mid(StartIdx, i - StartIdx + 1);
+                if (bEscaped) { bEscaped = false; }
+                else if (C == TCHAR('\\')) { bEscaped = true; }
+                else if (C == TCHAR('"')) { bInString = false; }
+                continue;
+            }
+            if (C == TCHAR('"')) { bInString = true; }
+            else if (C == TCHAR('{')) { ++Depth; }
+            else if (C == TCHAR('}'))
+            {
+                if (--Depth == 0)
+                {
+                    EndIdx = i;
+                    break;
+                }
             }
         }
+
+        if (EndIdx == INDEX_NONE)
+            return Text.Mid(StartIdx);
+
+        // Found a balanced object - try to deserialize it
+        const FString Candidate = Text.Mid(StartIdx, EndIdx - StartIdx + 1);
+        TSharedRef<TJsonReader<>> Validator = TJsonReaderFactory<>::Create(Candidate);
+        TSharedPtr<FJsonObject> CandidateJson = MakeShareable(new FJsonObject);
+        if (FJsonSerializer::Deserialize(Validator, CandidateJson) && CandidateJson.IsValid())
+        {
+            return Candidate;
+        }
+
+        // This candidate didn't parse - continue searching from after it
+        SearchIdx = EndIdx + 1;
     }
-    return Text.Mid(StartIdx);
+
+    return Text;
 }

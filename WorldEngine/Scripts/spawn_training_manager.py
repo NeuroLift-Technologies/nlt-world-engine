@@ -35,20 +35,21 @@ def main():
         print("ERROR: Could not get editor world")
         return
 
+    # Load the native NLTTrainingManager class once (no A prefix, 
+    # no load_blueprint_class for native C++ classes)
+    training_manager_class = unreal.EditorAssetLibrary.find_asset("/Script/WorldEngine.NLTTrainingManager")
+    if not training_manager_class:
+        print("ERROR: Could not find NLTTrainingManager class")
+        return
+
     # Check if NLTTrainingManager already exists in the level
-    existing = unreal.GameplayStatics.get_actor_of_class(world, unreal.ANLTTrainingManager)
+    existing = unreal.GameplayStatics.get_actor_of_class(world, training_manager_class)
     if existing:
         print(f"NLTTrainingManager already in level: {existing.get_name()}")
         return
 
     # Spawn location
     spawn_loc = unreal.Vector(0, 0, 500)
-
-    # Get the class from the blueprint
-    training_manager_class = unreal.EditorAssetLibrary.load_blueprint_class("/Script/WorldEngine.NLTTrainingManager")
-    if not training_manager_class:
-        print("ERROR: Could not load ANLTTrainingManager class")
-        return
 
     # Spawn the actor
     spawn_params = unreal.ActorSpawnParameters()
@@ -67,10 +68,6 @@ def main():
         actor.b_run_training = True
         actor.max_episode_steps = 512
         
-        # Start the episode
-        if hasattr(actor, 'BeginPlay'):
-            actor.begin_play()
-            
         print("NLTTrainingManager configured and started")
     else:
         print("ERROR: Failed to spawn NLTTrainingManager")
