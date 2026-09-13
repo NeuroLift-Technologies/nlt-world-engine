@@ -1,49 +1,18 @@
-// NLTTrainingManager.h — Dual-model, dual-actor RL training
+// NLTTrainingManager.h — Single policy, single critic, dual-actor RL training
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "LearningAgentsManager.h"
+#include "LearningAgentsInteractor.h"
 #include "LearningAgentsPolicy.h"
 #include "LearningAgentsCritic.h"
 #include "LearningAgentsPPOTrainer.h"
 #include "LearningAgentsTrainingEnvironment.h"
 #include "NLTAvatarInteractor.h"
-#include "NLTAideInteractor.h"
 #include "NLTTrainingEnvironment.h"
 #include "NLTEpisodeManager.h"
 #include "NLTTrainingManager.generated.h"
-
-USTRUCT()
-struct FNLTAgentModelGroup
-{
-    GENERATED_BODY()
-
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    int32 GroupId = 0;
-
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    FName GroupName;
-
-    ULearningAgentsInteractor* Interactor = nullptr;
-
-    ULearningAgentsManager* Manager = nullptr;
-
-    ULearningAgentsPolicy* Policy = nullptr;
-
-    ULearningAgentsCritic* Critic = nullptr;
-
-    ULearningAgentsPPOTrainer* Trainer = nullptr;
-
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    FVector SpawnLocation = FVector::ZeroVector;
-
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    int32 AgentId = INDEX_NONE;
-
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    FName GovernanceAgentId;
-};
 
 UCLASS()
 class WORLDENGINE_API ANLTTrainingManager : public AActor
@@ -56,56 +25,56 @@ public:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
 
-    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    UPROPERTY(EditAnywhere, Category = "NLT|Training")
     FVector ActorAStartLocation = FVector(-500.0f, 0.0f, 100.0f);
 
-    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    UPROPERTY(EditAnywhere, Category = "NLT|Training")
     FVector ActorBStartLocation = FVector(500.0f, 0.0f, 100.0f);
 
-    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    UPROPERTY(EditAnywhere, Category = "NLT|Training")
     float TickInterval = 0.1f;
 
-    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    UPROPERTY(EditAnywhere, Category = "NLT|Training")
     bool bRunInference = true;
 
-    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    UPROPERTY(EditAnywhere, Category = "NLT|Training")
     bool bRunTraining = true;
 
-    UPROPERTY(EditAnywhere, Category = "NLT|DualModel")
+    UPROPERTY(EditAnywhere, Category = "NLT|Training")
     int32 MaxEpisodeSteps = 512;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
     ULearningAgentsManager* AgentManager = nullptr;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
     UNLTEpisodeManager* EpisodeManager = nullptr;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
     ULearningAgentsTrainingEnvironment* TrainingEnvironment = nullptr;
 
-    TArray<ULearningAgentsManager*> ModelGroupManagers;
+    UNLTAvatarInteractor* Interactor = nullptr;
 
-    TArray<FNLTAgentModelGroup> ModelGroups;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
+    ULearningAgentsPolicy* Policy = nullptr;
 
-    UFUNCTION(BlueprintCallable, Category = "NLT|DualModel")
-    int32 GetModelGroupCount() const { return ModelGroups.Num(); }
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
+    ULearningAgentsCritic* Critic = nullptr;
 
-    UFUNCTION(BlueprintPure, Category = "NLT|DualModel")
-    int32 GetActorAgentId(int32 GroupIndex) const;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Training")
+    ULearningAgentsPPOTrainer* Trainer = nullptr;
 
 protected:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-    void InitializeModelGroups();
+    void InitializeTraining();
     void SpawnDualActors();
-    void InitializeGovernanceForGroup(int32 GroupIndex, class AAvatarCharacter* Actor);
-    void RunDualInference();
-    void RunDualTraining();
+    void InitializeGovernanceForActor(class AAvatarCharacter* Actor, FName GovId);
+    void RunInference();
+    void RunTrainingStep();
 
     UFUNCTION()
     void OnEpisodeComplete();
 
     float TrainingTimer = 0.0f;
-    bool bGovernanceInitialized = false;
 };
