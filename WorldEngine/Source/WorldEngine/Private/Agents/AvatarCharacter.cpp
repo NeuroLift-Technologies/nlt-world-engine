@@ -59,7 +59,7 @@ AAvatarCharacter::AAvatarCharacter()
         
         // Load the material that comes with SimBody
         static ConstructorHelpers::FObjectFinder<UMaterialInterface> SimBodyMaterialObj(
-            TEXT("/Game/Kits/SimBody/M_SimBody_Base.M_SimBody_Base"));
+            TEXT("/Game/Kits/SimBody/Source/M_SimBody_Base.M_SimBody_Base"));
         if (SimBodyMaterialObj.Succeeded())
         {
             BodyMaterial = SimBodyMaterialObj.Object;
