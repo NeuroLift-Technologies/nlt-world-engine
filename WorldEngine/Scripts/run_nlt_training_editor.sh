@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_FILE="$SCRIPT_DIR/../WorldEngine.uproject"
-ENGINE_DIR="/home/joshd/Documents/NLT/Engine"
+ENGINE_DIR="${NLT_ENGINE_DIR:-$HOME/Documents/NLT/Engine}"
 
 cd "$SCRIPT_DIR/.."
 

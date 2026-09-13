@@ -287,8 +287,8 @@ void AAvatarAIController::RequestLLMMovementCommand()
     {
         TArray<float> StateValues = Avatar->CognitiveState->GetObservationValues();
         static const TArray<FName> StateNames = {
-            TEXT("boredom"), TEXT("curiosity"), TEXT("focus"),
-            TEXT("stress"), TEXT("burnout"), TEXT("emotional_state"),
+            TEXT("focus"), TEXT("cognitive_load"), TEXT("stress"),
+            TEXT("burnout"), TEXT("independence"), TEXT("fusion_ready"),
             TEXT("success_rate")
         };
         for (int32 i = 0; i < StateValues.Num() && i < StateNames.Num(); ++i)

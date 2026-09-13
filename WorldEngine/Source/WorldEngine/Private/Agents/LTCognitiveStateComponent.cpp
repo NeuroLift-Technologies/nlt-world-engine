@@ -1,5 +1,6 @@
 // LTCognitiveStateComponent.cpp
 #include "Agents/LTCognitiveStateComponent.h"
+#include "Agents/NLTEmotionStateComponent.h"
 
 ULTCognitiveStateComponent::ULTCognitiveStateComponent()
 {
@@ -84,34 +85,37 @@ void ULTCognitiveStateComponent::ResetCognitiveState()
 
 void ULTCognitiveStateComponent::UpdateEmotionalState()
 {
-    // Derive EmotionalState FName from cognitive dimensions.
-    // This mirrors the priority logic in UNLTEmotionStateComponent::ComputeTargetEmotion.
-    if (Stress > 0.7f || CognitiveLoad > 0.85f)
+    // Derive EmotionalState FName from the emotion state component's
+    // CurrentEmotion enum, ensuring a single source of truth with
+    // UNLTEmotionStateComponent. This respects intent, temporary overrides
+    // (Working, Coached, Celebrating), and customized thresholds — so typed
+    // consumers and FName consumers always receive the same state.
+    if (AActor* Owner = GetOwner())
     {
-        EmotionalState = FName(TEXT("Overwhelmed"));
+        if (const UNLTEmotionStateComponent* EmotionComp =
+            Owner->FindComponentByClass<UNLTEmotionStateComponent>())
+        {
+            // Convert the enum to the matching FName string. This is a
+            // pure type conversion — not threshold logic — so it stays
+            // in sync with the sim-driven emotion state machine.
+            switch (EmotionComp->CurrentEmotion)
+            {
+            case ENLTEmotionState::Neutral:     EmotionalState = FName(TEXT("Neutral")); break;
+            case ENLTEmotionState::Focused:     EmotionalState = FName(TEXT("Focused")); break;
+            case ENLTEmotionState::Working:     EmotionalState = FName(TEXT("Working")); break;
+            case ENLTEmotionState::Struggling:  EmotionalState = FName(TEXT("Struggling")); break;
+            case ENLTEmotionState::Overwhelmed: EmotionalState = FName(TEXT("Overwhelmed")); break;
+            case ENLTEmotionState::Drifting:    EmotionalState = FName(TEXT("Drifting")); break;
+            case ENLTEmotionState::Hyperfocus:  EmotionalState = FName(TEXT("Hyperfocus")); break;
+            case ENLTEmotionState::Coached:     EmotionalState = FName(TEXT("Coached")); break;
+            case ENLTEmotionState::Fatigued:    EmotionalState = FName(TEXT("Fatigued")); break;
+            case ENLTEmotionState::Celebrating: EmotionalState = FName(TEXT("Celebrating")); break;
+            default:                            EmotionalState = NAME_None; break;
+            }
+            return;
+        }
     }
-    else if (Stress > 0.5f)
-    {
-        EmotionalState = FName(TEXT("Struggling"));
-    }
-    else if (Burnout > 0.6f)
-    {
-        EmotionalState = FName(TEXT("Fatigued"));
-    }
-    else if (CognitiveLoad > 0.7f && Focus > 0.7f)
-    {
-        EmotionalState = FName(TEXT("Hyperfocus"));
-    }
-    else if (Focus < 0.3f)
-    {
-        EmotionalState = FName(TEXT("Drifting"));
-    }
-    else if (Focus > 0.7f && CognitiveLoad > 0.2f)
-    {
-        EmotionalState = FName(TEXT("Focused"));
-    }
-    else
-    {
-        EmotionalState = FName(TEXT("Neutral"));
-    }
+
+    // Fallback: clear the state if the emotion component is unavailable.
+    EmotionalState = NAME_None;
 }

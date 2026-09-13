@@ -208,7 +208,7 @@ void ANLTTrainingManager::Tick(float DeltaTime)
 
     // After training is done (or if we're only doing inference),
     // run the policy directly to generate actions every tick.
-    if (Policy && bRunTraining)
+    if (Policy && bRunInference)
     {
         Policy->RunInference(0.0f);
     }

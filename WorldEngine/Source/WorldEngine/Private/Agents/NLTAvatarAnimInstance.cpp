@@ -72,6 +72,22 @@ void UNLTAvatarAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			OnAnimationStateChanged(CurrentAnimationState, CachedAnimState);
 			CachedAnimState = CurrentAnimationState;
 		}
+
+		// Forward thought-bubble requests to the Animation Blueprint.
+		// The emotion component updates CurrentThoughtBubble on emotion
+		// change; detect new non-empty values and invoke the event so
+		// an Animation Blueprint that implements OnThoughtBubbleRequested
+		// receives the bubble text.
+		const FString& NewBubble = EmotionState->CurrentThoughtBubble;
+		if (!NewBubble.IsEmpty() && NewBubble != CachedThoughtBubble)
+		{
+			OnThoughtBubbleRequested(NewBubble);
+			CachedThoughtBubble = NewBubble;
+		}
+		else if (NewBubble.IsEmpty())
+		{
+			CachedThoughtBubble.Empty();
+		}
 	}
 
 	// Movement

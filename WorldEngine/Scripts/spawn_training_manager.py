@@ -59,7 +59,10 @@ def main():
     if actor:
         print(f"Spawned NLTTrainingManager: {actor.get_name()} at {spawn_loc.to_tuple()}")
         
-        # Configure
+        # Configure — must be set BEFORE begin_play() to take effect.
+        # PPO training mode: disable LLM control so the LearningAgents
+        # policy provides actions instead of the REST bridge.
+        actor.b_use_llm_control = False
         actor.b_run_inference = True
         actor.b_run_training = True
         actor.max_episode_steps = 512

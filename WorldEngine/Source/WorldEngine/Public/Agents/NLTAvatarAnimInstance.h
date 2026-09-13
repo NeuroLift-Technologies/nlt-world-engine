@@ -130,4 +130,7 @@ protected:
 
 	/** Cached animation state (for change detection) */
 	ENLTAnimationState CachedAnimState = ENLTAnimationState::None;
+
+	/** Cached thought bubble text (for change detection) */
+	FString CachedThoughtBubble;
 };

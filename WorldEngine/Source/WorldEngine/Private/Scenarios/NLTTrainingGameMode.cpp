@@ -3,6 +3,7 @@
 #include "Agents/NLTTrainingManager.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+#include "Kismet/GameplayStatics.h"
 
 ANLTTrainingGameMode::ANLTTrainingGameMode()
 {
@@ -11,10 +12,13 @@ ANLTTrainingGameMode::ANLTTrainingGameMode()
 
 void ANLTTrainingGameMode::BeginPlay()
 {
-    Super::BeginPlay();
+    // Bypass ANLTDemoGameMode::BeginPlay which starts the 20-agent demo scenario.
+    // Training mode should not spawn demo agents — ANLTTrainingManager handles
+    // its own actor spawning via deferred SpawnActor.
+    AGameModeBase::BeginPlay();
 
-    // Spawn doors (from NLTDemoGameMode::BeginPlay)
-    // Note: We skip scenario agent spawning to avoid conflict with training
+    // Spawn doors only if the training map requires them (Workplace_Level does).
+    SpawnLevelDoors();
 
     UE_LOG(LogTemp, Log, TEXT("NLTTrainingGameMode: Spawning training manager..."));
 
@@ -29,19 +33,29 @@ void ANLTTrainingGameMode::BeginPlay()
     SpawnParams.Name = TEXT("NLTTrainingManager_0");
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    ANLTTrainingManager* TrainingManager = World->SpawnActor<ANLTTrainingManager>(
+    // Use deferred spawning so we can configure the manager before BeginPlay runs.
+    // This ensures bUseLLMControl is set to false (PPO mode) before the manager's
+    // BeginPlay() executes.
+    ANLTTrainingManager* TrainingManager = World->SpawnActorDeferred<ANLTTrainingManager>(
         ANLTTrainingManager::StaticClass(),
-        FVector::ZeroVector,
-        FRotator::ZeroRotator,
-        SpawnParams
+        FTransform::Identity,
+        this,
+        nullptr,
+        ESpawnActorCollisionHandlingMethod::AlwaysSpawn
     );
 
     if (TrainingManager)
     {
-        UE_LOG(LogTemp, Log, TEXT("NLTTrainingGameMode: Training manager spawned: %s"), *TrainingManager->GetName());
+        // PPO training mode: disable LLM control before BeginPlay.
+        TrainingManager->bUseLLMControl = false;
         TrainingManager->bRunInference = true;
         TrainingManager->bRunTraining = true;
         TrainingManager->MaxEpisodeSteps = 512;
+
+        // Complete spawning (fires BeginPlay with properties already set).
+        UGameplayStatics::FinishSpawningActor(TrainingManager, FTransform::Identity);
+
+        UE_LOG(LogTemp, Log, TEXT("NLTTrainingGameMode: Training manager spawned: %s"), *TrainingManager->GetName());
     }
     else
     {

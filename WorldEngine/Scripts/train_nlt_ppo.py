@@ -162,28 +162,32 @@ def main():
         make_task_dir=args.make_task_dir,
     )
 
-    # Get config from UE (via shared memory)
-    config = communicator.shared_memory_processes[0].config
-    config['TaskName'] = task_name
-    config["TaskDirectory"] = communicator.task_dir
-    config['CommunicationType'] = 'SharedMemory'
-
-    # Apply PPO settings overrides from config file (if provided)
-    if "PPOSettings" in ppo_overrides:
-        print(f"[NLT] Overriding PPO settings from config file")
-        config['PPOSettings'] = ppo_overrides['PPOSettings']
-    if "TrainingSettings" in ppo_overrides:
-        config['TrainingSettings'] = ppo_overrides['TrainingSettings']
-
-    # Trackers
-    trackers = get_experiment_trackers(config)
-    trackers.append(JsonLoggerTracker(os.path.join(task_dir, "training_log.json")))
-
-    print(f"[NLT] Trackers: {[type(t).__name__ for t in trackers]}")
-    print("[NLT] Connecting to UE training process...")
-    print("[NLT] Waiting for NLTTrainingManager to spawn agents and begin episode...")
+    # All setup work that can leak shared-memory resources must happen inside
+    # the try/finally so communicator.close() runs on any failure.
+    trackers = []
 
     try:
+        # Get config from UE (via shared memory)
+        config = communicator.shared_memory_processes[0].config
+        config['TaskName'] = task_name
+        config["TaskDirectory"] = communicator.task_dir
+        config['CommunicationType'] = 'SharedMemory'
+
+        # Apply PPO settings overrides from config file (if provided)
+        if "PPOSettings" in ppo_overrides:
+            print("[NLT] Overriding PPO settings from config file")
+            config['PPOSettings'] = ppo_overrides['PPOSettings']
+        if "TrainingSettings" in ppo_overrides:
+            config['TrainingSettings'] = ppo_overrides['TrainingSettings']
+
+        # Trackers
+        trackers = get_experiment_trackers(config)
+        trackers.append(JsonLoggerTracker(os.path.join(task_dir, "training_log.json")))
+
+        print(f"[NLT] Trackers: {[type(t).__name__ for t in trackers]}")
+        print("[NLT] Connecting to UE training process...")
+        print("[NLT] Waiting for NLTTrainingManager to spawn agents and begin episode...")
+
         train(config, communicator, trackers)
     except KeyboardInterrupt:
         print("\n[NLT] Training interrupted by user")

@@ -29,18 +29,23 @@ echo "Mode:    $MODE"
 echo ""
 
 # 1) Clean up stale shared memory from crashed/killed previous runs.
+# Match only NLT-related shared-memory files (LearningAgents uses task-name
+# based names) to avoid clobbering unrelated processes' IPC.
 echo "Cleaning up stale shared memory..."
-rm -f /dev/shm/\{\*\} 2>/dev/null || true
+rm -f /dev/shm/*NLT* 2>/dev/null || true
+rm -f /dev/shm/ue4.NLT* 2>/dev/null || true
+rm -f /dev/shm/ue.NLT* 2>/dev/null || true
 
 # 2) Clean up stale LearningCore intermediate config files from previous runs.
 echo "Cleaning up stale LearningCore intermediate files..."
 rm -rf "$PROJECT_ROOT/WorldEngine/Intermediate/LearningCore"/NLTTraining* 2>/dev/null || true
 
-# 3) Kill any orphaned Python trainer processes from prior runs.
-echo "Killing orphaned trainer processes..."
-pkill -9 -f "train[.]ppo" 2>/dev/null || true
-pkill -9 -f "train[.]py" 2>/dev/null || true
-pkill -9 -f "UnrealEditor-Cmd" 2>/dev/null || true
+# 3) Kill only orphaned trainer/editor processes tied to THIS project.
+# Match on the project file path to avoid terminating unrelated Unreal
+# projects or trainers running on the same machine.
+echo "Killing orphaned trainer processes for this project..."
+pkill -9 -f "train_nlt_ppo.*$PROJECT_FILE" 2>/dev/null || true
+pkill -9 -f "UnrealEditor-Cmd.*$PROJECT_FILE" 2>/dev/null || true
 
 # 4) Give the OS a moment to release handles
 sleep 1
@@ -60,7 +65,8 @@ if [[ "$MODE" == "llm" ]]; then
         -nullrhi \
         -unattended \
         -stdout \
-        -FullStdOutLogOutput
+        -FullStdOutLogOutput \
+        -llm
 else
     echo "Launching headless sim with PPO training..."
     echo "  Map:      /Game/Scenarios/Levels/Workplace_Level.Workplace_Level"
@@ -68,10 +74,11 @@ else
     echo ""
     exec "$UE_EDITOR" \
         "$PROJECT_FILE" \
-        /Game/Scenarios/Levels/Workplace_Level.Workplace_Level \
+        "/Game/Scenarios/Levels/Workplace_Level.Workplace_Level?game=/Script/WorldEngine.NLTTrainingGameMode" \
         -game \
         -nullrhi \
         -unattended \
         -stdout \
-        -FullStdOutLogOutput
+        -FullStdOutLogOutput \
+        -ppo
 fi

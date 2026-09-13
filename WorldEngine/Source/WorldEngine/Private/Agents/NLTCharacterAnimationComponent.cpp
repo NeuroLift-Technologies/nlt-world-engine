@@ -26,12 +26,20 @@ void UNLTCharacterAnimationComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Auto-bind: try to find the SkeletalMeshComponent on the owning character
+	// Auto-bind: try to find the SkeletalMeshComponent on the owning character,
+	// but only if it actually has a mesh asset assigned. ACharacter always owns
+	// a USkeletalMeshComponent, but when AvatarCharacter uses the SimBody static
+	// mesh fallback, that mesh has no asset — so we must skip the bind to keep
+	// the static-mesh fallback path alive.
 	if (AActor* Owner = GetOwner())
 	{
 		if (ACharacter* Char = Cast<ACharacter>(Owner))
 		{
-			BindSkeletalMesh(Char->GetMesh());
+			USkeletalMeshComponent* OwnerMesh = Char->GetMesh();
+			if (OwnerMesh && OwnerMesh->GetSkeletalMeshAsset())
+			{
+				BindSkeletalMesh(OwnerMesh);
+			}
 		}
 
 		// Cache the emotion component
@@ -94,6 +102,7 @@ void UNLTCharacterAnimationComponent::BindSkeletalMesh(USkeletalMeshComponent* I
 	SkelMesh = InSkelMesh;
 	if (SkelMesh)
 	{
+		StaticMesh = nullptr; // Clear opposite binding so TickComponent picks the right path
 		UE_LOG(LogNLTAnim, Log, TEXT("Bound SkeletalMesh for animation"));
 	}
 }
@@ -103,6 +112,7 @@ void UNLTCharacterAnimationComponent::BindStaticMesh(UStaticMeshComponent* InSta
 	StaticMesh = InStaticMesh;
 	if (StaticMesh)
 	{
+		SkelMesh = nullptr; // Clear opposite binding so TickComponent picks the right path
 		InitialStaticMeshLocation = StaticMesh->GetRelativeLocation();
 		bHasInitialStaticMeshLocation = true;
 		UE_LOG(LogNLTAnim, Log, TEXT("Bound StaticMesh fallback for procedural animation"));

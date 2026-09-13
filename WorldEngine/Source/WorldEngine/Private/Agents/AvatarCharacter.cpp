@@ -86,7 +86,9 @@ AAvatarCharacter::AAvatarCharacter()
     // ============== Emotion-Driven Character Animation ==============
     // If a SkeletalMesh asset is assigned, use it for rigged character animation
     // instead of (or in addition to) the SimBody static mesh fallback.
-    InitializeCharacterMesh();
+    // NOTE: InitializeCharacterMesh() is deferred to BeginPlay() so that
+    // Blueprint-overridden bUseSkeletalMeshCharacter / SkeletalMeshCharacter
+    // values are finalized before we evaluate them.
     
     // Create particle system components
     StressParticleComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("StressParticles"));
@@ -160,6 +162,10 @@ void AAvatarCharacter::BeginPlay()
             CognitiveState->CognitiveLoad,
             CognitiveState->EmotionalState);
     }
+
+    // Initialize mesh selection (deferred from constructor so that
+    // Blueprint-overridden properties are finalized)
+    InitializeCharacterMesh();
 
     // Bind emotion component to character components
     BindEmotionToComponents();
