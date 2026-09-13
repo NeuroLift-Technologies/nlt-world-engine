@@ -11,9 +11,9 @@
 ### 🎯 CHAR-001 — Character Animation & Emotion System (UE WorldEngine)
 - **Agent:** Claude Code (Poolside) · **Opened:** 2026-09-13 · **Branch:** `feat/character-animation-emotion-system`
 - **Scope:** Build emotion-driven character animation system in the UE WorldEngine project. Swap static-mesh SimBody characters for rigged SkeletalMesh characters with an emotion state machine wired to cognitive values (focus/stress/cogLoad/burnout), an animation state machine with smooth transitions, Avatar↔Aide social choreography, and a procedural animation fallback via UAnimInstance.
-- **Delivered:** —
+- **Delivered:** NLTEmotionStateComponent (emotion state machine), UNLTAvatarAnimInstance (procedural pose data provider + facial morph targets), NLTCharacterAnimationComponent (animation state machine with montage + static-mesh fallback), NLTPairChoreographyComponent (Avatar↔Aide social choreography), AvatarCharacter integration (emotion→animation→visuals pipeline).
 - **Blockers:** No UE editor runtime available; limited to UBT headless compilation. No SkeletalMesh or AnimAssest assets exist yet — procedural UAnimInstance fallback required.
-- **Next action:** Create NLTEmotionStateComponent, UNLTAvatarAnimInstance, NLTCharacterAnimationComponent, and NLTPairChoreographyComponent; integrate into AvatarCharacter; compile via UBT.
+- **Next action:** Update PLAN.md with emotion-animation phase documentation. Create NLTAideCharacter class. Wire OnSimulationTick delegate for sim-synchronized cognitive decay.
 
 ---
 

@@ -25,22 +25,103 @@
 - [ ] Clothing color coding (Avatar = warm, Aide = cool, Advocate = gradient)
 - [ ] Scale variation (subtle height/weight differences)
 
-### 2.2 — Animation System
-- [ ] **Idle animations** — breathing, looking around, fidgeting
-- [ ] **Walk cycle** — smooth leg/arm swing, body lean
-- [ ] **Work animation** — typing posture, head down, occasional stretch
-- [ ] **Struggle animation** — head in hands, pacing, rubbing temples
-- [ ] **Hyperfocus animation** — locked posture, rapid typing, glowing eyes
-- [ ] **Coaching animation** — Aide gestures, Avatar nods, thought bubbles
-- [ ] **Celebration animation** — jump, sparkles, confetti on task complete
-- [ ] **Transition blending** — smooth interpolation between states
+### 2.2 — Animation System ✅ IMPLEMENTED (UE WorldEngine)
+- [x] **Idle animations** — breathing, looking around, fidgeting (procedural via NLTAvatarAnimInstance + NLTCharacterAnimationComponent)
+- [x] **Walk cycle** — arm swing + leg swing (procedural, driven by CharacterMovementComponent velocity)
+- [x] **Work animation** — typing posture, head down, hands positioned over keyboard
+- [x] **Struggle animation** — head tilted, arms raised (head-in-hands pose), slumped spine
+- [x] **Hyperfocus animation** — locked posture, rapid micro-tension fidgets, tense arms
+- [x] **Coaching animation** — Aide right-arm gesture + forward lean; Avatar nods in response
+- [x] **Celebration animation** — arms raised, body bounce (yaw oscillation)
+- [x] **Transition blending** — smooth crossfade between montage states (0.2s fade), spring-interpolated procedural posture
+- [x] **Emotion → animation mapping** — ENLTEmotionState → ENLTAnimationState (see NLTFusionCore.h)
+- [ ] Asset-based skeletal animations (requires imported rigs + Animation Blueprints)
 
-### 2.3 — Emotional Feedback
-- [ ] Facial expression changes per state (neutral, focused, stressed, happy)
-- [ ] Thought bubbles above head (💡 idea, 😰 stress, ❓ confused, ✓ done)
-- [ ] State particles (sweat drops when stressed, lightbulb when focusing, hearts when coached)
-- [ ] Posture changes (slumped when tired, upright when confident)
-- [ ] Color temperature shift on character (warm = good, blue = struggling)
+### 2.3 — Emotional Feedback ✅ IMPLEMENTED (UE WorldEngine)
+- [x] **Facial expression changes** per state via morph targets (mouthSmile, eyeBlink, browFurrow, eyeWide) driven by ENLTFacialExpression enum
+- [x] **Thought bubbles** — current emotion maps to unicode bubble glyph (working→💻, drifting→😰, hyperfocus→🎯, overwhelmed→❗, coached→✦, struggling→😣, fatigued→😴, celebrating→🎉, focused→💡, neutral→"")
+- [x] **State particles** — NLTAvatarVisualComponent glow intensity scales with EmotionalIntensity; Stress/Focus auras on existing PSCs
+- [x] **Posture changes** — PostureInfluence vector (LeanForward, Slump, BounceMultiplier) computed per emotion state, applied via NLTCharacterAnimationComponent procedural fallback
+- [x] **Color temperature shift** — status ring color + emissive glow updated per emotion via NLTAvatarVisualComponent::UpdateFromEmotion()
+
+---
+
+## UE Implementation: Emotion-Animation Architecture
+
+### Overview
+The emotion-driven character animation system bridges the sim's cognitive
+values (Focus, Stress, CognitiveLoad, Burnout) → emotional states → body
+language, facial expressions, and social choreography. This is the Sims-style
+"characters that feel alive" layer, implemented in C++ for the UE WorldEngine.
+
+### Core Flow
+```
+LTCognitiveStateComponent.TickCognitiveDecay()
+  → NLTEmotionStateComponent.ComputeTargetEmotion()
+    → ENLTEmotionState (priority-ordered: overwhelmed → struggling → fatigued → hyperfocus → drifting → focused → working → neutral)
+    → NLTEmotionStateComponent.CurrentAnimationState (ENLTAnimationState)
+    → NLTAvatarAnimInstance.NativeUpdateAnimation()
+      → Reads emotion state, computes procedural pose parameters
+      → BlueprintReadOnly members: ProceduralSpine01Rotation, ProceduralHeadRotation,
+        ProceduralLeftArmRotation, ProceduralRightArmRotation, etc.
+      → UAnimInstance::SetMorphTarget() for facial blend shapes
+      → OnAnimationStateChanged / OnFacialExpressionChanged (BlueprintImplementableEvent)
+    → NLTCharacterAnimationComponent.TickComponent()
+      → Monitors emotion state changes
+      → PlayMontageForState() for SkeletalMesh path (montage crossfade, 0.2s)
+      → ApplyProceduralPosture() for StaticMesh SimBody fallback (rotation + vertical bob)
+    → NLTAvatarVisualComponent.UpdateFromEmotion()
+      → Status ring color, emissive glow intensity
+```
+
+### Key Components (all in WorldEngine/Source/WorldEngine/)
+| Component | Role |
+|---|---|
+| `NLTEmotionStateComponent` | Emotion state machine: cognitive values → emotional states → animation states. Exposes `CurrentEmotion`, `CurrentAnimationState`, `EmotionalIntensity`, `CurrentThoughtBubble`, `CurrentExpression`, `PostureInfluence` |
+| `NLTAvatarAnimInstance` | UAnimInstance subclass: reads emotion state per frame, computes procedural pose parameters (BlueprintReadOnly), applies facial morph targets, fires Blueprint hooks |
+| `NLTCharacterAnimationComponent` | Animation state machine: manages montage playback, crossfade transitions, static-mesh procedural fallback |
+| `NLTPairChoreographyComponent` | Avatar↔Aide social choreography: facing, coaching mode (Aide auto-positions), synchronized reactions |
+| `AvatarCharacter` | ACharacter subclass integrating all above components, supports both SkeletalMesh and StaticMesh (SimBody) rendering paths |
+
+### Emotion → Animation State Mapping
+| Emotion | Animation State | Face | Body Posture | Thought Bubble |
+|---|---|---|---|---|
+| Neutral | Idle | Neutral | Upright, subtle breathing | (empty) |
+| Focused | Work | Focused | Forward lean, hands on keyboard | 💡 |
+| Working | Work | Focused | Forward lean, hands on keyboard | 💻 |
+| Struggling | Struggle | Stressed | Slumped, head tilted, arms raised | 😣 |
+| Overwhelmed | Struggle | Stressed | Heavy slump, head down | ❗ |
+| Hyperfocus | Hyperfocus | Focused | Locked posture, tense arms | 🎯 |
+| Drifting | Drift | Sad | Side-to-side sway, unfocused gaze | 😰 |
+| Coached | CoachGesture | Happy | Forward lean (Aide) / nod (Avatar) | ✦ |
+| Celebrating | Celebrate | Happy | Arms raised, body bounce | 🎉 |
+| Fatigued | IdleTired | Tired | Slumped, slow breathing | 😴 |
+
+### Procedural Pose Parameters (NLTAvatarAnimInstance)
+These BlueprintReadOnly parameters are computed per-frame and can be read
+by an Animation Blueprint to drive bone-level posing:
+- `ProceduralSpine01Rotation` / `ProceduralSpine02Rotation` — spine lean + slump + breathing
+- `ProceduralHeadRotation` — head tilt, micro-nods
+- `ProceduralLeftArmRotation` / `ProceduralRightArmRotation` — arm poses per animation state
+- `ProceduralLeftLegRotation` / `ProceduralRightLegRotation` — leg swing for walk cycle
+- `MouthSmile`, `EyeBlink`, `BrowFurrow`, `EyeWide` — facial morph target weights
+
+### UE 5.8 API Constraints
+- `USkeletalMeshComponent` does NOT expose `SetBoneRotationByName` / `SetBoneLocationByName`
+  (these are on `UPoseableMeshComponent`). Bone manipulation must go through an
+  Animation Blueprint or `UPoseableMeshComponent`.
+- `UAnimInstance` exposes `SetMorphTarget()` for facial blend shapes — used directly.
+- `UEnum::GetValueAsString()` requires `StaticEnum<T>()` which mandates full UHT
+  regeneration — use `static_cast<int32>` for logging instead.
+- `TObjectPtr<T>::IsValid()` does not exist in UE 5.8 — use implicit bool.
+- `GetDeltaTime()` on `UAnimInstance` does not exist — cache DeltaTime from
+  `NativeUpdateAnimation(float DeltaSeconds)`.
+
+### Web Engine Cross-Reference
+The web engine's `iso-world.js` (lines 240–356) implements an equivalent
+7-state procedural animation state machine (idle, walking, working, struggling,
+hyperfocus, coaching, celebrating). The UE implementation mirrors this mapping
+with 10 animation states, adding IdleTired, Nod, and Drift for finer expressiveness.
 
 ---
 
