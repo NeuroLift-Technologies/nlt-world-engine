@@ -1,0 +1,65 @@
+{
+    "TaskDirectory": "../../Saved/LearningAgents/NLT",
+    "WorldSettings": {
+        "Map": "/Game/Scenarios/Levels/Workplace_Level.Workplace_Level",
+        "GameMode": "/Script/WorldEngine.NLTDemoGameMode"
+    },
+    "Schemas": {
+        "Observations": [
+            {
+                "Name": "Avatar",
+                "Schema": {
+                    "Position": {"Type": "Location", "Dim": 3},
+                    "Velocity": {"Type": "Continuous", "Dim": 3},
+                    "Cognitive": {"Type": "Continuous", "Dim": 7}
+                }
+            }
+        ],
+        "Actions": [
+            {
+                "Name": "Avatar",
+                "Schema": {
+                    "MoveDirection": {"Type": "Continuous", "Dim": 3},
+                    "Interaction": {"Type": "ExclusiveDiscrete", "Dim": 4}
+                }
+            }
+        ]
+    },
+    "PPOSettings": {
+        "IterationNum": 1000,
+        "LearningRatePolicy": 0.0001,
+        "LearningRateCritic": 0.001,
+        "LearningRateDecay": 0.9999,
+        "WeightDecay": 0.0001,
+        "PolicyBatchSize": 256,
+        "CriticBatchSize": 256,
+        "PolicyWindow": 10,
+        "IterationsPerGather": 10,
+        "CriticWarmupIterations": 5,
+        "EpsilonClip": 0.2,
+        "ActionSurrogateWeight": 1.0,
+        "ActionRegularizationWeight": 0.01,
+        "ActionEntropyWeight": 0.01,
+        "ReturnRegularizationWeight": 0.0,
+        "GaeLambda": 0.95,
+        "AdvantageNormalization": true,
+        "AdvantageMin": -10.0,
+        "AdvantageMax": 10.0,
+        "UseGradNormMaxClipping": true,
+        "GradNormMax": 0.5,
+        "TrimEpisodeStartStepNum": 0,
+        "TrimEpisodeEndStepNum": 0,
+        "Seed": 42,
+        "DiscountFactor": 0.99,
+        "SaveSnapshots": true,
+        "IterationsPerSnapshot": 100
+    },
+    "TrainingSettings": {
+        "MaxEpisodeStepNum": 512,
+        "MaximumRecordedEpisodesPerIteration": 1000,
+        "MaximumRecordedStepsPerIteration": 10000,
+        "NumberOfIterations": 1000,
+        "bUseFixedTimeStep": true,
+        "FixedTimeStepFrequency": 60.0
+    }
+}

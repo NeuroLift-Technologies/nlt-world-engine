@@ -77,21 +77,21 @@ void ANLTTrainingManager::InitializeModelGroups()
     ModelGroups[0].Manager = ModelGroupManagers[0];
 
     ModelGroups[0].Interactor = NewObject<UNLTAvatarInteractor>(this);
-    ModelGroups[0].Interactor->SetupInteractor(ModelGroups[0].Manager);
+    ModelGroups[0].Interactor->SetupInteractor(ModelGroupManagers[0]);
 
     ModelGroups[0].Policy = NewObject<ULearningAgentsPolicy>(this);
     FLearningAgentsPolicySettings PolicySettingsA;
     PolicySettingsA.HiddenLayerNum = 2;
     PolicySettingsA.HiddenLayerSize = 128;
     PolicySettingsA.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[0].Policy->SetupPolicy(ModelGroups[0].Manager, ModelGroups[0].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsA, 1234);
+    ModelGroups[0].Policy->SetupPolicy(ModelGroupManagers[0], ModelGroups[0].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsA, 1234);
 
     ModelGroups[0].Critic = NewObject<ULearningAgentsCritic>(this);
     FLearningAgentsCriticSettings CriticSettingsA;
     CriticSettingsA.HiddenLayerNum = 2;
     CriticSettingsA.HiddenLayerSize = 128;
     CriticSettingsA.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[0].Critic->SetupCritic(ModelGroups[0].Manager, ModelGroups[0].Interactor, ModelGroups[0].Policy, nullptr, true, CriticSettingsA, 1234);
+    ModelGroups[0].Critic->SetupCritic(ModelGroupManagers[0], ModelGroups[0].Interactor, ModelGroups[0].Policy, nullptr, true, CriticSettingsA, 1234);
 
     ModelGroups[0].Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
     FLearningAgentsCommunicator CommunicatorA = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
@@ -99,7 +99,7 @@ void ANLTTrainingManager::InitializeModelGroups()
     TrainerSettingsA.MaxEpisodeStepNum = MaxEpisodeSteps;
     TrainerSettingsA.MaximumRecordedEpisodesPerIteration = 1000;
     TrainerSettingsA.MaximumRecordedStepsPerIteration = 10000;
-    ModelGroups[0].Trainer->SetupPPOTrainer(ModelGroups[0].Manager, ModelGroups[0].Interactor, TrainingEnvironment, ModelGroups[0].Policy, ModelGroups[0].Critic, CommunicatorA, TrainerSettingsA);
+    ModelGroups[0].Trainer->SetupPPOTrainer(ModelGroupManagers[0], ModelGroups[0].Interactor, TrainingEnvironment, ModelGroups[0].Policy, ModelGroups[0].Critic, CommunicatorA, TrainerSettingsA);
 
     // Model Group B
     ModelGroups[1].GroupId = 1;
@@ -110,21 +110,21 @@ void ANLTTrainingManager::InitializeModelGroups()
     ModelGroups[1].Manager = ModelGroupManagers[1];
 
     ModelGroups[1].Interactor = NewObject<UNLTAvatarInteractor>(this);
-    ModelGroups[1].Interactor->SetupInteractor(ModelGroups[1].Manager);
+    ModelGroups[1].Interactor->SetupInteractor(ModelGroupManagers[1]);
 
     ModelGroups[1].Policy = NewObject<ULearningAgentsPolicy>(this);
     FLearningAgentsPolicySettings PolicySettingsB;
     PolicySettingsB.HiddenLayerNum = 2;
     PolicySettingsB.HiddenLayerSize = 128;
     PolicySettingsB.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[1].Policy->SetupPolicy(ModelGroups[1].Manager, ModelGroups[1].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsB, 5678);
+    ModelGroups[1].Policy->SetupPolicy(ModelGroupManagers[1], ModelGroups[1].Interactor, nullptr, nullptr, nullptr, true, true, true, PolicySettingsB, 5678);
 
     ModelGroups[1].Critic = NewObject<ULearningAgentsCritic>(this);
     FLearningAgentsCriticSettings CriticSettingsB;
     CriticSettingsB.HiddenLayerNum = 2;
     CriticSettingsB.HiddenLayerSize = 128;
     CriticSettingsB.ActivationFunction = ELearningAgentsActivationFunction::ELU;
-    ModelGroups[1].Critic->SetupCritic(ModelGroups[1].Manager, ModelGroups[1].Interactor, ModelGroups[1].Policy, nullptr, true, CriticSettingsB, 5678);
+    ModelGroups[1].Critic->SetupCritic(ModelGroupManagers[1], ModelGroups[1].Interactor, ModelGroups[1].Policy, nullptr, true, CriticSettingsB, 5678);
 
     ModelGroups[1].Trainer = NewObject<ULearningAgentsPPOTrainer>(this);
     FLearningAgentsCommunicator CommunicatorB = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryTrainingProcess();
@@ -132,7 +132,7 @@ void ANLTTrainingManager::InitializeModelGroups()
     TrainerSettingsB.MaxEpisodeStepNum = MaxEpisodeSteps;
     TrainerSettingsB.MaximumRecordedEpisodesPerIteration = 1000;
     TrainerSettingsB.MaximumRecordedStepsPerIteration = 10000;
-    ModelGroups[1].Trainer->SetupPPOTrainer(ModelGroups[1].Manager, ModelGroups[1].Interactor, TrainingEnvironment, ModelGroups[1].Policy, ModelGroups[1].Critic, CommunicatorB, TrainerSettingsB);
+    ModelGroups[1].Trainer->SetupPPOTrainer(ModelGroupManagers[1], ModelGroups[1].Interactor, TrainingEnvironment, ModelGroups[1].Policy, ModelGroups[1].Critic, CommunicatorB, TrainerSettingsB);
 
     UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Initialized 2 model groups (A and B)"));
 }
@@ -199,6 +199,13 @@ void ANLTTrainingManager::InitializeGovernanceForGroup(int32 GroupIndex, AAvatar
         UE_LOG(LogNLTFusion, Warning, TEXT("NLTTrainingManager: No NLTGovernanceSubsystem found for %s"),
             *ModelGroups[GroupIndex].GroupName.ToString());
     }
+}
+
+void ANLTTrainingManager::OnEpisodeComplete()
+{
+    UE_LOG(LogNLTFusion, Log, TEXT("NLTTrainingManager: Episode complete — resetting for next iteration"));
+    // Episode complete — could trigger scenario reset, log stats, etc.
+    // For now, Learning Agents' internal trainer handles episode boundaries
 }
 
 void ANLTTrainingManager::Tick(float DeltaTime)

@@ -25,20 +25,19 @@ struct FNLTAgentModelGroup
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     FName GroupName;
 
-    UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    UNLTAvatarInteractor* Interactor = nullptr;
+    ULearningAgentsInteractor* Interactor = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     ULearningAgentsManager* Manager = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    TObjectPtr<ULearningAgentsPolicy> Policy = nullptr;
+    ULearningAgentsPolicy* Policy = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    TObjectPtr<ULearningAgentsCritic> Critic = nullptr;
+    ULearningAgentsCritic* Critic = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
-    TObjectPtr<ULearningAgentsPPOTrainer> Trainer = nullptr;
+    ULearningAgentsPPOTrainer* Trainer = nullptr;
 
     UPROPERTY(VisibleAnywhere, Category = "NLT|ModelGroup")
     FVector SpawnLocation = FVector::ZeroVector;
@@ -98,10 +97,8 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
     ULearningAgentsTrainingEnvironment* TrainingEnvironment = nullptr;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
     TArray<ULearningAgentsManager*> ModelGroupManagers;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|DualModel")
     TArray<FNLTAgentModelGroup> ModelGroups;
 
     UFUNCTION(BlueprintCallable, Category = "NLT|DualModel")
@@ -119,6 +116,7 @@ private:
     void InitializeGovernanceForGroup(int32 GroupIndex, class AAvatarCharacter* Actor);
     void RunDualInference();
     void RunDualTraining();
+    void OnEpisodeComplete();
 
     float TrainingTimer = 0.0f;
     bool bGovernanceInitialized = false;
