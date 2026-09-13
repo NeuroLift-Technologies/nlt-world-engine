@@ -134,32 +134,28 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         }
     }
 
+    // Run inference at every step
     if (bRunInference && Policy)
     {
         Policy->RunInference(1.0f);
     }
 
-    TrainingTimer += DeltaTime;
-    if (bRunTraining && TrainingTimer >= 1.0f)
+    // Run training at every step (must match inference frequency for experience recording)
+    if (bRunTraining && Trainer)
     {
-        TrainingTimer = 0.0f;
+        FLearningAgentsPPOTrainingSettings TrainingSettings;
+        TrainingSettings.NumberOfIterations = 1;
+        TrainingSettings.LearningRatePolicy = 1e-4f;
+        TrainingSettings.LearningRateCritic = 1e-3f;
+        TrainingSettings.DiscountFactor = 0.99f;
+        TrainingSettings.GaeLambda = 0.95f;
+        TrainingSettings.EpsilonClip = 0.2f;
 
-        if (Trainer)
-        {
-            FLearningAgentsPPOTrainingSettings TrainingSettings;
-            TrainingSettings.NumberOfIterations = 1;
-            TrainingSettings.LearningRatePolicy = 1e-4f;
-            TrainingSettings.LearningRateCritic = 1e-3f;
-            TrainingSettings.DiscountFactor = 0.99f;
-            TrainingSettings.GaeLambda = 0.95f;
-            TrainingSettings.EpsilonClip = 0.2f;
+        FLearningAgentsTrainingGameSettings GameSettings;
+        GameSettings.bUseFixedTimeStep = true;
+        GameSettings.FixedTimeStepFrequency = 60.0f;
 
-            FLearningAgentsTrainingGameSettings GameSettings;
-            GameSettings.bUseFixedTimeStep = true;
-            GameSettings.FixedTimeStepFrequency = 60.0f;
-
-            Trainer->RunTraining(TrainingSettings, GameSettings, true, true);
-        }
+        Trainer->RunTraining(TrainingSettings, GameSettings, true, true);
     }
 }
 

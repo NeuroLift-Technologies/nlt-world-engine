@@ -13,8 +13,8 @@ class WORLDENGINE_API UNLTTrainingEnvironment : public ULearningAgentsTrainingEn
 public:
     UNLTTrainingEnvironment();
 
-    //~ Begin ULearningAgentsTrainingEnvironment Interface
-    virtual void GatherAgentReward(float& OutReward, const int32 AgentId);
-    virtual void GatherAgentCompletion(ELearningAgentsCompletion& OutCompletion, const int32 AgentId);
-    //~ End ULearningAgentsTrainingEnvironment Interface
+    // Begin ULearningAgentsTrainingEnvironment Interface
+    virtual void GatherAgentReward_Implementation(float& OutReward, const int32 AgentId) override;
+    virtual void GatherAgentCompletion_Implementation(ELearningAgentsCompletion& OutCompletion, const int32 AgentId) override;
+    // End ULearningAgentsTrainingEnvironment Interface
 };

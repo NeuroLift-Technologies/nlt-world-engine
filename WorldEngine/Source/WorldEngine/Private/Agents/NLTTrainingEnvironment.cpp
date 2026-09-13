@@ -8,7 +8,7 @@ UNLTTrainingEnvironment::UNLTTrainingEnvironment()
 {
 }
 
-void UNLTTrainingEnvironment::GatherAgentReward(float& OutReward, const int32 AgentId)
+void UNLTTrainingEnvironment::GatherAgentReward_Implementation(float& OutReward, const int32 AgentId)
 {
     UObject* Agent = GetAgent(AgentId);
     AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
@@ -25,7 +25,6 @@ void UNLTTrainingEnvironment::GatherAgentReward(float& OutReward, const int32 Ag
         return;
     }
 
-    // Reward: encourage independence, penalize burnout and high stress
     OutReward = 0.0f;
     OutReward += Cognitive->Independence * 1.0f;
     OutReward -= Cognitive->Burnout * 1.0f;
@@ -34,9 +33,7 @@ void UNLTTrainingEnvironment::GatherAgentReward(float& OutReward, const int32 Ag
     OutReward += Cognitive->SuccessRate * 0.5f;
 }
 
-void UNLTTrainingEnvironment::GatherAgentCompletion(ELearningAgentsCompletion& OutCompletion, const int32 AgentId)
+void UNLTTrainingEnvironment::GatherAgentCompletion_Implementation(ELearningAgentsCompletion& OutCompletion, const int32 AgentId)
 {
-    // Return Running during active episodes, Termination only when episode actually ends
-    // LA's trainer uses MaxEpisodeStepNum for truncation
     OutCompletion = ELearningAgentsCompletion::Running;
 }
