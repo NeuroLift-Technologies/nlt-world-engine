@@ -22,6 +22,25 @@
 
 ## Resolved Threads (2026-09)
 
+### Thread: TRAIN-001
+**Status:** resolved
+**Owner:** Codex (2026-09-13 session)
+**Started:** 2026-09-13
+**Last updated:** 2026-09-13
+**Summary:** PPO training in `run_nlt_training.sh` failing with `RuntimeError: The size of tensor a (3) must match the size of tensor b (4)` at `ppo.py:99` in `Denormalize.forward`. Root cause: `ppo.py` line 71 had hardcoded `self.act_enc_num = 3`, overriding the schema-derived value of 10 (Interaction=4 + MoveDirection=6). Removed the override so `act_enc_num` correctly reads 10 from `action_schema['EncodedSize']`. Verified end-to-end: first training iteration completed successfully with PPO train profile (5501ms), Iter: 0 stats logged, networks sent/received.
+**Blockers:** None — Python crash resolved. Secondary C++ restart issue identified (see TRAIN-002).
+**Next action:** Recompile C++ and re-run training to verify the secondary fix (TRAIN-002).
+
+### Thread: TRAIN-002
+**Status:** open
+**Owner:** Codex (pending verification)
+**Started:** 2026-09-13
+**Last updated:** 2026-09-13
+**Summary:** After the PPO tensor fix, the first training iteration completes successfully but UE's `NLTTrainingManager::Tick()` calls `Trainer->RunTraining()` every 0.1s with `NumberOfIterations=1`. After the first iteration, the Python subprocess exits cleanly ("Done!"). On the next Tick, UE attempts to start a new training session (NLTTraining7/Configs) but the Python process is gone, producing "Error sending policy to trainer: Unexpected communication received" and repeated "Training has failed" spam.
+**Fix applied:** Added `bTrainingCompleted` flag to `ANLTTrainingManager`. First Tick with `bTrain=true` (one training step); subsequent Ticks use `bTrain=false` (inference only, no Python communication). Also added `ResetAgentEpisode_Implementation` override to `UNLTTrainingEnvironment` to resolve the "ResetAgentEpisode function must be overridden!" error.
+**Blockers:** Cannot recompile/verify on this machine — no UE build environment available. Requires recompilation and re-run of `run_nlt_training.sh`.
+**Next action:** Recompile project and re-run training to verify both fixes work end-to-end.
+
 | Thread | Agent | Date | PR | Summary |
 |---|---|---|---|---|
 | LLM → Avatar Control | Cline | 2026-09-05 | — | `AAvatarAIController` with `bLLMControlActive`, `ExecuteLLMCommand()` dispatcher; `UNLTWebServerSubsystem` `/api/avatar/command` endpoint; `llm_avatar_agent.py` stdlib-only tool-calling controller. HTTP status-code fix in `509dc0c`. |
