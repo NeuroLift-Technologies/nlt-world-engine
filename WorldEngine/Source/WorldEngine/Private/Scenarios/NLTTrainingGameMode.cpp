@@ -13,6 +13,9 @@ void ANLTTrainingGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
+    // Spawn doors (from NLTDemoGameMode::BeginPlay)
+    // Note: We skip scenario agent spawning to avoid conflict with training
+
     UE_LOG(LogTemp, Log, TEXT("NLTTrainingGameMode: Spawning training manager..."));
 
     UWorld* World = GetWorld();

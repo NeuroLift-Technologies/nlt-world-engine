@@ -1,4 +1,5 @@
 {
+    "TaskName": "NLTTraining",
     "TaskDirectory": "../../Saved/LearningAgents/NLT",
     "WorldSettings": {
         "Map": "/Game/Scenarios/Levels/Workplace_Level.Workplace_Level",
@@ -7,20 +8,72 @@
     "Schemas": {
         "Observations": [
             {
-                "Name": "Avatar",
+                "Id": 0,
+                "Name": "Default",
                 "Schema": {
-                    "Position": {"Type": "Location", "Dim": 3},
-                    "Velocity": {"Type": "Continuous", "Dim": 3},
-                    "Cognitive": {"Type": "Continuous", "Dim": 7}
+                    "VectorSize": 13,
+                    "EncodedSize": 13,
+                    "Type": "And",
+                    "Elements": {
+                        "Cognitive": {
+                            "VectorSize": 7,
+                            "EncodedSize": 7,
+                            "Type": "Continuous",
+                            "Num": 7,
+                            "Normalization": "Manual",
+                            "Index": 0
+                        },
+                        "Position": {
+                            "VectorSize": 3,
+                            "EncodedSize": 3,
+                            "Type": "Continuous",
+                            "Num": 3,
+                            "Normalization": "Manual",
+                            "Index": 1
+                        },
+                        "Velocity": {
+                            "VectorSize": 3,
+                            "EncodedSize": 3,
+                            "Type": "Continuous",
+                            "Num": 3,
+                            "Normalization": "Manual",
+                            "Index": 2
+                        }
+                    }
                 }
             }
         ],
         "Actions": [
             {
-                "Name": "Avatar",
+                "Id": 0,
+                "Name": "Default",
                 "Schema": {
-                    "MoveDirection": {"Type": "Continuous", "Dim": 3},
-                    "Interaction": {"Type": "ExclusiveDiscrete", "Dim": 4}
+                    "VectorSize": 7,
+                    "DistributionSize": 10,
+                    "EncodedSize": 10,
+                    "ModifierSize": 13,
+                    "Type": "And",
+                    "Elements": {
+                        "Interaction": {
+                            "VectorSize": 4,
+                            "DistributionSize": 4,
+                            "EncodedSize": 4,
+                            "ModifierSize": 5,
+                            "Type": "DiscreteExclusive",
+                            "Num": 4,
+                            "Index": 0
+                        },
+                        "MoveDirection": {
+                            "VectorSize": 3,
+                            "DistributionSize": 6,
+                            "EncodedSize": 6,
+                            "ModifierSize": 7,
+                            "Type": "Continuous",
+                            "Num": 3,
+                            "Normalization": "Manual",
+                            "Index": 1
+                        }
+                    }
                 }
             }
         ]

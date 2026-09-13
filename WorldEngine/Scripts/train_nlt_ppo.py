@@ -11,10 +11,17 @@ Prerequisites
 Usage
 -----
   # Terminal 1: launch headless sim with training manager
-  ./WorldEngine/Scripts/run_training.sh
+  ./WorldEngine/Scripts/run_nlt_training.sh
 
-  # Terminal 2: start PPO training
-  python3 WorldEngine/Scripts/train_nlt_ppo.py --config WorldEngine/Scripts/nlt_ppo_config.json
+  # Terminal 2: start PPO training (connects to UE's shared memory)
+  python3 WorldEngine/Scripts/train_nlt_ppo.py \
+      --controls-guid "<GUID_from_UE_logs>" \
+      --task-dir "<UE_task_dir>" \
+      --config WorldEngine/Scripts/nlt_ppo_config.json
+
+  # To let this process generate a fresh GUID (if UE wasn't started with one):
+  python3 WorldEngine/Scripts/train_nlt_ppo.py --create-mem --make-task-dir \
+      --task-dir "<base_dir>" --config WorldEngine/Scripts/nlt_ppo_config.json
 
   # Monitor
   tensorboard --logdir=WorldEngine/Saved/LearningAgents/NLT/TensorBoard
@@ -27,6 +34,7 @@ import json
 import os
 import sys
 import time
+import uuid
 
 # UE's bundled PyTorch
 PIP_INSTALL = os.path.join(
@@ -41,18 +49,60 @@ LEARNING_CORE = os.path.join(
     os.path.expanduser("~"), "Documents", "NLT", "Engine", "Plugins",
     "Experimental", "LearningCore", "Content", "Python"
 )
+# Clear pycache to force reload of edited source files
+pycache_path = os.path.join(LEARNING_CORE, "learning_core", "__pycache__")
+if os.path.exists(pycache_path):
+    import shutil
+    try:
+        shutil.rmtree(pycache_path)
+    except Exception:
+        pass
+
 if LEARNING_CORE not in sys.path:
+    sys.path.insert(0, LEARNING_CORE)
+else:
+    # Move to front to ensure it overrides any installed site-packages version
+    sys.path.remove(LEARNING_CORE)
     sys.path.insert(0, LEARNING_CORE)
 
 import torch
 import numpy as np
 
-from learning_core.train_common import (
-    SharedMemoryCommunicator,
-    TensorBoardTracker,
-    JsonLoggerTracker,
-)
+from learning_core.communicators.shared_memory_communicator import SharedMemoryCommunicator
+from learning_core.train_common import AbstractExperimentTracker, get_experiment_trackers
 from learning_core.train_ppo import train
+
+
+class JsonLoggerTracker(AbstractExperimentTracker):
+    """Simple experiment tracker that logs metrics to a JSON file."""
+
+    def __init__(self, log_path: str):
+        super().__init__({})
+        self.log_path = log_path
+        self.entries: list[dict] = []
+
+    def initialize_tracker(self):
+        os.makedirs(os.path.dirname(self.log_path) or ".", exist_ok=True)
+        # Start fresh
+        self.entries = []
+        with open(self.log_path, "w") as f:
+            json.dump([], f)
+
+    def track(self, data: list):
+        for key, value, step in data:
+            self.entries.append({"key": key, "value": float(value), "step": int(step)})
+        with open(self.log_path, "w") as f:
+            json.dump(self.entries, f, indent=2)
+
+    def track_snapshots(self, data: list, dir: str):
+        pass
+
+    def track_dict(self, data: dict, name: str):
+        pass
+
+    def close(self):
+        with open(self.log_path, "w") as f:
+            json.dump(self.entries, f, indent=2)
 
 
 def load_config(path: str) -> dict:
@@ -61,39 +111,75 @@ def load_config(path: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NLT PPO Training")
-    parser.add_argument("--config", default="WorldEngine/Scripts/nlt_ppo_config.json")
+    parser = argparse.ArgumentParser(description="NLT PPO Training (manual launcher)")
+    parser.add_argument("--config", default="WorldEngine/Scripts/nlt_ppo_config.json",
+                        help="Path to PPO settings config JSON (overrides UE-provided PPO settings)")
     parser.add_argument("--task-dir", default=None,
-                        help="Override TaskDirectory (default: from config)")
+                        help="Override TaskDirectory (default: from config or UE)")
+    parser.add_argument("--controls-guid", default="",
+                        help="Controls GUID for shared memory (leave empty to auto-generate)")
+    parser.add_argument("--num-processes", type=int, default=1,
+                        help="Number of game processes (default: 1)")
+    parser.add_argument("--make-task-dir", action="store_true",
+                        help="Create the task directory and config directory")
+    parser.add_argument("--create-mem", action="store_true",
+                        help="Create shared memory (use when UE is not creating it)")
     args = parser.parse_args()
 
-    config = load_config(args.config)
-    task_dir = args.task_dir or config["TaskDirectory"]
+    # Load optional config for PPO settings overrides
+    ppo_overrides = {}
+    if os.path.exists(args.config):
+        ppo_overrides = load_config(args.config)
+        print(f"[NLT] Loaded config overrides from: {args.config}")
+    else:
+        print(f"[NLT] No config found at {args.config}, using UE-provided config")
 
-    # Resolve relative to project root
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    task_dir = os.path.join(project_root, task_dir)
-    task_dir = os.path.abspath(task_dir)
-    config["TaskDirectory"] = task_dir
+    # Resolve task_dir
+    if args.task_dir:
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        task_dir = os.path.join(project_root, args.task_dir)
+    elif "TaskDirectory" in ppo_overrides:
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        task_dir = os.path.join(project_root, ppo_overrides["TaskDirectory"])
+    else:
+        task_dir = ""
 
-    os.makedirs(task_dir, exist_ok=True)
-    snapshot_dir = os.path.join(task_dir, "Snapshots")
-    os.makedirs(snapshot_dir, exist_ok=True)
-    tb_dir = os.path.join(task_dir, "TensorBoard")
-    os.makedirs(tb_dir, exist_ok=True)
+    os.makedirs(task_dir, exist_ok=True) if task_dir else None
+    snapshot_dir = os.path.join(task_dir or ".", "Snapshots")
+    os.makedirs(snapshot_dir, exist_ok=True) if task_dir else None
 
-    print(f"[NLT] Task directory: {task_dir}")
+    print(f"[NLT] Task directory: {task_dir or '(from UE)'}")
     print(f"[NLT] PyTorch {torch.__version__} | CUDA available: {torch.cuda.is_available()}")
 
     # Create communicator (shared memory — talks to UE's ULearningAgentsCommunicator)
-    communicator = SharedMemoryCommunicator()
+    task_name = ppo_overrides.get("TaskName", "NLTTraining")
+    communicator = SharedMemoryCommunicator(
+        controls_guid=args.controls_guid,
+        process_num=args.num_processes,
+        task_dir=task_dir,
+        task_name=task_name,
+        create_mem=args.create_mem,
+        make_task_dir=args.make_task_dir,
+    )
+
+    # Get config from UE (via shared memory)
+    config = communicator.shared_memory_processes[0].config
+    config['TaskName'] = task_name
+    config["TaskDirectory"] = communicator.task_dir
+    config['CommunicationType'] = 'SharedMemory'
+
+    # Apply PPO settings overrides from config file (if provided)
+    if "PPOSettings" in ppo_overrides:
+        print(f"[NLT] Overriding PPO settings from config file")
+        config['PPOSettings'] = ppo_overrides['PPOSettings']
+    if "TrainingSettings" in ppo_overrides:
+        config['TrainingSettings'] = ppo_overrides['TrainingSettings']
 
     # Trackers
-    trackers = [
-        TensorBoardTracker(tb_dir),
-        JsonLoggerTracker(os.path.join(task_dir, "training_log.json")),
-    ]
+    trackers = get_experiment_trackers(config)
+    trackers.append(JsonLoggerTracker(os.path.join(task_dir, "training_log.json")))
 
+    print(f"[NLT] Trackers: {[type(t).__name__ for t in trackers]}")
     print("[NLT] Connecting to UE training process...")
     print("[NLT] Waiting for NLTTrainingManager to spawn agents and begin episode...")
 
@@ -107,7 +193,10 @@ def main():
     finally:
         communicator.close()
         for t in trackers:
-            t.close()
+            try:
+                t.close()
+            except Exception:
+                pass
 
     print(f"[NLT] Training complete. Snapshots saved to: {snapshot_dir}")
 

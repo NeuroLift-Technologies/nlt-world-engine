@@ -59,6 +59,10 @@
       "Enabled": true
     },
     {
+      "Name": "NNERuntimeBasicCpu",
+      "Enabled": true
+    },
+    {
       "Name": "MLAdapter",
       "Enabled": true
     },

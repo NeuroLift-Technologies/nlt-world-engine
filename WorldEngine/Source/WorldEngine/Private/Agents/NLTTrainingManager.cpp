@@ -58,7 +58,7 @@ void ANLTTrainingManager::BeginPlay()
     EpisodeManager = NewObject<UNLTEpisodeManager>(this);
     EpisodeManager->RegisterComponent();
     EpisodeManager->MaxEpisodeSteps = MaxEpisodeSteps;
-    EpisodeManager->StepInterval = TickInterval;
+    // Removed StepInterval = TickInterval to avoid desync with AgentManager iterations
     EpisodeManager->OnEpisodeComplete.AddDynamic(this, &ANLTTrainingManager::OnEpisodeComplete);
 
     AgentManager = NewObject<ULearningAgentsManager>(this);
@@ -134,13 +134,9 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         }
     }
 
-    // Run inference at every step
-    if (bRunInference && Policy)
-    {
-        Policy->RunInference(1.0f);
-    }
-
-    // Run training at every step (must match inference frequency for experience recording)
+    // RunTraining handles inference internally (GatherCompletions -> GatherRewards -> ProcessExperience -> RunInference)
+    // so we must NOT call Policy->RunInflance() separately here, or observation/action iterations will
+    // advance 2x faster than reward/completion and ProcessExperience will skip every agent.
     if (bRunTraining && Trainer)
     {
         FLearningAgentsPPOTrainingSettings TrainingSettings;
@@ -155,7 +151,7 @@ void ANLTTrainingManager::Tick(float DeltaTime)
         GameSettings.bUseFixedTimeStep = true;
         GameSettings.FixedTimeStepFrequency = 60.0f;
 
-        Trainer->RunTraining(TrainingSettings, GameSettings, true, true);
+        Trainer->RunTraining(TrainingSettings, GameSettings, false, true);
     }
 }
 
