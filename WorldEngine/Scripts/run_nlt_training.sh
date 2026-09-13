@@ -60,7 +60,7 @@ if [[ "$MODE" == "llm" ]]; then
     echo ""
     exec "$UE_EDITOR" \
         "$PROJECT_FILE" \
-        /Game/Scenarios/Levels/Workplace_Level.Workplace_Level \
+        "/Game/Scenarios/Levels/Workplace_Level.Workplace_Level?game=/Script/WorldEngine.NLTTrainingGameMode" \
         -game \
         -nullrhi \
         -unattended \
