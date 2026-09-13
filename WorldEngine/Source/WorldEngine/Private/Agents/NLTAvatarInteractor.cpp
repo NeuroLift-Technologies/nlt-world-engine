@@ -72,19 +72,27 @@ void UNLTAvatarInteractor::PerformAgentAction_Implementation(
     AAvatarAIController* AIController = Cast<AAvatarAIController>(Avatar->GetController());
     if (!AIController) return;
 
+    // Tell the controller that LearningAgents is now in control so it stops
+    // its autonomous wandering and lets us drive movement directly.
+    AIController->SetLearningAgentsActive(true);
+
     FLearningAgentsActionObjectElement MoveDirectionElement;
     ULearningAgentsActions::GetStructActionElement(MoveDirectionElement, InActionObject, InActionObjectElement, TEXT("MoveDirection"), true);
 
     TArray<float> MoveDirectionValues;
     ULearningAgentsActions::GetContinuousAction(MoveDirectionValues, InActionObject, MoveDirectionElement, true);
 
-    if (MoveDirectionValues.Num() >= 3)
+    if (MoveDirectionValues.Num() >= 2)
     {
-        FVector MoveDirection(MoveDirectionValues[0], MoveDirectionValues[1], MoveDirectionValues[2]);
+        // PPO continuous actions are in [-1, 1]. Scale to a movement vector.
+        FVector MoveDirection(MoveDirectionValues[0], MoveDirectionValues[1], 0.0f);
+        MoveDirection.Normalize();
         if (!MoveDirection.IsNearlyZero())
         {
-            FVector TargetLocation = Avatar->GetActorLocation() + MoveDirection * 500.0f;
-            AIController->MoveToLocation(TargetLocation);
+            float SpeedScale = FMath::Clamp(MoveDirectionValues[0] * MoveDirectionValues[0]
+                + MoveDirectionValues[1] * MoveDirectionValues[1], 0.0f, 1.0f);
+            FVector TargetLocation = Avatar->GetActorLocation() + MoveDirection * 500.0f * SpeedScale;
+            AIController->MoveToLocation(TargetLocation, 10.0f, true, true, true, true);
         }
     }
 
