@@ -11,6 +11,7 @@
 #include "LearningAgentsTrainingEnvironment.h"
 #include "NLTAvatarInteractor.h"
 #include "NLTTrainingEnvironment.h"
+#include "NLTLLMBridge.h"
 #include "NLTEpisodeManager.h"
 #include "NLTTrainingManager.generated.h"
 
@@ -39,6 +40,21 @@ public:
 
     UPROPERTY(EditAnywhere, Category = "NLT|Training")
     bool bRunTraining = true;
+
+    /** If true, LLM control via REST API bridge is enabled. When enabled,
+     *  after the first training iteration (or immediately in inference-only
+     *  mode), the avatar's AIController will request movement commands from
+     *  the LLM instead of using the LearningAgents policy. */
+    UPROPERTY(EditAnywhere, Category = "NLT|LLM")
+    bool bUseLLMControl = true;
+
+    /** LLM endpoint URL the bridge will call (e.g. http://localhost:11434/api/generate). */
+    UPROPERTY(EditAnywhere, Category = "NLT|LLM")
+    FString LLMEndpoint = TEXT("http://localhost:11434/api/generate");
+
+    /** LLM model name to send in the API request. */
+    UPROPERTY(EditAnywhere, Category = "NLT|LLM")
+    FString LLMModel = TEXT("qwen3:0.6b");
 
     UPROPERTY(EditAnywhere, Category = "NLT|Training")
     int32 MaxEpisodeSteps = 512;

@@ -1,10 +1,15 @@
 // AvatarAIController.cpp
 #include "Agents/AvatarAIController.h"
+#include "Agents/NLTLLMBridge.h"
+#include "Agents/AvatarCharacter.h"
+#include "Agents/LTCognitiveStateComponent.h"
 #include "NavigationSystem.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "GameFramework/Pawn.h"
 #include "EngineUtils.h"
 #include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 // Maximum relative step a single move_by command may request (world units).
 // Keeps the LLM from teleporting avatars across the map in one command.
@@ -20,6 +25,10 @@ AAvatarAIController::AAvatarAIController()
     bIsWaiting = false;
     bLearningAgentsActive = false;
     bLLMControlActive = false;
+
+    // Create the LLM bridge component
+    LLMBridge = CreateDefaultSubobject<UNLTLLMBridge>(TEXT("LLMBridge"));
+    LLMBridge->RequestCooldown = 3.0f;
 }
 
 void AAvatarAIController::SetLLMControlActive(bool bActive)
@@ -32,14 +41,25 @@ void AAvatarAIController::SetLLMControlActive(bool bActive)
     bLLMControlActive = bActive;
     if (bActive)
     {
-        // LLM takes over: stop autonomous wandering/timers immediately.
+        // LLM takes over: stop autonomous wandering/timers immediately,
+        // and set up the bridge callback for incoming LLM movement commands.
         StopMovement();
         GetWorldTimerManager().ClearTimer(WaitTimer);
         bIsWaiting = false;
+
+        // Bind the LLM response handler (raw function pointer binding)
+        if (LLMBridge)
+        {
+            LLMBridge->OnLLMResponse.AddDynamic(this, &AAvatarAIController::HandleLLMResponse);
+        }
     }
     else
     {
         // LLM relinquishes control: resume autonomous behavior.
+        if (LLMBridge)
+        {
+            LLMBridge->OnLLMResponse.RemoveAll(this);
+        }
         Wander();
     }
 }
@@ -194,6 +214,81 @@ void AAvatarAIController::OnPossess(APawn* InPawn)
 void AAvatarAIController::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    // When LLM control is active and the bridge is ready, request the next
+    // movement command asynchronously. The bridge has its own cooldown timer
+    // so we won't flood the LLM.
+    if (bLLMControlActive && LLMBridge && LLMBridge->IsReady())
+    {
+        RequestLLMMovementCommand();
+    }
+}
+
+void AAvatarAIController::HandleLLMResponse(const FString& JsonResponse)
+{
+    // Parse the JSON the LLM returned and dispatch the command.
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonResponse);
+    TSharedPtr<FJsonObject> JsonObj = MakeShareable(new FJsonObject);
+
+    if (!FJsonSerializer::Deserialize(Reader, JsonObj) || !JsonObj.IsValid())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AvatarAIController: Failed to parse LLM JSON: %s"), *JsonResponse);
+        return;
+    }
+
+    FString Command;
+    if (!JsonObj->TryGetStringField(TEXT("command"), Command) || Command.IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AvatarAIController: LLM response missing command field"));
+        return;
+    }
+
+    FString OutMessage;
+    if (!ExecuteLLMCommand(Command, JsonObj, OutMessage))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AvatarAIController: LLM command failed: %s"), *OutMessage);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("AvatarAIController: LLM command OK: %s"), *OutMessage);
+    }
+}
+
+void AAvatarAIController::RequestLLMMovementCommand()
+{
+    APawn* MyPawn = GetPawn();
+    if (!MyPawn || !LLMBridge) return;
+
+    AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(MyPawn);
+    if (!Avatar) return;
+
+    // Gather cognitive state from the avatar's component
+    TMap<FString, float> CognitiveStateMap;
+    if (Avatar->CognitiveState)
+    {
+        TArray<float> StateValues = Avatar->CognitiveState->GetObservationValues();
+        static const TArray<FName> StateNames = {
+            TEXT("boredom"), TEXT("curiosity"), TEXT("focus"),
+            TEXT("stress"), TEXT("burnout"), TEXT("emotional_state"),
+            TEXT("success_rate")
+        };
+        for (int32 i = 0; i < StateValues.Num() && i < StateNames.Num(); ++i)
+        {
+            CognitiveStateMap.Add(StateNames[i].ToString(), StateValues[i]);
+        }
+    }
+
+    const FVector Location = MyPawn->GetActorLocation();
+    const FVector Velocity = MyPawn->GetVelocity();
+
+    LLMBridge->RequestMovementCommand(
+        MyPawn->GetName(),
+        Location,
+        Velocity,
+        CognitiveStateMap,
+        TEXT("Explore your environment and maintain balanced cognitive state"),
+        TEXT("You are in a simulated training environment with doors leading to Personal, Social, and Academic areas.")
+    );
 }
 
 void AAvatarAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result)

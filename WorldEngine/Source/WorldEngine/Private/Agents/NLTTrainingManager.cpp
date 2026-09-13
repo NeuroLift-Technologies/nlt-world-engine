@@ -3,6 +3,7 @@
 #include "Agents/AvatarCharacter.h"
 #include "Agents/AvatarAIController.h"
 #include "Agents/LTCognitiveStateComponent.h"
+#include "Agents/NLTLLMBridge.h"
 #include "NLTGovernanceSubsystem.h"
 #include "LearningAgentsManager.h"
 #include "LearningAgentsPolicy.h"
@@ -17,6 +18,7 @@ ANLTTrainingManager::ANLTTrainingManager()
     TickInterval = 0.1f;
     bRunInference = true;
     bRunTraining = true;
+    bUseLLMControl = true;
     MaxEpisodeSteps = 512;
     TrainingTimer = 0.0f;
 }
@@ -54,6 +56,22 @@ void ANLTTrainingManager::SpawnSingleActor()
 void ANLTTrainingManager::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (bUseLLMControl)
+    {
+        // LLM-driven mode: no PPO training, no LearningAgents interactor.
+        // The avatar's AIController uses the UNLTLLMBridge to get movement
+        // commands from Ollama via async HTTP.
+        UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: LLM control mode active (endpoint: %s, model: %s)"),
+            *LLMEndpoint, *LLMModel);
+
+        AgentManager = NewObject<ULearningAgentsManager>(this);
+        AgentManager->SetMaxAgentNum(1);
+        AgentManager->RegisterComponent();
+
+        SpawnSingleActor();
+        return;
+    }
 
     EpisodeManager = NewObject<UNLTEpisodeManager>(this);
     EpisodeManager->RegisterComponent();
@@ -132,6 +150,38 @@ void ANLTTrainingManager::Tick(float DeltaTime)
                 Avatar->CognitiveState->TickCognitiveDecay(DeltaTime);
             }
         }
+    }
+
+    // If LLM control is enabled, skip PPO training entirely.
+    // The AvatarAIController's Tick will request movement commands from the
+    // LLM via the REST API bridge (UNLTLLMBridge).
+    if (bUseLLMControl)
+    {
+        // Ensure LLM control is active on the avatar's controller
+        const TArray<int32>& AllAgentIds = AgentManager ? AgentManager->GetAllAgentIds() : TArray<int32>();
+        for (int32 AgentId : AllAgentIds)
+        {
+            UObject* Agent = AgentManager->GetAgent(AgentId);
+            AAvatarCharacter* Avatar = Cast<AAvatarCharacter>(Agent);
+            if (Avatar)
+            {
+                AAvatarAIController* AIController = Cast<AAvatarAIController>(Avatar->GetController());
+                if (AIController && !AIController->IsLLMControlActive())
+                {
+                    AIController->SetLLMControlActive(true);
+
+                    // Configure the LLM bridge endpoint/model
+                    if (AIController->LLMBridge)
+                    {
+                        AIController->LLMBridge->EndpointURL = LLMEndpoint;
+                        AIController->LLMBridge->ModelName = LLMModel;
+                    }
+
+                    UE_LOG(LogTemp, Log, TEXT("NLTTrainingManager: LLM control activated for avatar"));
+                }
+            }
+        }
+        return; // Skip PPO training/inference entirely
     }
 
     // After the first training iteration, the Python subprocess exits.
