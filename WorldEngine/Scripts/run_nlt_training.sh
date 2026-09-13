@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # run_nlt_training.sh — Launch headless UE sim with NLTTrainingGameMode
+#
+# Usage:
+#   ./run_nlt_training.sh           # Default: LLM-driven control via Ollama REST bridge
+#   ./run_nlt_training.sh --ppo      # PPO training mode (uses LearningAgents + Python)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,26 +16,27 @@ if [[ ! -x "$UE_EDITOR" ]]; then
     exit 1
 fi
 
+# Parse arguments
+MODE="llm"
+if [[ "${1:-}" == "--ppo" ]]; then
+    MODE="ppo"
+fi
+
 echo "=== NLT WorldEngine Training Launcher ==="
 echo "Project: $PROJECT_FILE"
 echo "Editor:  $UE_EDITOR"
+echo "Mode:    $MODE"
 echo ""
 
 # 1) Clean up stale shared memory from crashed/killed previous runs.
-#    These look like /dev/shm/{GUID} and are left behind when the UE process
-#    dies before LearningAgents can deallocate them. They cause the Python
-#    trainer subprocess to map stale control blocks and fail the handshake.
 echo "Cleaning up stale shared memory..."
-rm -f /dev/shm/\{*\} 2>/dev/null || true
+rm -f /dev/shm/\{\*\} 2>/dev/null || true
 
 # 2) Clean up stale LearningCore intermediate config files from previous runs.
-#    Old config files reference GUIDs that no longer exist in /dev/shm/,
-#    causing FileNotFoundError in the Python trainer subprocess.
 echo "Cleaning up stale LearningCore intermediate files..."
 rm -rf "$PROJECT_ROOT/WorldEngine/Intermediate/LearningCore"/NLTTraining* 2>/dev/null || true
 
 # 3) Kill any orphaned Python trainer processes from prior runs.
-#    Use exact pattern to avoid killing this bash script itself.
 echo "Killing orphaned trainer processes..."
 pkill -9 -f "train[.]ppo" 2>/dev/null || true
 pkill -9 -f "train[.]py" 2>/dev/null || true
@@ -43,16 +48,30 @@ sleep 1
 TASK_DIR="$PROJECT_ROOT/WorldEngine/Saved/LearningAgents/NLT"
 mkdir -p "$TASK_DIR/Snapshots" "$TASK_DIR/TensorBoard"
 
-echo "Launching headless sim with NLTTrainingGameMode..."
-echo "  Map:      /Game/Scenarios/Levels/Workplace_Level.Workplace_Level"
-echo "  GameMode: /Script/WorldEngine.NLTTrainingGameMode"
-echo ""
-
-exec "$UE_EDITOR" \
-    "$PROJECT_FILE" \
-    /Game/Scenarios/Levels/Workplace_Level.Workplace_Level \
-    -game \
-    -nullrhi \
-    -unattended \
-    -stdout \
-    -FullStdOutLogOutput
+if [[ "$MODE" == "llm" ]]; then
+    echo "Launching headless sim with LLM-driven control (Ollama REST bridge)..."
+    echo "  LLM endpoint: http://localhost:11434/api/generate"
+    echo "  Model:        qwen3:0.6b"
+    echo ""
+    exec "$UE_EDITOR" \
+        "$PROJECT_FILE" \
+        /Game/Scenarios/Levels/Workplace_Level.Workplace_Level \
+        -game \
+        -nullrhi \
+        -unattended \
+        -stdout \
+        -FullStdOutLogOutput
+else
+    echo "Launching headless sim with PPO training..."
+    echo "  Map:      /Game/Scenarios/Levels/Workplace_Level.Workplace_Level"
+    echo "  GameMode: /Script/WorldEngine.NLTTrainingGameMode"
+    echo ""
+    exec "$UE_EDITOR" \
+        "$PROJECT_FILE" \
+        /Game/Scenarios/Levels/Workplace_Level.Workplace_Level \
+        -game \
+        -nullrhi \
+        -unattended \
+        -stdout \
+        -FullStdOutLogOutput
+fi
