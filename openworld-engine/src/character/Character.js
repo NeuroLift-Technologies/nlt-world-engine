@@ -8,7 +8,22 @@
 import * as THREE from 'three';
 
 
+/**
+ * Character: AI resident that walks/idles on the terrain heightfield.
+ * Can be either an animated GLB human (auto-scaled, independent walk phase)
+ * or a procedurally-built fallback body if the model is unavailable.
+ * Carries a floating name label and a state ring that reflects social status.
+ */
 export class Character {
+  /**
+   * @param {string} id - Unique character identifier
+   * @param {string} name - Display name for the floating label
+   * @param {{x:number,z:number}} position - Initial world position
+   * @param {Object} heightField - Terrain height field sampler
+   * @param {function(number,number):number} heightField.sample - Sample height at (x,z)
+   * @param {GLTFModel|null} [model=null] - Shared GLB template (if available)
+   * @param {Object} [charCfg={}] - Character config from CONFIG.characters (height)
+   */
   constructor(id, name, position, heightField, model = null, charCfg = {}) {
     this.id = id;
     this.name = name;
@@ -61,6 +76,26 @@ export class Character {
 
   // ── GLB body ─────────────────────────────────────────────────────────────
 
+  /**
+   * Attach a GLB model instance to this character.
+   * Clones the skeleton, auto-scales to charCfg.height, plants feet at y=0,
+   * and enables shadows. Falls back to procedural body on failure.
+   * @returns {void}
+   */
+
+  /**
+   * Attach a GLB model instance to this character.
+   * Clones the skeleton, auto-scales to charCfg.height, plants feet at y=0,
+   * and enables shadows. Falls back to procedural body on failure.
+   * @returns {void}
+   */
+
+  /**
+   * Attach a GLB model instance to this character.
+   * Clones the skeleton, auto-scales to charCfg.height, plants feet at y=0,
+   * and enables shadows. Falls back to procedural body on failure.
+   * @returns {void}
+   */
   _attachModel() {
     // instantiate() clones the skeleton so each resident animates independently.
     this.instance = this.model.instantiate();
@@ -120,6 +155,26 @@ export class Character {
 
   // ── Procedural body ──────────────────────────────────────────────────────
 
+  /**
+   * Build a procedural humanoid body from primitives (no GLB model).
+   * Creates legs, arms, torso, head, hair, eyes, mouth with basic materials.
+   * Limb pivot groups are stored for walk/idle animation.
+   * @returns {void}
+   */
+
+  /**
+   * Build a procedural humanoid body from primitives (no GLB model).
+   * Creates legs, arms, torso, head, hair, eyes, mouth with basic materials.
+   * Limb pivot groups are stored for walk/idle animation.
+   * @returns {void}
+   */
+
+  /**
+   * Build a procedural humanoid body from primitives (no GLB model).
+   * Creates legs, arms, torso, head, hair, eyes, mouth with basic materials.
+   * Limb pivot groups are stored for walk/idle animation.
+   * @returns {void}
+   */
   _buildProceduralBody() {
     const skinMat = new THREE.MeshBasicMaterial({ color: this.skinTone });
     const hairMat = new THREE.MeshBasicMaterial({ color: this.hairColor });
@@ -233,6 +288,23 @@ export class Character {
 
   // ── Shared visuals (built by both body styles) ───────────────────────────
 
+  /**
+   * Add a colored ring under the character that reflects social state.
+   * Green=idle, cyan=walk, purple=chat, etc. Updated each frame.
+   * @returns {void}
+   */
+
+  /**
+   * Add a colored ring under the character that reflects social state.
+   * Green=idle, cyan=walk, purple=chat, etc. Updated each frame.
+   * @returns {void}
+   */
+
+  /**
+   * Add a colored ring under the character that reflects social state.
+   * Green=idle, cyan=walk, purple=chat, etc. Updated each frame.
+   * @returns {void}
+   */
   _addStateRing() {
     const ringGeo = new THREE.RingGeometry(0.22, 0.32, 20);
     const ringMat = new THREE.MeshBasicMaterial({
@@ -244,6 +316,11 @@ export class Character {
     this.group.add(this.ring);
   }
 
+  /**
+   * Add a floating name label sprite above the character.
+   * Renders the character name on a rounded-rectangle canvas texture.
+   * @returns {void}
+   */
   _addNameLabel() {
     const canvas = document.createElement('canvas');
     canvas.width = 256; canvas.height = 64;
@@ -262,7 +339,11 @@ export class Character {
     this.group.add(sprite);
   }
 
-  // Height above the feet for the name-label sprite.
+  /**
+   * Compute the height above feet for the name-label sprite.
+   * GLB models: charCfg.height + small offset. Procedural: fixed ~1.45m.
+   * @returns {number} Y position in group-local space
+   */
   _labelHeight() {
     if (this.instance) {
       // _attachModel plants the GLB's feet at group-origin (y=0) and scales the
@@ -274,10 +355,23 @@ export class Character {
     return 1.45;
   }
 
+  /**
+   * Set a movement target for the character to walk toward.
+   * @param {number} x - Target world X coordinate
+   * @param {number} z - Target world Z coordinate
+   * @returns {void}
+   */
   setTarget(x, z) {
     this.targetPosition.set(x, 0, z);
   }
 
+  /**
+   * Update character state for one frame: movement, terrain following, animation.
+   * Walks toward targetPosition, clamps to terrain height, updates procedural
+   * limb animation or GLB animation, and refreshes social state + ring color.
+   * @param {number} delta - Time step in seconds
+   * @returns {void}
+   */
   update(delta) {
     const dx = this.targetPosition.x - this.position.x;
     const dz = this.targetPosition.z - this.position.z;
@@ -338,12 +432,23 @@ export class Character {
     }
   }
 
+  /**
+   * Set the torso color (procedural body only).
+   * @param {number} color - Hex color value (e.g. 0xff0000)
+   * @returns {void}
+   */
   setColor(color) {
     if (this.procedural && this.torso) {
       this.torso.material.color.setHex(color);
     }
   }
 
+  /**
+   * Update social state: if the character has a social target and reaches it,
+   * clear the target and return to idle. Called internally by update().
+   * @param {number} delta - Time step in seconds (unused but kept for signature)
+   * @returns {void}
+   */
   updateSocial(delta) {
     // Check proximity to other characters for social interaction
     // This is called per-character; the manager will pass neighbor info
@@ -357,8 +462,14 @@ export class Character {
     }
   }
 
+  /**
+   * Dispose per-character resources: GLTF instance mixer, state ring, name label.
+   * For procedural bodies, also disposes all child geometries and materials.
+   * Shared GLB geometry/materials are owned by GLTFModel and not disposed here.
+   * @returns {void}
+   */
   dispose() {
-    // GLB clones share geometry/materials with the template; only un-cache the
+    // GLB clones share geometry/materials with the template;
     // per-character mixer and free the per-character ring/label here. The shared
     // geometry/materials are owned by GLTFModel and disposed once at shutdown.
     if (this.instance) {

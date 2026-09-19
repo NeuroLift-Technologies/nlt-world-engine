@@ -5,7 +5,16 @@
 import * as THREE from 'three';
 import { makeNoise2D, makeFbm } from './noise.js';
 
-// Build a tileable wave normal map (two-frequency composition).
+/**
+ * Build a tileable wave normal map from two-frequency sine waves + FBM noise.
+ * @param {number} size - Texture resolution (square)
+ * @param {number} seed - Seed for FBM noise
+ * @param {number} freq1 - Primary wave frequency
+ * @param {number} amp1 - Primary wave amplitude
+ * @param {number} freq2 - Secondary wave frequency
+ * @param {number} amp2 - Secondary wave amplitude
+ * @returns {THREE.CanvasTexture} Tiling normal map texture
+ */
 function buildWaveNormal(size, seed, freq1, amp1, freq2, amp2) {
   const H = new Float32Array(size * size);
   const n1 = makeFbm(makeNoise2D(seed), 3);
@@ -48,7 +57,33 @@ function buildWaveNormal(size, seed, freq1, amp1, freq2, amp2) {
   return t;
 }
 
+/**
+ * Build a translucent water plane using MeshPhysicalMaterial.
+ * Features dual animated normal-map layers, vertex displacement for waves,
+ * IOR-based transmission, and environment-map reflections.
+ * No render targets — pure physical material approach.
+ * @param {THREE.Scene} scene - The scene to add the water plane to
+ * @param {Object} config - Water configuration
+ * @param {number} config.size - World size (plane is slightly larger)
+ * @param {number} config.seaLevel - Water plane height (Y position)
+ * @param {number} [config.opacity=0.82] - Water opacity
+ * @param {number} [config.colorShallow] - Shallow water color hex
+ * @param {number} [config.ior=1.33] - Index of refraction
+ * @param {number} [config.transmission=0.3] - Light transmission
+ * @param {number} [config.seed=0] - Seed for wave normal generation
+ * @returns {{mesh:THREE.Mesh, update:function}} Water controller
+ */
 export function buildWater(scene, config) {
+  /**
+   * Create the water plane geometry (slightly larger than world size).
+   * @param {Object} config - Water configuration with size
+   * @returns {THREE.PlaneGeometry} The rotated plane geometry
+   */
+  /**
+   * Create the water plane geometry (slightly larger than world size).
+   * @param {Object} config - Water configuration with size
+   * @returns {THREE.PlaneGeometry} The rotated plane geometry
+   */
   const geo = new THREE.PlaneGeometry(config.size * 1.2, config.size * 1.2, 32, 32);
   geo.rotateX(-Math.PI / 2);
 
@@ -71,8 +106,13 @@ export function buildWater(scene, config) {
     side: THREE.FrontSide,
   });
 
-  // Inject uniforms + vertex wave displacement + an extra scrolling normal layer.
-  // Declarations go ONLY in the #include <common> replacement to avoid redeclaration.
+  /**
+   * Inject custom uniforms, vertex wave displacement, and an extra scrolling
+   * normal layer into the MeshPhysicalMaterial via onBeforeCompile.
+   * Declarations go ONLY in the #include <common> replacement to avoid redeclaration.
+   * @param {THREE.WebGLProgramParametersWithUniforms} shader - The shader program
+   * @returns {void}
+   */
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = { value: 0 };
     shader.uniforms.uWaveB = { value: waveB };
@@ -105,6 +145,11 @@ export function buildWater(scene, config) {
 
   return {
     mesh,
+    /**
+     * Update water shader time and scroll normal maps for wave animation.
+     * @param {number} t - Elapsed time in seconds
+     * @returns {void}
+     */
     update(t) {
       const s = mat.userData.shader;
       if (s) s.uniforms.uTime.value = t;

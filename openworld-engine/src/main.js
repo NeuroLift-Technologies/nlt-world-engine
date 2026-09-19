@@ -15,6 +15,11 @@ import { spawnFootDust, updateParticles } from './character/particles.js';
 
 // ── Error display ──────────────────────────────────────────────────────────
 const errBox = document.getElementById('err');
+/**
+ * Display an error message to the user in the error overlay box.
+ * @param {string} msg - Error message to display
+ * @returns {void}
+ */
 function showError(msg) {
   errBox.style.display = 'block';
   errBox.textContent   = msg;
@@ -41,7 +46,21 @@ window.addEventListener('error', (e) => {
   console.error('[openworld] unhandled error', e);
 });
 
+/**
+ * Weather state machine: manages transitions between clear, overcast, and rain.
+ * Controls overcast level, rain intensity, and HDRI environment swaps.
+ * @returns {void}
+ */
+/**
+ * Weather state machine: manages transitions between clear, overcast, and rain.
+ * Controls overcast level, rain intensity, and HDRI environment swaps.
+ * @returns {void}
+ */
 // ── Weather state machine ──────────────────────────────────────────────────
+/**
+ * Weather state definitions with overcast, rain, and HUD label.
+ * @type {Object.<string, {overcast:number, rain:number, label:string}>}
+ */
 const WEATHER_STATES = {
   clear:    { overcast: 0.0,  rain: 0.0,  label: '☀ Clear'   },
   overcast: { overcast: 0.85, rain: 0.0,  label: '☁ Overcast' },
@@ -60,8 +79,20 @@ let scene = null;
 // Maps each weather state to the HDRI preset that represents its lighting.
 // `clear` uses the clear pure-sky HDRI; `overcast` and `rain` share the flat
 // overcast HDRI (rain is handled by the rain particle system, not a new sky).
+/**
+ * Maps each weather state to the HDRI preset that represents its lighting.
+ * `clear` uses the clear pure-sky HDRI; `overcast` and `rain` share the flat
+ * overcast HDRI (rain is handled by the rain particle system, not a new sky).
+ * @type {Object.<string, string>}
+ */
 const WEATHER_PRESETS = { clear: 'clear', overcast: 'overcast', rain: 'overcast' };
 
+/**
+ * Transition the weather to a new state (clear, overcast, rain).
+ * Updates internal targets, HUD label/buttons, and swaps the HDRI environment preset.
+ * @param {string} state - One of 'clear', 'overcast', 'rain'
+ * @returns {void}
+ */
 function setWeather(state) {
   weatherState   = state;
   const s        = WEATHER_STATES[state];
@@ -82,14 +113,29 @@ function setWeather(state) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+/**
+ * Compute night factor (0=day, 1=night) from time-of-day using smoothstep.
+ * @param {number} h - Time of day in hours (0-24)
+ * @returns {number} Night factor 0..1
+ */
 function skyNight(h) {
   const dayT = (h - 6) / 12;
   const sunUp = Math.sin(dayT * Math.PI);
   return THREE.MathUtils.smoothstep(-sunUp, -0.08, 0.25);
 }
+/**
+ * Compute sun elevation fraction from time-of-day.
+ * @param {number} h - Time of day in hours (0-24)
+ * @returns {number} Sun elevation -1..1 (positive = above horizon)
+ */
 function skySunUp(h) {
   return Math.sin(((h - 6) / 12) * Math.PI);
 }
+/**
+ * Format time-of-day hours as 12-hour clock string (e.g. '2:30 PM').
+ * @param {number} h - Time of day in hours (0-24)
+ * @returns {string} Formatted time string
+ */
 function fmtTime(h) {
   const hh = Math.floor(h) % 24, mm = Math.floor((h % 1) * 60);
   const ap = hh >= 12 ? 'PM' : 'AM';
@@ -98,6 +144,13 @@ function fmtTime(h) {
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
+/**
+ * Boot the openworld-engine: initialize renderer, load environment IBL,
+ * build all world geometry (terrain, water, sky, clouds, vegetation, settlement),
+ * create the player controller and characters, wire up HUD controls,
+ * and start the main animation loop.
+ * @returns {Promise<void>}
+ */
 async function boot() {
   const container = document.getElementById('app');
   const camera    = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
@@ -211,7 +264,12 @@ async function boot() {
   const clock   = new THREE.Clock();
   let frames = 0, fpsT = 0;
 
-  function loop() {
+  /**
+ * Main animation loop: updates weather, sky, clouds, rain, world systems,
+ * player, characters, and renders the scene. Runs every animation frame.
+ * @returns {void}
+ */
+function loop() {
     requestAnimationFrame(loop);
     const dt = Math.min(clock.getDelta(), 0.1);
     const t  = clock.elapsedTime;

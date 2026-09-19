@@ -6,16 +6,30 @@
 import * as THREE from 'three';
 import { makeNoise2D, makeFbm } from '../world/noise.js';
 
+/** @type {THREE.ColorSpace} Linear color space for non-color maps (normal, roughness) */
 const LINEAR = THREE.NoColorSpace;
+/** @type {THREE.ColorSpace} SRGB color space for color/albedo maps */
 const SRGB = THREE.SRGBColorSpace;
 
+/**
+ * Create a square HTML canvas for procedural texture generation.
+ * @param {number} size - Canvas width and height in pixels
+ * @returns {HTMLCanvasElement} Created canvas element
+ */
 function makeCanvas(size) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   return c;
 }
 
-// Wrap a canvas into a tiled CanvasTexture.
+/**
+ * Wrap a canvas into a tiled CanvasTexture with RepeatWrapping.
+ * @param {HTMLCanvasElement} canvas - Source canvas
+ * @param {number} repeat - Tile repeat count in U and V
+ * @param {string} [colorSpace=SRGB] - THREE color space constant
+ * @param {number} [anisotropy=4] - Anisotropy level for mipmapping
+ * @returns {THREE.CanvasTexture} Configured tiling texture
+ */
 function tex(canvas, repeat, colorSpace = SRGB, anisotropy = 4) {
   const t = new THREE.CanvasTexture(canvas);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -25,9 +39,14 @@ function tex(canvas, repeat, colorSpace = SRGB, anisotropy = 4) {
   return t;
 }
 
-// Central-difference normal map from a scalar height field H[x][y].
-// dx, dy are pixel steps; strength scales the slope.
-// Returns RGB ImageData where RGB = normal*0.5+0.5 (tangent space).
+/**
+ * Generate a tangent-space normal map from a scalar height field using central differences.
+ * @param {Float32Array} H - Height field array (length w*h)
+ * @param {number} w - Image width
+ * @param {number} h - Image height
+ * @param {number} strength - Slope strength multiplier
+ * @returns {ImageData} RGB normal map (tangent space, wrapped)
+ */
 function normalFromHeight(H, w, h, strength) {
   const img = new ImageData(w, h);
   const d = img.data;
@@ -51,7 +70,21 @@ function normalFromHeight(H, w, h, strength) {
   return img;
 }
 
-// Generic tiling texture-set from height proxy.
+/**
+ * Generate a complete tiling PBR texture set (color, roughness, normal, optional AO)
+ * from callback functions evaluated per-pixel.
+ * @param {Object} opts - Texture set options
+ * @param {number} opts.size - Texture resolution
+ * @param {number} opts.repeat - Tile repeat count
+ * @param {number} opts.seed - Noise seed
+ * @param {function} opts.colorFn - (fbm, u, v) => [r, g, b] in 0..255
+ * @param {function} opts.roughFn - (fbm, u, v) => roughness 0..1
+ * @param {function} [opts.normalFn] - (fbm, u, v) => height for normal map
+ * @param {function} [opts.aoFn] - (fbm, u, v) => AO 0..1
+ * @param {number} [opts.normalStrength=1] - Normal map slope strength
+ * @param {string} [opts.colorSpace=SRGB] - Color space for the color map
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture, ao?:THREE.Texture}} Texture set
+ */
 function makeSet({
   size, repeat, seed, colorFn, roughFn, normalFn, aoFn, normalStrength = 1, colorSpace = SRGB,
 }) {
@@ -100,7 +133,11 @@ function makeSet({
   return out;
 }
 
-// --- biome palette (shared with terrain.js vertex colors) ---
+/**
+ * Biome color palette shared with terrain.js vertex colors.
+ * Each entry maps a biome name to its representative THREE.Color.
+ * @type {Object<string, THREE.Color>}
+ */
 export const BIOME = {
   sand: new THREE.Color(0xc2b280),
   grass: new THREE.Color(0x4d7c3a),
@@ -111,8 +148,14 @@ export const BIOME = {
   dirt: new THREE.Color(0x5a4630),
 };
 
-// Terrain detail maps — tiling micro-detail layered on top of the existing
-// vertex-color biome bands. UV space maps to tileSize meters on the ground.
+/**
+ * Generate tiling terrain detail maps (color, roughness, normal) as micro-detail
+ * layered on top of vertex-color biome bands. UV space maps to tileSize meters.
+ * Roughness is derived from the heightfield so it matches the actual biome/elevation.
+ * @param {Object} config - PBR config with size, seed, tileSize, seaLevel
+ * @param {Object} heightField - Terrain height sampler for roughness lookup
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture}} Tiled PBR maps
+ */
 export function createTerrainDetail(config, heightField) {
   const tileSize = config.tileSize ?? 8;
   const repeat = Math.max(1, Math.floor(config.size / tileSize));
@@ -152,7 +195,12 @@ export function createTerrainDetail(config, heightField) {
   });
 }
 
-// Rock / stone set
+/**
+ * Generate a tiling rock/stone PBR texture set (color, roughness, normal).
+ * Produces grey-toned stone with subtle FBM variation.
+ * @param {Object} [config={}] - Configuration with optional seed
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture}} Tiled rock maps
+ */
 export function createRockSet(config = {}) {
   return makeSet({
     size: 256,
@@ -169,7 +217,12 @@ export function createRockSet(config = {}) {
   });
 }
 
-// Bark / wood set
+/**
+ * Generate a tiling wood/bark PBR texture set with vertical grain streaks
+ * and occasional darker knots.
+ * @param {Object} [config={}] - Configuration with optional seed
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture}} Tiled wood maps
+ */
 export function createWoodSet(config = {}) {
   return makeSet({
     size: 256,
@@ -194,7 +247,12 @@ export function createWoodSet(config = {}) {
   });
 }
 
-// Foliage (leaf) set
+/**
+ * Generate a tiling foliage/leaf PBR texture set with green tones and
+ * lighter sunlit patches on leaf edges.
+ * @param {Object} [config={}] - Configuration with optional seed
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture}} Tiled foliage maps
+ */
 export function createFoliageSet(config = {}) {
   return makeSet({
     size: 256,
@@ -215,7 +273,13 @@ export function createFoliageSet(config = {}) {
   });
 }
 
-// Fabric / cloth set
+/**
+ * Generate a tiling fabric/cloth PBR texture set with subtle weave variation
+ * tinted by the given base color.
+ * @param {number} [color=0xb8472f] - Base cloth color hex
+ * @param {Object} [config={}] - Configuration with optional seed
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture}} Tiled cloth maps
+ */
 export function createClothSet(color = 0xb8472f, config = {}) {
   const base = new THREE.Color(color);
   return makeSet({
@@ -232,7 +296,11 @@ export function createClothSet(color = 0xb8472f, config = {}) {
   });
 }
 
-// Skin set
+/**
+ * Generate a tiling skin PBR texture set with warm tone and fine pore detail.
+ * @param {Object} [config={}] - Configuration with optional seed
+ * @returns {{color:THREE.Texture, roughness:THREE.Texture, normal:THREE.Texture}} Tiled skin maps
+ */
 export function createSkinSet(config = {}) {
   return makeSet({
     size: 256,
@@ -249,9 +317,19 @@ export function createSkinSet(config = {}) {
   });
 }
 
-// Generic PBR material factory.
-// opts: { color, roughness, metalness, metalnessMap, maps: {color?,normal?,roughness?,ao?}, ... }
-// When a map is provided, the base color is reset to white so the texture drives it.
+/**
+ * Generic PBR material factory.
+ * Creates a MeshStandardMaterial and attaches optional texture maps.
+ * When a color map is provided, the base color is reset to white so the texture drives it.
+ * @param {Object} [opts={}] - Material options
+ * @param {number} [opts.color] - Base color hex (overridden to white if maps.color is set)
+ * @param {number} [opts.roughness=0.8] - Surface roughness 0..1
+ * @param {number} [opts.metalness=0] - Surface metalness 0..1
+ * @param {Object} [opts.maps] - Texture maps: color, roughness, normal, ao, metalness
+ * @param {number} [opts.side=THREE.FrontSide] - Material side
+ * @param {boolean} [opts.flatShading=false] - Enable flat shading
+ * @returns {THREE.MeshStandardMaterial} Configured PBR material
+ */
 export function makePBRMaterial(opts = {}) {
   const { color, roughness = 0.8, metalness = 0, side, maps = {}, flatShading = false, ...rest } = opts;
   const m = new THREE.MeshStandardMaterial({

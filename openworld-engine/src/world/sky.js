@@ -3,7 +3,27 @@
 // height-based horizon haze.  Driven by time-of-day via applyTimeOfDay().
 import * as THREE from 'three';
 
+/**
+ * Build a physically-inspired sky dome with Rayleigh-style scattering,
+ * golden-hour gradients, Mie sun glow, moon disc + glow, and twinkling stars.
+ * Includes directional sun light, hemisphere/ambient lights, and exponential fog.
+ * Driven by time-of-day via applyTimeOfDay().
+ * @param {THREE.Scene} scene - The scene to add sky and lights to
+ * @param {Object} config - Sky configuration
+ * @param {number} config.shadowMapSize - Shadow map resolution for the sun
+ * @returns {{applyTimeOfDay:function, setOvercast:function, tick:function, sun:THREE.DirectionalLight}} Sky controller
+ */
 export function buildSky(scene, config) {
+  /**
+   * Build the sky dome geometry and shader material.
+   * Uses a large sphere with BackSide rendering and custom scattering shader.
+   * @returns {THREE.Mesh} The sky dome mesh
+   */
+  /**
+   * Build the sky dome geometry and shader material.
+   * Uses a large sphere with BackSide rendering and custom scattering shader.
+   * @returns {THREE.Mesh} The sky dome mesh
+   */
   // ── Dome ────────────────────────────────────────────────────────────────────
   const skyGeo = new THREE.SphereGeometry(1200, 48, 24);
   const skyMat = new THREE.ShaderMaterial({
@@ -43,7 +63,10 @@ export function buildSky(scene, config) {
       }
       float hash2(float n) { return fract(sin(n) * 43758.5453); }
 
-      // Rayleigh-ish scattering: bluer straight up, hazier/warmer at horizon
+      /**
+       * Rayleigh-style scattering: bluer near zenith, hazier/warmer at horizon.
+       * Computes sky color based on view direction, sun direction, and time factors.
+       */
       vec3 rayleigh(vec3 dir, vec3 sunDir, float nightF, float duskF) {
         float h       = clamp(dir.y, 0.0, 1.0);
         float sunDot  = max(dot(dir, sunDir), 0.0);
@@ -152,6 +175,7 @@ export function buildSky(scene, config) {
   const sun = new THREE.DirectionalLight(0xfff2dd, 2.6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(config.shadowMapSize, config.shadowMapSize);
+  /** @type {number} Half-size of the shadow camera frustum (m) */
   const R = 260;
   sun.shadow.camera.left   = -R;  sun.shadow.camera.right = R;
   sun.shadow.camera.top    =  R;  sun.shadow.camera.bottom = -R;
@@ -170,7 +194,11 @@ export function buildSky(scene, config) {
   const fog = new THREE.FogExp2(0xbfd9e8, 0.0016);
   scene.fog = fog;
 
-  // ── Precomputed colours ────────────────────────────────────────────────────
+  /**
+   * Precomputed colors for different times of day.
+   * Used for smooth interpolation between sky states.
+   * @type {Object.<string, THREE.Color>}
+   */
   const C = {
     noonTop:    new THREE.Color(0x1a4a8a),
     noonMid:    new THREE.Color(0x5d9ed4),
@@ -190,11 +218,26 @@ export function buildSky(scene, config) {
   // ── State ──────────────────────────────────────────────────────────────────
   let _overcast = 0;
 
+  /**
+   * Set the overcast level for the sky dome shader.
+   * @param {number} v - Overcast level 0..1
+   * @returns {void}
+   */
   function setOvercast(v) {
     _overcast = THREE.MathUtils.clamp(v, 0, 1);
     skyMat.uniforms.uOvercast.value = _overcast;
   }
 
+  /**
+   * Apply time-of-day to the sky dome, lights, and fog.
+   * Computes sun/moon direction, night/dusk factors, sky colors,
+   * light intensities, and fog density based on the hour.
+   * @param {number} hours - Time of day in hours (0-24)
+   * @param {number} elevationDeg - Sun elevation in degrees
+   * @param {number} azimuthDeg - Sun azimuth in degrees
+   * @param {Object} cfg - Sky config with fog density settings
+   * @returns {void}
+   */
   function applyTimeOfDay(hours, elevationDeg, azimuthDeg, cfg) {
     const densityNoon  = cfg?.fog?.densityNoon  ?? 0.0016;
     const densityNight = cfg?.fog?.densityNight ?? 0.0048;
@@ -263,6 +306,11 @@ export function buildSky(scene, config) {
     fog.color.copy(horCol);
   }
 
+  /**
+   * Update the sky shader time uniform (for star twinkle animation).
+   * @param {number} t - Elapsed time in seconds
+   * @returns {void}
+   */
   function tick(t) {
     skyMat.uniforms.uTime.value = t;
   }

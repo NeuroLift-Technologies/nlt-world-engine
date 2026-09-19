@@ -14,6 +14,11 @@
 import * as THREE from 'three';
 
 // ── Vertex shader ─────────────────────────────────────────────────────────────
+/**
+ * GLSL vertex shader for cloud plane.
+ * Passes UV and radial distance for edge fade.
+ * @type {string}
+ */
 const CLOUD_VERT = /* glsl */`
   varying vec2 vUv;
   varying float vDist;
@@ -27,6 +32,11 @@ const CLOUD_VERT = /* glsl */`
 
 // ── Fragment shader ───────────────────────────────────────────────────────────
 // Two-layer FBM clouds with soft alpha.
+/**
+ * GLSL fragment shader for cloud rendering.
+ * Two-layer FBM noise with edge fade, night dimming, and sun-angle warm tint.
+ * @type {string}
+ */
 const CLOUD_FRAG = /* glsl */`
   uniform float uTime;
   uniform float uCoverage;   // 0 = clear sky, 1 = overcast
@@ -93,6 +103,20 @@ const CLOUD_FRAG = /* glsl */`
   }
 `;
 
+/**
+ * Build a procedural cloud layer on a large horizontal plane.
+ * Uses FBM noise in a custom shader to render scrolling, lit cloud puffs.
+ * Cloud appearance adapts to weather (coverage, density, color) and time of day.
+ * @param {THREE.Scene} scene - The scene to add the cloud mesh to
+ * @param {Object} config - Cloud configuration
+ * @param {number} [config.altitude=110] - Height above sea level (m)
+ * @param {number} [config.radius=1800] - Plane half-size (m)
+ * @param {number} [config.coverage=0.42] - Sky coverage 0..1
+ * @param {number} [config.density=2.8] - Edge softness threshold
+ * @param {{x:number,y:number}} [config.windDir] - Wind direction vector
+ * @param {number} [config.windSpeed=1.0] - Wind speed multiplier
+ * @returns {{mesh:THREE.Mesh, update:function, setOvercast:function}} Cloud controller
+ */
 export function buildClouds(scene, config) {
   const altitude   = config.altitude   ?? 110;  // metres above sea level
   const radius     = config.radius     ?? 1800;  // plane half-size
@@ -136,6 +160,12 @@ export function buildClouds(scene, config) {
   // ── State ──────────────────────────────────────────────────────────────────
   let elapsed = 0;
 
+  /**
+   * Update cloud coverage, density, and color to reflect overcast level.
+   * Coverage approaches 0.90, density tightens for a grey blanket effect.
+   * @param {number} v - Overcast level 0..1
+   * @returns {void}
+   */
   function setOvercast(v) {
     // overcast: coverage approaches 1, density tightens for a grey blanket
     const c = THREE.MathUtils.clamp(v, 0, 1);
@@ -154,6 +184,14 @@ export function buildClouds(scene, config) {
     );
   }
 
+  /**
+   * Update cloud state for one frame: time, night dimming, sun angle, and overcast.
+   * @param {number} dt - Time step in seconds
+   * @param {number} [nightFactor=0] - Night dimming factor 0..1
+   * @param {number} [overcast=0] - Overcast level 0..1
+   * @param {number} [sunUp=1] - Sun elevation fraction
+   * @returns {void}
+   */
   function update(dt, nightFactor, overcast, sunUp) {
     elapsed += dt;
     mat.uniforms.uTime.value    = elapsed;

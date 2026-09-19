@@ -1,4 +1,11 @@
 // Deterministic RNG + value noise + fBm. Same seed => same world, always.
+
+/**
+ * Mulberry32 PRNG — fast, deterministic 32-bit random number generator.
+ * Same seed always produces the same sequence.
+ * @param {number} seed - 32-bit unsigned integer seed
+ * @returns {function(): number} Generator returning floats in [0, 1)
+ */
 export function mulberry32(seed) {
   let s = seed >>> 0;
   return function () {
@@ -9,7 +16,12 @@ export function mulberry32(seed) {
   };
 }
 
-// Small permutation-free value noise on an integer lattice.
+/**
+ * Create a 2D Perlin-style value noise function.
+ * Uses a permutation table seeded by the given value for deterministic output.
+ * @param {number} seed - Integer seed for the permutation table
+ * @returns {function(number, number): number} Noise function returning values in ~[-1, 1]
+ */
 export function makeNoise2D(seed) {
   const rand = mulberry32(seed);
   const perm = new Uint8Array(512);
@@ -20,7 +32,19 @@ export function makeNoise2D(seed) {
   }
   for (let i = 0; i < 512; i++) perm[i] = base[i & 255];
 
+  /**
+   * Smoothstep fade function for Perlin noise interpolation.
+   * @param {number} t - Input value 0..1
+   * @returns {number} Smoothed value 0..1
+   */
   const fade = (t) => t * t * (3 - 2 * t);
+  /**
+   * Compute gradient value for Perlin noise based on hash and position.
+   * @param {number} h - Hash value selecting gradient direction
+   * @param {number} x - X offset from lattice point
+   * @param {number} y - Y offset from lattice point
+   * @returns {number} Gradient dot product
+   */
   const grad = (h, x, y) => {
     switch (h & 3) {
       case 0: return x + y;
@@ -29,6 +53,20 @@ export function makeNoise2D(seed) {
       default: return -x - y;
     }
   };
+  /**
+   * Perlin noise function for 2D coordinates.
+   * Uses permutation table and gradient vectors for smooth interpolation.
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @returns {number} Noise value in approximately [-1, 1]
+   */
+  /**
+   * Perlin noise function for 2D coordinates.
+   * Uses permutation table and gradient vectors for smooth interpolation.
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @returns {number} Noise value in approximately [-1, 1]
+   */
   return function noise(x, y) {
     const xi = Math.floor(x) & 255, yi = Math.floor(y) & 255;
     const xf = x - Math.floor(x), yf = y - Math.floor(y);
@@ -41,6 +79,15 @@ export function makeNoise2D(seed) {
   };
 }
 
+/**
+ * Create a fractal Brownian motion (fBm) function from a base noise function.
+ * Sums multiple octaves of noise at increasing frequency and decreasing amplitude.
+ * @param {function(number,number):number} noise - Base 2D noise function
+ * @param {number} [octaves=5] - Number of noise layers to sum
+ * @param {number} [lacunarity=2.0] - Frequency multiplier per octave
+ * @param {number} [gain=0.5] - Amplitude multiplier per octave
+ * @returns {function(number,number):number} fBm function returning normalized values
+ */
 export function makeFbm(noise, octaves = 5, lacunarity = 2.0, gain = 0.5) {
   return function fbm(x, y) {
     let amp = 0.5, freq = 1, sum = 0, norm = 0;

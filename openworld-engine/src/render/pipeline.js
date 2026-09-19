@@ -6,9 +6,21 @@
 // fallback so the scene always has IBL even if a download fails.
 import * as THREE from 'three';
 
-export let envMap = null;                // active PMREM texture
-const presetCache = {};                 // preset name -> { texture, url }
+/** @type {THREE.Texture|null} Active PMREM environment texture for IBL */
+export let envMap = null;
+/** @type {Object.<string, {texture:THREE.Texture, url:string|null}>} Cached preset textures */
+const presetCache = {};
 
+/**
+ * Create a WebGLRenderer with ACES tone mapping and optional post-processing chain.
+ * Lazily imports three.js post-processing addons; falls back to plain rendering if unavailable.
+ * @param {HTMLElement} container - DOM element to append the canvas to
+ * @param {Object} quality - Quality configuration
+ * @param {number} quality.pixelRatioMax - Cap for device pixel ratio
+ * @param {boolean} quality.antialias - Enable antialiasing
+ * @param {boolean} quality.shadows - Enable shadow mapping
+ * @returns {Promise<{renderer:THREE.WebGLRenderer, composerModules:Object|null}>} Renderer and post modules
+ */
 export async function createRenderer(container, quality) {
   const renderer = new THREE.WebGLRenderer({ antialias: quality.antialias });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioMax));
@@ -38,6 +50,14 @@ export async function createRenderer(container, quality) {
  * Process one equirectangular HDR URL into a PMREM texture (used for IBL).
  * Returns null if the download/parse fails.
  */
+/**
+ * Load and process an HDR environment texture via PMREM.
+ * Downloads an equirectangular HDR, processes it through PMREMGenerator for IBL.
+ * @param {THREE.WebGLRenderer} renderer - The WebGL renderer
+ * @param {string} url - URL of the HDR file
+ * @param {Object} cfg - Config with optional pmremBlur setting
+ * @returns {Promise<THREE.Texture|null>} PMREM-processed texture, or null on failure
+ */
 async function loadHDRTexture(renderer, url, cfg) {
   if (!url) return null;
   try {
@@ -64,6 +84,13 @@ async function loadHDRTexture(renderer, url, cfg) {
  * Procedural equirectangular fallback (gradient + soft sun blob).
  * Always builds a fresh PMREMGenerator — reusing one that processed a failed
  * HDR load leaves it in a broken internal state in Three.js 0.170.
+ */
+/**
+ * Build a procedural equirectangular environment map as a fallback.
+ * Generates a gradient sky with a soft sun blob, processes through PMREM.
+ * Always builds a fresh PMREMGenerator to avoid broken state from failed HDR loads.
+ * @param {THREE.WebGLRenderer} renderer - The WebGL renderer
+ * @returns {THREE.Texture} PMREM-processed procedural environment texture
  */
 function buildProceduralEnv(renderer) {
   const size = 512;
@@ -169,6 +196,11 @@ export function applyEnvToScene(scene, cfg) {
   });
 }
 
+/**
+ * Vignette post-processing shader — darkens screen edges.
+ * Uses a smoothstep falloff from center to create a subtle cinematic effect.
+ * @type {{uniforms:Object, vertexShader:string, fragmentShader:string}}
+ */
 const VignetteShader = {
   uniforms: { tDiffuse: { value: null }, uStrength: { value: 0.42 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
@@ -181,6 +213,17 @@ const VignetteShader = {
     }`,
 };
 
+/**
+ * Build a post-processing composer chain: RenderPass → UnrealBloom → Vignette → Output.
+ * Returns null if post-processing modules are unavailable.
+ * @param {THREE.WebGLRenderer} renderer - The WebGL renderer
+ * @param {THREE.Scene} scene - The scene to render
+ * @param {THREE.Camera} camera - The camera
+ * @param {Object|null} modules - Post-processing module imports
+ * @param {number} width - Viewport width
+ * @param {number} height - Viewport height
+ * @returns {EffectComposer|null} The configured composer, or null if modules unavailable
+ */
 export function buildComposer(renderer, scene, camera, modules, width, height) {
   if (!modules) return null;
   const { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, ShaderPass } = modules;

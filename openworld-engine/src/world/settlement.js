@@ -9,11 +9,34 @@ const woodDarkMaps = createWoodSet({ seed: 21 });
 const fabricMaps = createClothSet(0xb8472f);
 const stoneMaps = createRockSet({ seed: 33 });
 
+/**
+ * Build a lakeside camp settlement with procedural huts, campfire, crates, and dock.
+ * Scatters buildings near flat land above sea level. The campfire flickers and
+ * the fire light brightens at night.
+ * @param {THREE.Scene} scene - The scene to add settlement objects to
+ * @param {Object} heightField - Terrain height field sampler
+ * @param {function(number,number):number} heightField.sample - Sample height at (x,z)
+ * @param {Object} world - World configuration
+ * @param {number} world.size - World extent in meters
+ * @param {number} world.seaLevel - Water plane height
+ * @param {number} world.seed - World seed for deterministic placement
+ * @returns {{group:THREE.Group, campCenter:THREE.Vector3, update:function}} Settlement controller
+ */
 export function buildSettlement(scene, heightField, world) {
   const rand = mulberry32(world.seed + 77);
   const group = new THREE.Group();
   group.name = 'settlement';
 
+  /**
+   * Find flat-ish land near water for the camp by sampling random positions.
+   * Searches for terrain between seaLevel+1 and seaLevel+4 meters.
+   * @returns {void}
+   */
+  /**
+   * Find flat-ish land near water for the camp by sampling random positions.
+   * Searches for terrain between seaLevel+1 and seaLevel+4 meters.
+   * @returns {void}
+   */
   // Find flat-ish land near water for the camp.
   let cx = 30, cz = 30, cy = 0;
   for (let i = 0; i < 400; i++) {
@@ -23,22 +46,32 @@ export function buildSettlement(scene, heightField, world) {
     if (h > world.seaLevel + 1 && h < world.seaLevel + 4) { cx = x; cz = z; cy = h; break; }
   }
 
+  /** @type {THREE.MeshStandardMaterial} Shared wood material for huts and crates */
   const wood = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.85, metalness: 0.0,
     map: woodMaps.color, normalMap: woodMaps.normal, roughnessMap: woodMaps.roughness,
     normalScale: new THREE.Vector2(1, 1),
   });
+  /** @type {THREE.MeshStandardMaterial} Darker wood material for roofs and poles */
   const woodDark = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.9, metalness: 0.0,
     map: woodDarkMaps.color, normalMap: woodDarkMaps.normal, roughnessMap: woodDarkMaps.roughness,
     normalScale: new THREE.Vector2(1, 1),
   });
+  /** @type {THREE.MeshStandardMaterial} Fabric material for the tent */
   const cloth = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.8, side: THREE.DoubleSide,
     map: fabricMaps.color, normalMap: fabricMaps.normal, roughnessMap: fabricMaps.roughness,
     normalScale: new THREE.Vector2(1, 1),
   });
 
+  /**
+   * Build a procedural hut with box base, cone roof, and door.
+   * @param {number} x - World X position
+   * @param {number} z - World Z position
+   * @param {number} ry - Rotation around Y axis (radians)
+   * @returns {THREE.Group} The hut group
+   */
   function hut(x, z, ry) {
     const g = new THREE.Group();
     const y = heightField.sample(x, z);
@@ -114,6 +147,12 @@ export function buildSettlement(scene, heightField, world) {
   return {
     group,
     campCenter: new THREE.Vector3(cx, cy, cz),
+    /**
+     * Update campfire flicker and coal glow, brightening at night.
+     * @param {number} t - Elapsed time in seconds
+     * @param {number} nightFactor - Night factor 0..1 (brightens fire at night)
+     * @returns {void}
+     */
     update(t, nightFactor) {
       fireLight.intensity = 30 + Math.sin(t * 9) * 5 + Math.sin(t * 23) * 3;
       fireLight.intensity *= (0.55 + nightFactor * 0.9);

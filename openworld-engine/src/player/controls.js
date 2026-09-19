@@ -2,6 +2,20 @@
 // + orbit overview mode. Toggle with 1/2 or HUD buttons.
 import * as THREE from 'three';
 
+/**
+ * Create a player controller with first-person walk and orbit overview modes.
+ * Walk: pointer-drag look, WASD movement, terrain clamp, sprint with Shift.
+ * Orbit: auto-rotating camera around a target point, scroll to zoom.
+ * @param {THREE.PerspectiveCamera} camera - The camera to control
+ * @param {HTMLElement} dom - DOM element for pointer events
+ * @param {Object} heightField - Terrain height field sampler
+ * @param {function(number,number):number} heightField.sample - Sample terrain height at (x,z)
+ * @param {Object} config - Player configuration
+ * @param {number} config.walkSpeed - Base movement speed (m/s)
+ * @param {number} config.sprintMultiplier - Speed multiplier when sprinting
+ * @param {number} config.eyeHeight - Camera height above ground (m)
+ * @returns {{state:Object, update:function, setMode:function}} Player controller
+ */
 export function createPlayer(camera, dom, heightField, config) {
   const state = {
     mode: 'walk', // 'walk' | 'orbit'
@@ -40,11 +54,33 @@ export function createPlayer(camera, dom, heightField, config) {
   });
   window.addEventListener('keyup', (e) => state.keys.delete(e.code));
 
+  /**
+   * Get terrain height at world coordinates, clamped to sea level minimum.
+   * @param {number} x - World X coordinate
+   * @param {number} z - World Z coordinate
+   * @returns {number} Ground height (never below sea level)
+   */
+  /**
+   * Get terrain height at world coordinates, clamped to sea level minimum.
+   * @param {number} x - World X coordinate
+   * @param {number} z - World Z coordinate
+   * @returns {number} Ground height (never below sea level)
+   */
   function groundY(x, z) {
     const h = heightField.sample(x, z);
     return Math.max(h, 2.2) ; // seaLevel approx; never sink below water
   }
 
+  /**
+   * Switch between 'walk' and 'orbit' modes.
+   * @param {string} m - Mode name: 'walk' or 'orbit'
+   * @returns {void}
+   */
+  /**
+   * Switch between 'walk' and 'orbit' modes.
+   * @param {string} m - Mode name: 'walk' or 'orbit'
+   * @returns {void}
+   */
   function setMode(m) {
     state.mode = m;
     if (m === 'orbit') {
@@ -55,6 +91,16 @@ export function createPlayer(camera, dom, heightField, config) {
   }
 
   const forward = new THREE.Vector3(), right = new THREE.Vector3();
+  /**
+   * Update player state for one frame: movement, collision, camera transform.
+   * @param {number} dt - Time step in seconds
+   * @returns {void}
+   */
+  /**
+   * Update player state for one frame: movement, collision, camera transform.
+   * @param {number} dt - Time step in seconds
+   * @returns {void}
+   */
   function update(dt) {
     if (state.mode === 'walk') {
       const sprint = (state.keys.has('ShiftLeft') || state.keys.has('ShiftRight'))

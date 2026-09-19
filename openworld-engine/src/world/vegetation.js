@@ -6,10 +6,26 @@ import * as THREE from 'three';
 import { mulberry32 } from './noise.js';
 import { createWoodSet, createFoliageSet, createRockSet } from '../materials/pbr.js';
 
+/** @type {Object} Shared wood texture set (color, normal, roughness) */
 const woodMaps = createWoodSet();
+/** @type {Object} Shared foliage texture set (color, normal, roughness) */
 const foliageMaps = createFoliageSet();
+/** @type {Object} Shared rock texture set (color, normal, roughness) */
 const rockMaps = createRockSet();
 
+/**
+ * Generate random world positions within a height range for scattering vegetation.
+ * Uses rejection sampling to keep points within [minH, maxH] elevation band.
+ * @param {function():number} rand - Random number generator returning [0,1)
+ * @param {number} count - Desired number of positions
+ * @param {number} size - World extent (scatter range is ±size*0.46)
+ * @param {Object} heightField - Terrain height sampler
+ * @param {function(number,number):number} heightField.sample - Sample height at (x,z)
+ * @param {number} seaLevel - Sea level reference (unused but kept for signature)
+ * @param {number} minH - Minimum terrain height (exclusive)
+ * @param {number} maxH - Maximum terrain height (exclusive)
+ * @returns {Array<[number,number,number]>} Array of [x, y, z] positions
+ */
 function scatterPositions(rand, count, size, heightField, seaLevel, minH, maxH) {
   const out = [];
   let guard = count * 40;
@@ -22,7 +38,34 @@ function scatterPositions(rand, count, size, heightField, seaLevel, minH, maxH) 
   return out;
 }
 
+/**
+ * Build instanced vegetation (trees, grass, rocks) across the terrain.
+ * Trees use merged trunk + foliage geometry. Grass uses crossed quads with
+ * wind sway in the vertex shader. Rocks are squashed icosahedrons.
+ * Scatter is height-bounded: trees on mid-elevation, grass near water, rocks anywhere.
+ * @param {THREE.Scene} scene - The scene to add vegetation to
+ * @param {Object} heightField - Terrain height field sampler
+ * @param {function(number,number):number} heightField.sample - Sample height at (x,z)
+ * @param {Object} config - Vegetation configuration with seed
+ * @param {Object} world - World config with scatter counts and bounds
+ * @param {number} world.treeCount - Number of tree instances
+ * @param {number} world.grassCount - Number of grass instances
+ * @param {number} world.rockCount - Number of rock instances
+ * @param {number} world.size - World extent for scatter range
+ * @param {number} world.seaLevel - Minimum height filter
+ * @returns {{group:THREE.Group, update:function}} Vegetation controller
+ */
 export function buildVegetation(scene, heightField, config, world) {
+  /**
+   * Initialize vegetation system with seeded random number generator.
+   * @param {Object} config - Vegetation configuration with seed
+   * @returns {void}
+   */
+  /**
+   * Initialize vegetation system with seeded random number generator.
+   * @param {Object} config - Vegetation configuration with seed
+   * @returns {void}
+   */
   const rand = mulberry32(config.seed + 21);
   const group = new THREE.Group();
   group.name = 'vegetation';
@@ -122,6 +165,11 @@ export function buildVegetation(scene, heightField, config, world) {
   scene.add(group);
   return {
     group,
+    /**
+     * Update grass wind sway shader time.
+     * @param {number} t - Elapsed time in seconds
+     * @returns {void}
+     */
     update(t) {
       const s = grassMat.userData.shader;
       if (s) s.uniforms.uTime.value = t;

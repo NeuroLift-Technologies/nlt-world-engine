@@ -1,6 +1,7 @@
 // particles.js — footstep dust and ambient particles
 import * as THREE from 'three';
 
+/** @type {number} Maximum number of simultaneous dust particles in the pool */
 const MAX_PARTICLES = 200;
 const particleGeometry = new THREE.BufferGeometry();
 const positions = new Float32Array(MAX_PARTICLES * 3);
@@ -43,6 +44,11 @@ const particleMaterial = new THREE.ShaderMaterial({
 let particleSystem = null;
 let particleCount = 0;
 
+/**
+ * Get or lazily create the shared particle system in the scene.
+ * @param {THREE.Scene} scene - The scene to add the particle system to
+ * @returns {THREE.Points} The particle system
+ */
 function getParticleSystem(scene) {
   if (!particleSystem) {
     particleSystem = new THREE.Points(particleGeometry, particleMaterial);
@@ -52,6 +58,14 @@ function getParticleSystem(scene) {
   return particleSystem;
 }
 
+/**
+ * Spawn a footstep dust puff at the given world position.
+ * Recycles the first dead particle slot in the fixed-size pool.
+ * Particles rise, fall under gravity, and fade out over their lifetime.
+ * @param {THREE.Scene} scene - The scene to add the particle system to (lazily created)
+ * @param {THREE.Vector3} position - World position where the foot strikes ground
+ * @returns {void}
+ */
 export function spawnFootDust(scene, position) {
   const system = getParticleSystem(scene);
   const pos = particleGeometry.attributes.position.array;
@@ -82,6 +96,13 @@ export function spawnFootDust(scene, position) {
   particleGeometry.attributes.size.needsUpdate = true;
 }
 
+/**
+ * Update all active footstep dust particles by one time step.
+ * Applies gravity, advances position, fades size by remaining lifetime,
+ * and hides dead particles by moving them far below the scene.
+ * @param {number} delta - Time step in seconds
+ * @returns {void}
+ */
 export function updateParticles(delta) {
   if (!particleSystem) return;
 
@@ -114,6 +135,11 @@ export function updateParticles(delta) {
   particleGeometry.attributes.size.needsUpdate = true;
 }
 
+/**
+ * Dispose and remove the entire particle system from the scene.
+ * Resets the internal state so the next spawnFootDust() recreates it.
+ * @returns {void}
+ */
 export function resetParticles() {
   if (particleSystem) {
     particleSystem.geometry.dispose();

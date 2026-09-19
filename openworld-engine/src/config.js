@@ -1,4 +1,108 @@
-// All tunables in one place. Nothing else hardcodes world constants.
+/**
+ * Central configuration object for the openworld-engine.
+ * All tunables live here — nothing else hardcodes world constants.
+ * @typedef {Object} WorldConfig
+ * @property {number} size - World extent in meters (square)
+ * @property {number} segments - Terrain mesh resolution
+ * @property {number} heightScale - Max terrain elevation
+ * @property {number} seaLevel - Water plane height
+ * @property {number} seed - Deterministic world seed
+ */
+/**
+ * @typedef {Object} SkyConfig
+ * @property {number} sunElevationDeg - Default sun elevation in degrees
+ * @property {number} sunAzimuthDeg - Default sun azimuth in degrees
+ * @property {number} exposure - Tone mapping exposure
+ * @property {Object} fog - Fog density settings
+ * @property {number} fog.densityNoon - Exp2 density at noon (~550m visibility)
+ * @property {number} fog.densityNight - Denser fog at night
+ * @property {number} fog.densityRain - Extra density during rain/overcast
+ */
+/**
+ * @typedef {Object} CloudConfig
+ * @property {number} altitude - Metres above sea level
+ * @property {number} radius - Cloud plane half-extent (m)
+ * @property {number} coverage - 0=clear, 1=100% covered
+ * @property {number} density - FBM threshold sharpness
+ * @property {{x:number,y:number}} windDir - Horizontal wind direction
+ * @property {number} windSpeed - Multiplier for scrolling speed
+ */
+/**
+ * @typedef {Object} RainConfig
+ * @property {number} poolSize - Max simultaneous rain droplets
+ * @property {number} spawnRadius - Horizontal spawn box half-size around camera
+ * @property {number} spawnHeight - How far above camera droplets spawn
+ * @property {number} fallSpeed - Base fall speed (m/s)
+ * @property {number} windDriftX - Lateral wind drift (m/s)
+ */
+/**
+ * @typedef {Object} AtmosphereConfig
+ * @property {CloudConfig} clouds
+ * @property {RainConfig} rain
+ */
+/**
+ * @typedef {Object} WaterConfig
+ * @property {number} colorShallow - Shallow water color hex
+ * @property {number} colorDeep - Deep water color hex
+ * @property {number} opacity - Water opacity
+ * @property {number} normalScale - Normal map intensity
+ * @property {number} ior - Index of refraction
+ * @property {number} transmission - Light transmission factor
+ */
+/**
+ * @typedef {Object} VegetationConfig
+ * @property {number} treeCount - Number of trees to scatter
+ * @property {number} grassCount - Number of grass instances
+ * @property {number} rockCount - Number of rocks to scatter
+ * @property {number} textureSize - Procedural texture resolution
+ */
+/**
+ * @typedef {Object} PlayerConfig
+ * @property {number} walkSpeed - Base movement speed
+ * @property {number} sprintMultiplier - Speed multiplier when sprinting
+ * @property {number} eyeHeight - Camera height above ground
+ */
+/**
+ * @typedef {Object} QualityConfig
+ * @property {number} pixelRatioMax - Max device pixel ratio
+ * @property {boolean} shadows - Enable shadow mapping
+ * @property {number} shadowMapSize - Shadow map resolution
+ * @property {boolean} antialias - Enable MSAA
+ */
+/**
+ * @typedef {Object} PBRConfig
+ * @property {number} textureSize - Base texture resolution
+ * @property {number} terrainDetailSize - Terrain detail map resolution
+ * @property {number} terrainTileSize - Meters per terrain detail tile
+ * @property {number} terrainNormalScale - Terrain normal map strength
+ */
+/**
+ * @typedef {Object} EnvMapConfig
+ * @property {Object.<string,string>} presets - Named HDR URLs
+ * @property {string} default - Default preset name
+ * @property {number} envMapIntensity - IBL intensity multiplier
+ * @property {number} pmremBlur - PMREM blur radius
+ * @property {boolean} procedural - Use procedural fallback if HDR fails
+ */
+/**
+ * @typedef {Object} CharacterConfig
+ * @property {string} model - URL to shared GLB model
+ * @property {number} height - Target standing height (m)
+ */
+/**
+ * @typedef {Object} CONFIG
+ * @property {WorldConfig} world
+ * @property {SkyConfig} sky
+ * @property {AtmosphereConfig} atmosphere
+ * @property {WaterConfig} water
+ * @property {VegetationConfig} vegetation
+ * @property {PlayerConfig} player
+ * @property {QualityConfig} quality
+ * @property {PBRConfig} pbr
+ * @property {EnvMapConfig} envMap
+ * @property {CharacterConfig} characters
+ */
+/** @type {CONFIG} */
 export const CONFIG = {
   world: {
     size: 512,            // world extent in meters (square)

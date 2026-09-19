@@ -17,6 +17,11 @@ import * as THREE from 'three';
 
 // ── Shaders ────────────────────────────────────────────────────────────────
 
+/**
+ * GLSL vertex shader for rain droplet streaks.
+ * Elongates point sprites vertically based on per-droplet length attribute.
+ * @type {string}
+ */
 const RAIN_VERT = /* glsl */`
   attribute float aLen;      // streak length
   uniform float uSize;       // world-space pixel scale
@@ -33,6 +38,11 @@ const RAIN_VERT = /* glsl */`
   }
 `;
 
+/**
+ * GLSL fragment shader for rain droplet streaks.
+ * Stretches point coords into vertical streaks with alpha fade.
+ * @type {string}
+ */
 const RAIN_FRAG = /* glsl */`
   uniform float uIntensity;
   varying float vAlpha;
@@ -51,14 +61,39 @@ const RAIN_FRAG = /* glsl */`
 `;
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const POOL_SIZE    = 14000;  // max simultaneous droplets
-const SPAWN_RADIUS = 120;    // horizontal spawn box half-size around camera
-const SPAWN_HEIGHT = 55;     // how high above camera to spawn
-const FALL_SPEED   = 26;     // m/s base fall speed
-const WIND_X       = 1.8;    // slight sideways drift
-const RECYCLE_Y    = -8;     // recycled when this far below camera
+/** @type {number} Maximum simultaneous rain droplets in the pool */
+const POOL_SIZE    = 14000;
+/** @type {number} Horizontal spawn box half-size around camera (m) */
+const SPAWN_RADIUS = 120;
+/** @type {number} Spawn height above camera (m) */
+const SPAWN_HEIGHT = 55;
+/** @type {number} Base fall speed (m/s) */
+const FALL_SPEED   = 26;
+/** @type {number} Lateral wind drift (m/s) */
+const WIND_X       = 1.8;
+/** @type {number} Y threshold below camera where droplets recycle (m) */
+const RECYCLE_Y    = -8;
+/** @type {number} Horizontal spawn box half-size around camera (m) */
+const SPAWN_RADIUS = 120;
+/** @type {number} How high above camera to spawn (m) */
+const SPAWN_HEIGHT = 55;
+/** @type {number} Base fall speed (m/s) */
+const FALL_SPEED   = 26;
+/** @type {number} Slight sideways drift (m/s) */
+const WIND_X       = 1.8;
+/** @type {number} Recycled when this far below camera (m) */
+const RECYCLE_Y    = -8;
 
 // ── Build ──────────────────────────────────────────────────────────────────
+/**
+ * Build a GPU rain particle system with custom streak shader.
+ * Rain droplets fall from a volume above the camera, recycle when out of view,
+ * and fade in/out based on intensity. The volume follows the camera.
+ * @param {THREE.Scene} scene - The scene to add the rain points to
+ * @param {Object} config - Weather configuration
+ * @param {number} [config.intensity=0.0] - Initial rain intensity 0..1
+ * @returns {{points:THREE.Points, update:function, setIntensity:function, setOvercast:function, intensity:number, overcast:number}} Weather controller
+ */
 export function buildWeather(scene, config) {
   const intensity = config.intensity ?? 0.0;
   const enabled   = intensity > 0;
@@ -106,12 +141,22 @@ export function buildWeather(scene, config) {
   let _elapsed   = 0;
   const _camPos  = new THREE.Vector3();
 
+  /**
+   * Set rain intensity (0 = no rain, 1 = heavy). Updates shader uniform and visibility.
+   * @param {number} v - Intensity 0..1
+   * @returns {void}
+   */
   function setIntensity(v) {
     _intensity = THREE.MathUtils.clamp(v, 0, 1);
     mat.uniforms.uIntensity.value = _intensity;
     points.visible = _intensity > 0.01;
   }
 
+  /**
+   * Set overcast level (stored for external read; clouds handle visual changes).
+   * @param {number} v - Overcast 0..1
+   * @returns {void}
+   */
   function setOvercast(v) {
     _overcast = THREE.MathUtils.clamp(v, 0, 1);
   }
