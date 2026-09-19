@@ -4,7 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "Audio/SoundscapeDataAsset.h"
 #include "Components/AudioComponent.h"
-#include "SoundscapeSubsystem.generated.h"
+#include "NLTSoundscapeSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTSoundscape, Log, All);
 
