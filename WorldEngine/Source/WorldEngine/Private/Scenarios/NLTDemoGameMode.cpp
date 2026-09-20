@@ -3,6 +3,7 @@
 #include "Scenarios/Demo/NLTScenarioManagerSubsystem.h"
 #include "Scenarios/UScenarioLibrary.h"
 #include "World/NLTDoorActor.h"
+#include "World/NLTOpenWorldSubsystem.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -14,6 +15,32 @@ ANLTDemoGameMode::ANLTDemoGameMode()
 void ANLTDemoGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Auto-generate open world if this is the OpenWorld level
+	if (UWorld* World = GetWorld())
+	{
+		const FName CurrentLevel = FName(*UGameplayStatics::GetCurrentLevelName(World));
+		if (CurrentLevel == TEXT("OpenWorld_Level"))
+		{
+			if (UNLTOpenWorldSubsystem* OWS = World->GetSubsystem<UNLTOpenWorldSubsystem>())
+			{
+				if (!OWS->IsWorldGenerated())
+				{
+					FNLTOpenWorldConfig Config;
+					Config.Seed = 42;
+					Config.WorldSize = FVector(5000.0f, 5000.0f, 0.0f);
+					Config.NumBuildings = 12;
+					Config.NumResidents = 8;
+					Config.NumTrees = 200;
+					Config.NumRocks = 50;
+					Config.NumGrassPatches = 300;
+					OWS->GenerateOpenWorld(Config);
+					UE_LOG(LogTemp, Log, TEXT("[Demo] Generated open world (seed=%d)"), Config.Seed);
+				}
+			}
+			return; // Skip scenario/level-door logic for open world
+		}
+	}
 
 	// Spawn doors that lead to other levels
 	SpawnLevelDoors();
