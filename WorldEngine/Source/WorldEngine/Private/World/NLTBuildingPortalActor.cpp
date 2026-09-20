@@ -5,7 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/AssetManager.h"
-#include "EngineUtils.h"
+#include "Engine/EngineUtils.h"
 #include "Engine/Font.h"
 #include "Engine/LevelStreamingDynamic.h"
 #include "Engine/StreamableManager.h"
