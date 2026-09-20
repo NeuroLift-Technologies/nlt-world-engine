@@ -103,6 +103,11 @@ public:
     void SetLabelFacing(const FVector& FaceDirection);
 
 protected:
+    /** Root scene component. BuildingMesh is a child so imported mesh origins can be
+     *  re-anchored (base on the spawn point) without shifting the interaction volume. */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Portal")
+    USceneComponent* SceneRoot;
+
     /** Static mesh for the building exterior. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NLT|Portal")
     UStaticMeshComponent* BuildingMesh;

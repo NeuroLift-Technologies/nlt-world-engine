@@ -9,6 +9,11 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTOpenWorld, Log, All);
 
+// Declared in World/NLTBuildingPortalActor.h. Forward declared here so this header is
+// self-contained: unity builds batch module .cpp files in varying order, so relying on a
+// transitive include of NLTBuildingPortalActor.h is fragile (C3646 unknown override specifier).
+enum class ENLTBuildingType : uint8;
+
 /**
  * Configuration for open world landscape generation.
  */
@@ -52,6 +57,10 @@ struct FNLTOpenWorldConfig
 
     UPROPERTY(BlueprintReadWrite)
     float GrassDensity = 0.0002f;
+
+    /** Whether to place the Fab Modern City city-grid layer (roads, sidewalks, fences, trees). */
+    UPROPERTY(BlueprintReadWrite)
+    bool bPlaceCityScenery = true;
 };
 
 /**
@@ -135,6 +144,14 @@ private:
     UPROPERTY()
     class UHierarchicalInstancedStaticMeshComponent* RockHISM;
 
+    /** Placeholder ground plane spawned when the level has no Landscape actor. */
+    UPROPERTY()
+    class AStaticMeshActor* GroundPlaceholder;
+
+    /** Spawned city scenery actors (Fab Modern City city-grid pieces). */
+    UPROPERTY()
+    TArray<class AStaticMeshActor*> CityScenery;
+
     /** Spawned building portals. */
     UPROPERTY()
     TArray<class ANLTBuildingPortalActor*> BuildingPortals;
@@ -150,8 +167,16 @@ private:
     /** Generate landscape from heightmap data. */
     void GenerateLandscape(const TArray<float>& Heightmap);
 
+    /** Spawn a placeholder ground plane when the level has no Landscape actor. */
+    void SpawnGroundPlaceholder();
+
     /** Place water plane at the configured water level. */
     void PlaceWaterPlane();
+
+    /** Spawn the Fab Modern City city-grid layer (roads, sidewalks, fences, trees, props).
+     *  All pieces share the Fab scene origin, so they are placed at the world origin with
+     *  a shared scale to preserve the block layout. */
+    void SpawnCityScenery();
 
     /** Place atmospheric sky actors. */
     void PlaceAtmosphere();

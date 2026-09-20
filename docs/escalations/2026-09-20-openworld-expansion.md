@@ -274,4 +274,161 @@ The `openworld-engine/src/world/` directory already contains complete, tested im
 5. Keep all existing C++ HDRI/LUT integration code — works with procedurally-generated cubemaps if needed
 
 **All Fab asset download links and content directory structure remain prepared as a backup
-if access becomes available later.**
+if access becomes available later.
+
+---
+
+## Discovery: Open-World System Already Implemented in C++
+
+**Date:** 2026-09-20
+**Finding:** The WorldEngine already has a **complete open-world implementation** in C++,
+not just planned infrastructure. The `NLTOpenWorldSubsystem`, `NLTBuildingPortalActor`,
+`OpenWorld_Level.umap`, and `NLTDemoGameMode` auto-generation are all present and wired.
+
+### What the Fab "Modern City Environment" Provides
+
+The downloaded asset at `D:\UE Vault\Modern_City_Environment-6e72d76b` provides visual
+geometry that slots directly into the existing placeholder system:
+
+| Fab Asset | Existing Placeholder | Integration Point | AI-Relevant? |
+|-----------|---------------------|-------------------|--------------|
+| Building FBX (198MB grid_system.fbx) | `BuildingMesh = /Engine/BasicShapes/Cube` (placeholder) in `NLTBuildingPortalActor::UpdateBuildingMesh()` | Replace cube with building meshes; scale per type | **YES** — building portals stream to indoor training levels |
+| Road (GLTF: Road.gltf + 32MB.bin) | No roads yet | Spawn as static geometry around buildings | YES — navigable surface for AI residents |
+| Sidewalk (GLTF: Sidewalk.gltf + 3.7MB.bin) | No sidewalks yet | Spawn around building portals | YES — AI walk paths between buildings |
+| Towers (GLTF: Towers.gltf + 23MB.bin) | Scale variation in `UpdateBuildingMesh()` | New building type variant | YES — taller buildings for district variety |
+| Green Area (GLTF: Green Area.gltf + textures) | `TreeHISM`/`GrassHISM` use `/Engine/BasicShapes/Cylinder` and `Plane` | Replace placeholder vegetation meshes | YES — park district for AI recreation |
+| Parking (GLTF: Parking.gltf + 139MB.bin) | Not implemented | Spawn in commercial districts | YES — parking lot = waiting/interaction area for AI |
+| Textures | BasicShapeMaterial | PBR material assignments | YES — better visual fidelity for observation |
+
+### AI Integration — Already In Place
+
+The existing C++ code already has full AI integration:
+
+1. **`NLTOpenWorldSubsystem::SpawnResidents()`** (line 523) — spawns 12 `AAvatarCharacter`
+   AI residents with daily routines:
+   - Morning → walk to Office (streams Workplace_Level for training)
+   - Midday → walk to Shop (streams Social_Level for social scenarios)
+   - Evening → walk to Apartment (streams Personal_Level for self-care scenarios)
+   - Roles assigned: `ENLTAgentRole::Avatar` (learning) and `ENLTAgentRole::Advocate` (coached)
+
+2. **`NLTBuildingPortalActor`** — building entrances trigger `StreamInLevel()`:
+   - Office → Workplace_Level
+   - Apartment → Personal_Level
+   - Shop → Social_Level
+   - School → Academic_Level
+   - Hut → OpenWorld_Level (self-transition hub)
+
+3. **Level streaming bridge** — `StreamInLevel()` / `StreamOutLevel()` using
+   `ULevelStreamingDynamic`
+
+### Integration Path for Fab Assets
+
+To use the Fab city environment with AI:
+
+1. **Import FBX/GLTF** → `.uasset` static meshes in `WorldEngine/Content/City/`
+2. **Update `NLTBuildingPortalActor::UpdateBuildingMesh()`** — replace the
+   `/Engine/BasicShapes/Cube` placeholder with a `TMap<ENLTBuildingType, UStaticMesh*>`
+   referencing the imported Fab building meshes
+3. **Update `NLTOpenWorldSubsystem::SpawnVegetation()`** — replace Cylinder/Sphere/Plane
+   placeholders with Fab tree/grass/rock meshes on the HISM components
+4. **Add road/sidewalk spawning** — new method in `NLTOpenWorldSubsystem` to place
+   Fab road meshes between buildings
+5. **NavMesh generation** — ensure imported meshes generate NavMesh for AI pathfinding
+
+### `isAiForbidden: false` — AI Usage Permitted
+
+The Fab metadata explicitly states `isAiForbidden: false` — the Modern City Environment
+assets **can be used** for AI training, simulation, and agent interaction scenarios.
+
+### What Needs To Happen (Editor-Time Only)
+
+The asset import + mesh assignment in `UpdateBuildingMesh()` requires UE Editor access
+(on the Linux build box or a Windows machine with UE 5.8 installed). The C++ scaffolding
+(`NLTNoiseLibrary`, atmosphere HDRI/LUT support, Water plugin) is already compiled-ready.
+
+---
+
+## Progress Update (2026-09-20 PM) — C++ Mesh Wiring + City Scenery + Runtime Verification
+
+**Agent:** OpenCode (Poolside) · **All items below are DONE; build + runtime verified.**
+
+### 1. Fab assets imported (editor-time, performed earlier in this session record)
+
+| Asset group | UE package | StaticMeshes (verbatim paths used by C++) |
+|---|---|---|
+| Building 11 (Office/School archetype) | `/Game/City/Buildings/Building11/Building_11` | `Building_11.Building_11` (30.9×35.4×32.6m) |
+| Building 12 (Apartment/Shop/Factory archetype) | `/Game/City/Buildings/Building12/Building_12` | `Building_12.Building_12` (44.3×18.7×39.2m, Nanite 85.8K tris) |
+| Park grove | `/Game/City/Buildings/GridTrees` | `Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_` (233×181×4m) |
+| City grid (road/sidewalk/trees/fences/trash/parking) | `/Game/City/Grid/CityGrid` (merged GLB) | `Road_003`, `Sidewalk_001`, `Grid_Trees__Low_Poly_`, `Fences`, `Trash_Bins_and_Path_Lights`, `Parking_Entrance_001` |
+| Fences / Trash bins (legacy individual imports, superseded by the merged CityGrid) | `/Game/City/Buildings/{Fences,TrashBins}/...` | retained; not used by runtime code |
+
+All imports are **geometry-only** (shared `NLT_Gray` material, no textures) — this was the
+decided compromise to beat the 120s gateway import window and 1GB-pagefile OOM limits.
+The merged `CityGrid.glb` (6.98 MB, 155,703 tris, single shared Fab scene origin → perfect
+piece alignment) was compiled from the Grid System + Road/Sidewalk Blender scene via
+blender-mcp (`Imports/FabCity/GridSystem/splits_geo/CityGrid.glb`).
+
+### 2. C++ changes (this session, built + verified)
+
+**`NLTBuildingPortalActor`**
+- Added `USceneComponent* SceneRoot` root; `BuildingMesh` is now a child so imported mesh
+  origins can be re-anchored without shifting the interaction volume/labels.
+- `UpdateBuildingMesh()` now:
+  - Loads the Fab meshes per `ENLTBuildingType` (`LoadObject` at runtime; Hut keeps the cube).
+  - Scales each mesh bounds-aware to a per-type footprint (half-extents in UE cm): Office
+    1100×1100×1200, Apartment 1200×900×1100, Shop 800×600×600, School 1200×900×1000,
+    Factory 1300×1000×950, Park 1500×1100×700 (Park scales **uniformly** to keep the low
+    grove natural instead of stretching its 4 m height).
+  - Re-anchors the imported mesh so its **base sits exactly on the spawn point** (terrain+10)
+    with X/Y re-centered; labels float above the roof (`2*scaledHalfZ + 500`); the interaction
+    volume becomes a footprint+300 cm, base-anchored, ≤9 m-tall box the player overlaps on
+    approach (was a 1.5×1.5×2 m box centered at the actor — which would have missed ground
+    pawns for tall Fab towers).
+
+**`NLTOpenWorldSubsystem`**
+- New `SpawnCityScenery()` (+ `bPlaceCityScenery=true` config toggle, `CityScenery` actor
+  array with `ClearOpenWorld` cleanup). Placed 6 merged city-grid pieces at world origin with
+  one shared scale (`worldHalf / max piece half-extent` ≈ **0.193**) flat-stacked at 8–30 cm
+  Z offsets above `GetTerrainHeight(0,0)` (matching the ground-plane Z), preserving the Fab
+  block layout via the shared scene origin.
+- `GenerateOpenWorld()` calls it right after `PlaceWaterPlane()`.
+
+### 3. Runtime verification (standalone `-game`, seed 42, OpenWorld_Level)
+
+From `Saved/Logs/WorldEngine.log` (2026-09-20 14:59–15:02):
+
+```
+Ground: no Landscape actor in level, spawned placeholder ground plane at Z=0 covering 5000x5000
+City scenery: placed 6 Fab Modern City grid pieces (scale 0.193, base Z 0, world 5000x5000)
+World generated: 4 districts, 12 buildings, 8 roads
+Spawned building portal 'Shop' at (2067, 2102, -10)   ... (12 portals total: Shop×3, Factory×2, Apartment×3, Park×4)
+Spawned 12 AI residents
+Open world generation complete: 12 buildings, 12 residents
+Portal 'NLTBuildingPortalActor_1': Pawn 'DefaultPawn_0' entered range → auto-streaming → 'Workplace_Level' loaded successfully
+... (portal overlap triggering + level streaming + teleport offset all fire correctly; no mesh load failures logged)
+```
+
+- **All Fab building meshes loaded** (no `failed to load` warnings → Building_12 for
+  Apartment/Shop/Factory and GridTrees for Park exercised at runtime; Building_11 (Office/
+  School) not exercised this seed — same code path, asset import confirmed by metadata).
+- **Interaction volumes work** for ground-level pawns (footprint-sized triggers fired and
+  streamed `Workplace_Level`/`Personal_Level`).
+- One pre-existing, non-fatal `ensure` (`MyOwnerWorld`, `SpawnVegetation()` line 521 —
+  placeholder HISM registered via `NewObject` at subsystem scope) was noted; unrelated to
+  this session's changes, recovers, and vegetation still spawns.
+- `r.GenerateMeshDistanceFields=False` remains set (documented, reversible) to protect the
+  1 GB pagefile.
+
+### Handoff notes for Joshua
+
+- Changes are **uncommitted** in git (see next commit). Assets under `WorldEngine/Content/City/`
+  are staged; `WorldEngine/Imports/.gitignore` keeps the 1.6 GB Fab staging out of VCS while
+  committing the import scripts + geometry-only GLB splits (`splits_geo/`) for reproducibility.
+- `UpdateBuildingMesh()` swap-in is **scale-only** on the NLT_Gray geometry — no material
+  assignment yet (textures intentionally deferred; NLT_Gray keeps the pack light).
+- Visual confirmation (building proportions, label placement, grid alignment) is recommended
+  by launching PIE on `OpenWorld_Level` — MCP `control_editor.play` has a catalog bug
+  (validator rejects the documented `control` param; console `PIE.Start` is blocked as
+  "dangerous"), which is why verification ran via standalone `-game` instead.
+- Known follow-ups (not this session): Office/School spawn weighting (no Office/School spawn
+  at seed 42), vegetation HISM ensure cleanup, NavMesh for imported meshes.

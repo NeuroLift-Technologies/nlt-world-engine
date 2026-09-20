@@ -14,7 +14,9 @@
 #include "LandscapeEdit.h"
 #include "LandscapeInfo.h"
 #include "Materials/MaterialInstanceDynamic.h"
-#include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY(LogNLTOpenWorld);
@@ -74,8 +76,15 @@ void UNLTOpenWorldSubsystem::GenerateOpenWorld(const FNLTOpenWorldConfig& Config
     // Generate landscape from heightmap
     GenerateLandscape(Heightmap);
 
+    // A Landscape actor cannot be created at runtime (Landscape editing is editor-only), so if the
+    // level does not contain one, spawn a simple ground plane to keep the world visible.
+    SpawnGroundPlaceholder();
+
     // Place water plane at configured water level
     PlaceWaterPlane();
+
+    // Place the Fab Modern City city-grid layer on the ground
+    SpawnCityScenery();
 
     // Generate world data (districts, buildings) via World Generator
     FNLTWorldGenerationParams GenParams;
@@ -153,6 +162,23 @@ void UNLTOpenWorldSubsystem::ClearOpenWorld()
         RockHISM->ClearInstances();
     }
 
+    // Destroy the fallback ground plane (if one was spawned)
+    if (GroundPlaceholder)
+    {
+        GroundPlaceholder->Destroy();
+        GroundPlaceholder = nullptr;
+    }
+
+    // Destroy city scenery actors
+    for (AStaticMeshActor* Scenery : CityScenery)
+    {
+        if (Scenery)
+        {
+            Scenery->Destroy();
+        }
+    }
+    CityScenery.Empty();
+
     bWorldGenerated = false;
 }
 
@@ -222,6 +248,76 @@ void UNLTOpenWorldSubsystem::GenerateLandscape(const TArray<float>& Heightmap)
         Heightmap.Num());
 }
 
+void UNLTOpenWorldSubsystem::SpawnGroundPlaceholder()
+{
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    // A real Landscape added in the editor is the intended ground - never spawn a placeholder
+    // if one is already there.
+    for (TActorIterator<ALandscape> It(World); It; ++It)
+    {
+        if (*It)
+        {
+            UE_LOG(LogNLTOpenWorld, Log, TEXT("Ground: using existing landscape '%s'"), *It->GetName());
+            return;
+        }
+    }
+
+    if (GroundPlaceholder)
+    {
+        return; // Already spawned (e.g. GenerateOpenWorld called twice)
+    }
+
+    UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+    if (!PlaneMesh)
+    {
+        UE_LOG(LogNLTOpenWorld, Warning, TEXT("Ground: placeholder plane mesh /Engine/BasicShapes/Plane not found - the level will have no floor"));
+        return;
+    }
+
+    // The plane mesh is 100x100 units at scale 1, so scale it to cover the configured world size.
+    const float PlaneExtent = 100.0f;
+    const float ScaleX = CurrentConfig.WorldSize.X / PlaneExtent;
+    const float ScaleY = CurrentConfig.WorldSize.Y / PlaneExtent;
+    const float GroundZ = GetTerrainHeight(0.0f, 0.0f);
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    GroundPlaceholder = World->SpawnActor<AStaticMeshActor>(
+        AStaticMeshActor::StaticClass(),
+        FVector(0.0f, 0.0f, GroundZ),
+        FRotator::ZeroRotator,
+        SpawnParams
+    );
+
+    if (!GroundPlaceholder)
+    {
+        UE_LOG(LogNLTOpenWorld, Warning, TEXT("Ground: failed to spawn placeholder ground plane"));
+        return;
+    }
+
+    if (UStaticMeshComponent* GroundMesh = GroundPlaceholder->GetStaticMeshComponent())
+    {
+        GroundMesh->SetMobility(EComponentMobility::Movable);
+        GroundMesh->SetStaticMesh(PlaneMesh);
+        GroundMesh->SetWorldScale3D(FVector(ScaleX, ScaleY, 1.0f));
+
+        if (UMaterialInterface* ShapeMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
+        {
+            GroundMesh->SetMaterial(0, ShapeMaterial);
+        }
+    }
+
+    UE_LOG(LogNLTOpenWorld, Log,
+        TEXT("Ground: no Landscape actor in level, spawned placeholder ground plane at Z=%.0f covering %.0fx%.0f (add a Landscape actor for real terrain)"),
+        GroundZ, CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y);
+}
+
 void UNLTOpenWorldSubsystem::PlaceWaterPlane()
 {
     UWorld* World = GetWorld();
@@ -242,6 +338,102 @@ void UNLTOpenWorldSubsystem::PlaceWaterPlane()
 
     UE_LOG(LogNLTOpenWorld, Log, TEXT("Water plane placement at height %.0f (Water plugin can be used for runtime water)"),
         CurrentConfig.WaterLevel);
+}
+
+void UNLTOpenWorldSubsystem::SpawnCityScenery()
+{
+    if (!CurrentConfig.bPlaceCityScenery)
+    {
+        UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: disabled by config (bPlaceCityScenery=false)"));
+        return;
+    }
+
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        return;
+    }
+
+    // Fab "Modern_City_Environment" (AI-usable) city-grid layer: the Road network, sidewalks,
+    // fences, tree grove, trash bins and parking structure from the merged CityGrid GLB.
+    // Every piece shares the Fab scene origin, so stacking them at the world origin with one
+    // shared scale reproduces the original block layout.
+    struct FSceneryPiece
+    {
+        const TCHAR* MeshPath;
+        float ZOffset;        // cm above the ground plane
+        UStaticMesh* Mesh;    // resolved below
+    };
+
+    FSceneryPiece Pieces[] =
+    {
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Road_003.Road_003"),                         8.0f,  nullptr },
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Sidewalk_001.Sidewalk_001"),                 15.0f, nullptr },
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_"),20.0f, nullptr },
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Fences.Fences"),                             24.0f, nullptr },
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Trash_Bins_and_Path_Lights.Trash_Bins_and_Path_Lights"), 26.0f, nullptr },
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Parking_Entrance_001.Parking_Entrance_001"),  30.0f, nullptr },
+    };
+
+    // Load every piece and compute the shared scale from the widest footprint so the whole
+    // block fits inside the open world.
+    int32 LoadedCount = 0;
+    float MaxHalfExtent = 0.0f;
+    for (FSceneryPiece& Piece : Pieces)
+    {
+        Piece.Mesh = LoadObject<UStaticMesh>(nullptr, Piece.MeshPath);
+        if (!Piece.Mesh)
+        {
+            UE_LOG(LogNLTOpenWorld, Warning, TEXT("City scenery: failed to load '%s' - continuing without it"), Piece.MeshPath);
+            continue;
+        }
+        ++LoadedCount;
+        const FVector PieceExtent = Piece.Mesh->GetBounds().BoxExtent;
+        MaxHalfExtent = FMath::Max(MaxHalfExtent, FMath::Max(PieceExtent.X, PieceExtent.Y));
+    }
+
+    if (LoadedCount == 0)
+    {
+        UE_LOG(LogNLTOpenWorld, Warning, TEXT("City scenery: no city-grid meshes loaded - skipping layer"));
+        return;
+    }
+
+    const float WorldHalf = FMath::Min(CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y) * 0.5f;
+    const float SharedScale = (MaxHalfExtent > 1.0f) ? (WorldHalf / MaxHalfExtent) : 1.0f;
+    const float GroundZ = GetTerrainHeight(0.0f, 0.0f);
+
+    int32 Spawned = 0;
+    for (const FSceneryPiece& Piece : Pieces)
+    {
+        if (!Piece.Mesh)
+        {
+            continue;
+        }
+
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        const FVector SpawnLocation(0.0f, 0.0f, GroundZ + Piece.ZOffset);
+        AStaticMeshActor* Scenery = World->SpawnActor<AStaticMeshActor>(
+            AStaticMeshActor::StaticClass(), SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+        if (!Scenery)
+        {
+            continue;
+        }
+
+        if (UStaticMeshComponent* MeshComp = Scenery->GetStaticMeshComponent())
+        {
+            MeshComp->SetMobility(EComponentMobility::Movable);
+            MeshComp->SetStaticMesh(Piece.Mesh);
+        }
+        Scenery->SetActorScale3D(FVector(SharedScale, SharedScale, SharedScale));
+        CityScenery.Add(Scenery);
+        ++Spawned;
+    }
+
+    UE_LOG(LogNLTOpenWorld, Log,
+        TEXT("City scenery: placed %d Fab Modern City grid pieces (scale %.3f, base Z %.0f, world %.0fx%.0f)"),
+        Spawned, SharedScale, GroundZ, CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y);
 }
 
 void UNLTOpenWorldSubsystem::PlaceAtmosphere()
@@ -321,33 +513,34 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
 
     // --- Trees ---
     TreeHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, TEXT("TreeHISM"));
+    TreeHISM->SetMobility(EComponentMobility::Movable); // populated at runtime
     TreeHISM->RegisterComponent();
 
-    // Use a simple cylinder/cone as a placeholder tree mesh
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> TreeMeshFinder(TEXT("/Engine/BasicShapes/Cylinder"));
-    if (TreeMeshFinder.Succeeded())
+    // Placeholder tree mesh. NOTE: LoadObject, not ConstructorHelpers::FObjectFinder - SpawnVegetation
+    // runs at runtime from BeginPlay and FObjectFinder is a fatal error outside of constructors.
+    if (UStaticMesh* TreeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder")))
     {
-        TreeHISM->SetStaticMesh(TreeMeshFinder.Object);
+        TreeHISM->SetStaticMesh(TreeMesh);
     }
 
     // --- Grass ---
     GrassHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, TEXT("GrassHISM"));
+    GrassHISM->SetMobility(EComponentMobility::Movable); // populated at runtime
     GrassHISM->RegisterComponent();
 
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> GrassMeshFinder(TEXT("/Engine/BasicShapes/Plane"));
-    if (GrassMeshFinder.Succeeded())
+    if (UStaticMesh* GrassMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")))
     {
-        GrassHISM->SetStaticMesh(GrassMeshFinder.Object);
+        GrassHISM->SetStaticMesh(GrassMesh);
     }
 
     // --- Rocks ---
     RockHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, TEXT("RockHISM"));
+    RockHISM->SetMobility(EComponentMobility::Movable); // populated at runtime
     RockHISM->RegisterComponent();
 
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> RockMeshFinder(TEXT("/Engine/BasicShapes/Sphere"));
-    if (RockMeshFinder.Succeeded())
+    if (UStaticMesh* RockMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere")))
     {
-        RockHISM->SetStaticMesh(RockMeshFinder.Object);
+        RockHISM->SetStaticMesh(RockMesh);
     }
 
     // Scatter vegetation across the landscape

@@ -8,6 +8,27 @@
 
 ## Active Threads
 
+### 🏙️ ESC-001 — UE Open-World Expansion (Fab Modern City assets as outdoor layer)
+- **Agent:** OpenCode (Poolside) · **Opened:** 2026-09-20 · **Branch:** `main` (uncommitted)
+- **Scope:** Port `openworld-engine` outdoor rendering into UE WorldEngine — buildings as level
+  portals to indoor `.umap` scenarios, upgraded building/ground geometry with AI-usable Fab
+  `Modern_City_Environment` assets, procedural determinism (seed → world) preserved.
+- **Delivered (verified in standalone `-game`, seed 42):**
+  - Geometry-only GLB splits imported per mesh (12 portals, 6 city-grid pieces); merged
+    `CityGrid.glb` aligns all pieces via the shared Fab scene origin.
+  - `NLTBuildingPortalActor`: `SceneRoot` added; `UpdateBuildingMesh()` assigns Fab meshes per
+    type with bounds-aware scaling, base-on-spawn anchoring, roof labels, footprint-sized
+    interaction volumes. Cube fallback retained (Hut / load failure).
+  - `NLTOpenWorldSubsystem`: `SpawnCityScenery()` + `bPlaceCityScenery` + `ClearOpenWorld`
+    cleanup. Log: `City scenery: placed 6 Fab Modern City grid pieces (scale 0.193 ...)`,
+    `Open world generation complete: 12 buildings, 12 residents`; portal overlap → level
+    streaming verified live.
+- **Escalation record:** `docs/escalations/2026-09-20-openworld-expansion.md` (Progress Update section).
+- **Blocker for PIE:** MCP `control_editor.play` catalog bug (rejects `control` param; console
+  `PIE.Start` blocked as dangerous) — verification done via standalone `-game` instead.
+- **Next action:** commit; optional follow-ups (Office/School spawn weighting, HISM ensure
+  cleanup, NavMesh for imported meshes, textures pass on NLT_Gray geometry).
+
 ### 📄 DOC-MCP-001 — Unreal MCP Integration Documentation
 - **Agent:** OpenCode · **Opened:** 2026-09-19 · **Branch:** `main`
 - **Scope:** Register the unreal-mcp server config and document the WorldEngine integration. Global OpenCode MCP registration (`http://127.0.0.1:8001/mcp`, ✓ connected).

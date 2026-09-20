@@ -26,9 +26,14 @@ ANLTBuildingPortalActor::ANLTBuildingPortalActor()
 {
     PrimaryActorTick.bCanEverTick = true;
 
+    // Root scene component; the building mesh is a child so imported Fab meshes can be
+    // re-anchored without shifting the interaction volume or labels.
+    SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
+    SetRootComponent(SceneRoot);
+
     // Create the building mesh (visual exterior)
     BuildingMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BuildingMesh"));
-    RootComponent = BuildingMesh;
+    BuildingMesh->SetupAttachment(SceneRoot);
 
     // Use a default cube as placeholder building shell
     static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube"));
@@ -194,28 +199,125 @@ void ANLTBuildingPortalActor::SetLabelFacing(const FVector& FaceDirection)
 
 void ANLTBuildingPortalActor::UpdateBuildingMesh()
 {
-    // Could swap static mesh based on building type
-    // For now, scale varies by type
+    // Fab "Modern_City_Environment" (AI-usable) building meshes - geometry-only GLB imports.
+    // Each building type maps to a city tower archetype; Park uses the city grove; the Hut
+    // keeps the placeholder cube (isolated camp structure).
+    static const TCHAR* OfficeMeshPath    = TEXT("/Game/City/Buildings/Building11/Building_11/StaticMeshes/Building_11.Building_11");
+    static const TCHAR* ApartmentMeshPath = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
+    static const TCHAR* ShopMeshPath      = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
+    static const TCHAR* SchoolMeshPath    = TEXT("/Game/City/Buildings/Building11/Building_11/StaticMeshes/Building_11.Building_11");
+    static const TCHAR* FactoryMeshPath   = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
+    static const TCHAR* ParkMeshPath      = TEXT("/Game/City/Buildings/GridTrees/Grid_Trees__Low_Poly_/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_");
+
+    const TCHAR* MeshPath = nullptr;
     switch (BuildingType)
     {
-    case ENLTBuildingType::Office:
-        BuildingMesh->SetRelativeScale3D(FVector(4.0f, 4.0f, 6.0f));
-        break;
-    case ENLTBuildingType::Apartment:
-        BuildingMesh->SetRelativeScale3D(FVector(5.0f, 3.0f, 8.0f));
-        break;
-    case ENLTBuildingType::Shop:
-        BuildingMesh->SetRelativeScale3D(FVector(6.0f, 4.0f, 3.0f));
-        break;
-    case ENLTBuildingType::School:
-        BuildingMesh->SetRelativeScale3D(FVector(7.0f, 5.0f, 4.0f));
-        break;
+    case ENLTBuildingType::Office:    MeshPath = OfficeMeshPath;    break;
+    case ENLTBuildingType::Apartment: MeshPath = ApartmentMeshPath; break;
+    case ENLTBuildingType::Shop:      MeshPath = ShopMeshPath;      break;
+    case ENLTBuildingType::School:    MeshPath = SchoolMeshPath;    break;
+    case ENLTBuildingType::Factory:   MeshPath = FactoryMeshPath;   break;
+    case ENLTBuildingType::Park:      MeshPath = ParkMeshPath;      break;
     case ENLTBuildingType::Hut:
-        BuildingMesh->SetRelativeScale3D(FVector(3.0f, 3.0f, 2.5f));
-        break;
     default:
-        BuildingMesh->SetRelativeScale3D(FVector(3.0f, 3.0f, 4.0f));
+        MeshPath = nullptr;
         break;
+    }
+
+    UStaticMesh* CityMesh = MeshPath ? LoadObject<UStaticMesh>(nullptr, MeshPath) : nullptr;
+    if (MeshPath && !CityMesh)
+    {
+        UE_LOG(LogNLTBuildingPortal, Warning,
+            TEXT("UpdateBuildingMesh: city mesh '%s' failed to load (type %d) - using placeholder cube"),
+            MeshPath, (int32)BuildingType);
+    }
+
+    if (CityMesh)
+    {
+        BuildingMesh->SetStaticMesh(CityMesh);
+
+        // Target footprint (half extents, UE cm) per type - city-block proportions for the
+        // 5000x5000 open world: towers ~20-26m, low-rise ~12m, park grove wide and low.
+        FVector TargetHalfExtent(1000.0f, 900.0f, 800.0f);
+        switch (BuildingType)
+        {
+        case ENLTBuildingType::Office:    TargetHalfExtent = FVector(1100.0f, 1100.0f, 1200.0f); break;
+        case ENLTBuildingType::Apartment: TargetHalfExtent = FVector(1200.0f,  900.0f, 1100.0f); break;
+        case ENLTBuildingType::Shop:      TargetHalfExtent = FVector( 800.0f,  600.0f,  600.0f); break;
+        case ENLTBuildingType::School:    TargetHalfExtent = FVector(1200.0f,  900.0f, 1000.0f); break;
+        case ENLTBuildingType::Factory:   TargetHalfExtent = FVector(1300.0f, 1000.0f,  950.0f); break;
+        case ENLTBuildingType::Park:      TargetHalfExtent = FVector(1500.0f, 1100.0f,  700.0f); break;
+        default:                          break;
+        }
+
+        const FBox SourceBounds = CityMesh->GetBoundingBox();
+        const FVector SourceCenter = SourceBounds.GetCenter();
+        const FVector SourceExtent = SourceBounds.GetExtent();
+
+        // Scale the source mesh up/down so its half-extents match the target footprint.
+        FVector MeshScale(1.0f, 1.0f, 1.0f);
+        if (BuildingType == ENLTBuildingType::Park)
+        {
+            // Park grove: the GridTrees mesh is a wide low carpet (233x181x4m) - scale uniformly
+            // on X so the tree proportions stay natural.
+            const float ParkScale = (SourceExtent.X > 1.0f) ? (TargetHalfExtent.X / SourceExtent.X) : 1.0f;
+            MeshScale = FVector(ParkScale, ParkScale, ParkScale);
+        }
+        else
+        {
+            if (SourceExtent.X > 1.0f) { MeshScale.X = TargetHalfExtent.X / SourceExtent.X; }
+            if (SourceExtent.Y > 1.0f) { MeshScale.Y = TargetHalfExtent.Y / SourceExtent.Y; }
+            if (SourceExtent.Z > 1.0f) { MeshScale.Z = TargetHalfExtent.Z / SourceExtent.Z; }
+        }
+
+        // Anchor the imported mesh to the actor origin *at its base*: X/Y re-center the mesh,
+        // Z puts the base exactly on the spawn point (terrain + teleport offset).
+        BuildingMesh->SetRelativeLocation(FVector(
+            -SourceCenter.X * MeshScale.X,
+            -SourceCenter.Y * MeshScale.Y,
+            (SourceExtent.Z - SourceCenter.Z) * MeshScale.Z));
+        BuildingMesh->SetRelativeScale3D(MeshScale);
+
+        // Interaction volume: footprint + margin, but low enough that a ground-level pawn
+        // overlaps it while approaching the entrance.
+        const FVector ScaledExtent = SourceExtent * MeshScale;
+        const FVector VolumeExtent(
+            FMath::Clamp(ScaledExtent.X + 300.0f, 500.0f, 1600.0f),
+            FMath::Clamp(ScaledExtent.Y + 300.0f, 500.0f, 1600.0f),
+            FMath::Clamp(ScaledExtent.Z * 0.35f, 400.0f, 900.0f));
+        InteractionVolume->SetRelativeLocation(FVector(0.0f, 0.0f, VolumeExtent.Z * 0.5f));
+        InteractionVolume->SetBoxExtent(VolumeExtent);
+
+        // Labels float above the roof.
+        const float LabelZ = ScaledExtent.Z * 2.0f + 500.0f;
+        BuildingLabel->SetRelativeLocation(FVector(0.0f, 0.0f, LabelZ));
+        BuildingLabelBack->SetRelativeLocation(FVector(0.0f, 0.0f, LabelZ));
+    }
+    else
+    {
+        // Placeholder cube fallback (Hut / failed load). Keep original type-based scaling.
+        FVector CubeScale(3.0f, 3.0f, 4.0f);
+        switch (BuildingType)
+        {
+        case ENLTBuildingType::Office:    CubeScale = FVector(4.0f, 4.0f, 6.0f); break;
+        case ENLTBuildingType::Apartment: CubeScale = FVector(5.0f, 3.0f, 8.0f); break;
+        case ENLTBuildingType::Shop:      CubeScale = FVector(6.0f, 4.0f, 3.0f); break;
+        case ENLTBuildingType::School:    CubeScale = FVector(7.0f, 5.0f, 4.0f); break;
+        case ENLTBuildingType::Hut:       CubeScale = FVector(3.0f, 3.0f, 2.5f); break;
+        default:                          break;
+        }
+
+        if (UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")))
+        {
+            BuildingMesh->SetStaticMesh(Cube);
+        }
+        BuildingMesh->SetRelativeLocation(FVector::ZeroVector);
+        BuildingMesh->SetRelativeScale3D(CubeScale);
+
+        InteractionVolume->SetRelativeLocation(FVector::ZeroVector);
+        InteractionVolume->SetBoxExtent(FVector(150.0f, 150.0f, 200.0f));
+        BuildingLabel->SetRelativeLocation(FVector(0.0f, 0.0f, 250.0f));
+        BuildingLabelBack->SetRelativeLocation(FVector(0.0f, 0.0f, 250.0f));
     }
 }
 

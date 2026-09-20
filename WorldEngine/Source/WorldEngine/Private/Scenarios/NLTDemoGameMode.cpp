@@ -16,11 +16,13 @@ void ANLTDemoGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Auto-generate open world if this is the OpenWorld level
+	// Auto-generate open world if this is an OpenWorld level.
+	// Any level whose name contains "OpenWorld" (e.g. OpenWorld_Level, OpenWorld_City) is
+	// treated as an open world hub, so renaming/duplicating the level keeps working.
 	if (UWorld* World = GetWorld())
 	{
-		const FName CurrentLevel = FName(*UGameplayStatics::GetCurrentLevelName(World));
-		if (CurrentLevel == TEXT("OpenWorld_Level"))
+		const FString LevelName = UGameplayStatics::GetCurrentLevelName(World);
+		if (LevelName.Contains(TEXT("OpenWorld"), ESearchCase::IgnoreCase))
 		{
 			if (UNLTOpenWorldSubsystem* OWS = World->GetSubsystem<UNLTOpenWorldSubsystem>())
 			{
@@ -35,11 +37,13 @@ void ANLTDemoGameMode::BeginPlay()
 					Config.NumRocks = 50;
 					Config.NumGrassPatches = 300;
 					OWS->GenerateOpenWorld(Config);
-					UE_LOG(LogTemp, Log, TEXT("[Demo] Generated open world (seed=%d)"), Config.Seed);
+					UE_LOG(LogTemp, Log, TEXT("[Demo] Generated open world (seed=%d) on level '%s'"), Config.Seed, *LevelName);
 				}
 			}
 			return; // Skip scenario/level-door logic for open world
 		}
+
+		UE_LOG(LogTemp, Log, TEXT("[Demo] Level '%s' is not an OpenWorld level; no world generated"), *LevelName);
 	}
 
 	// Spawn doors that lead to other levels
