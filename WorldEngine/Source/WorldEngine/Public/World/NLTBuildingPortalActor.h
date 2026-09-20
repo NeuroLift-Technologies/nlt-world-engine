@@ -6,7 +6,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/StreamableManager.h"
-#include "Engine/EngineUtils.h"
+#include "EngineUtils.h"
 #include "NLTBuildingPortalActor.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTBuildingPortal, Log, All);
