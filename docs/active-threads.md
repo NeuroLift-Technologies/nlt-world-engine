@@ -8,6 +8,22 @@
 
 ## Active Threads
 
+### 🏙️ ESC-001 — UE Open-World Expansion (Fab Modern City assets as outdoor layer)
+- **Agent:** OpenCode (Poolside) · **Opened:** 2026-09-20 · **Branch:** `main` (uncommitted)
+- **Scope:** Port `openworld-engine` outdoor rendering into UE WorldEngine — buildings as level
+  portals to indoor `.umap` scenarios, upgraded building/ground geometry with AI-usable Fab
+  `Modern_City_Environment` assets, procedural determinism (seed → world) preserved.
+- **Delivered (verified in standalone `-game`, seed 42):**
+  - Geometry-only GLB splits imported per mesh (12 portals, **9 city-grid pieces**; 6 original + 3 new: Building_Base plaza, Building_13 podium, Grass cover); merged block aligns all pieces via the shared Fab scene origin.
+  - `NLTBuildingPortalActor`: `SceneRoot` added; `UpdateBuildingMesh()` assigns Fab meshes per type with bounds-aware scaling, base-on-spawn anchoring, roof labels, footprint-sized interaction volumes. Cube fallback retained (Hut / load failure).
+  - `NLTOpenWorldSubsystem`: `SpawnCityScenery()` + `bPlaceCityScenery` + `ClearOpenWorld` cleanup. Log: `City scenery: placed 9 Fab Modern City grid pieces (scale 0.770, base Z 0, world 20000x20000)`, `Open world generation complete: 12 buildings, 12 residents`; portal overlap → level streaming verified live.
+  - **Baked Blender block positions (2026-09-20):** `FNLTOpenWorldConfig.BuildingLayout` (BP-editable list of type + exact location + yaw) now baked from the Fab block in Blender — Building 11 tower center (52.2, -21.7) m → Office at (4020, -1671) cm; Building 12 tower center (118.1, -65.7) m → Apartment at (9094, -5059) cm; shared scenery scale 0.770 (WorldHalf 10000 / max piece half-extent 12985). Default 12 authored buildings spread across enlarged **200×200 m** world, pre-verified footprint-clear (min center distance 2600 cm, min clearance 400 cm — logged at spawn). World size default 5000 → 20000. School + Office always spawn now. Shared `GetTargetHalfExtent()`/`GetFootprintRadius()` tables on the portal actor.
+  - **Vegetation HISM upgraded:** `SM_Mobile_Trees` mesh wired (Fab "Mobile Trees" pack); per-instance scale normalized to native mesh bounds (native ~24 m → target 3-6 m) with base-on-terrain anchoring (corrects pivot offset).
+  - **Hut mesh wired:** merged WoodenHouse kitbash (Blender temp scene, 391 parts → 436 K verts, 17.2×13.7×6.4 m cottage) imported as `/Game/City/Huts/DoorWoodenHouse/WoodenHouse/StaticMeshes/WoodenHouse.WoodenHouse` — fallback to cube if load fails.
+- **Escalation record:** `docs/escalations/2026-09-20-openworld-expansion.md` (Progress Update section).
+- **Blocker for PIE:** MCP `control_editor.play` catalog bug (rejects `control` param; console `PIE.Start` blocked as dangerous) — verification done via standalone `-game` instead.
+- **Known issues (asset paths, not code):** Path_And_Imperfections and Traffic_Lights GLB imports created assets with different naming conventions (multi-mesh GLBs); WoodenHouse merged GLB re-import asset path needs verification — both are asset registry issues, not code.
+- **Next action:** commit; optional follow-ups: vegetation-HISM `ensure` cleanup, NavMesh for imported meshes, texture pass on NLT_Gray geometry.
 ### 🚪 ENV-002 — Relocate Personal_Level Teleporter Doors (UE WorldEngine)
 - **Agent:** OpenCode · **Opened:** 2026-09-20 · **Branch:** `feat/personal-level-door-relocation`
 - **Scope:** The three runtime-spawned `NLTDoorActor` teleporters in `Personal_Level` were hidden in PIE — the Academic door sat behind the kitchen cabinet/stove line and the Social door behind the `Corridor_Wall_E4` corner, both hard to see/reach.
@@ -29,9 +45,26 @@
 - **Blockers:** No UE editor runtime available; limited to UBT headless compilation. No SkeletalMesh or AnimAssest assets exist yet — procedural UAnimInstance fallback required.
 - **Next action:** Update PLAN.md with emotion-animation phase documentation. Create NLTAideCharacter class. Wire OnSimulationTick delegate for sim-synchronized cognitive decay.
 
+### 📄 ESC-001 — Procedural Open-World Layer (Path B)
+- **Agent:** OpenCode · **Opened:** 2026-09-20 · **Status:** In development (Phase 1 complete)
+- **Scope:** Outdoor open-world layer where buildings are level portals to existing indoor `.umap` scenario levels (Workplace, Personal, Social, Academic). Procedural approach — ported from Three.js `openworld-engine/src/world/` into UE5 C++.
+- **Escalation:** `docs/escalations/2026-09-20-openworld-expansion.md` — ✅ RESOLVED 2026-09-20 by Joshua (Fab assets inaccessible → procedural approach approved).
+- **Delivered:** `NLTNoiseLibrary` (mulberry32 + Noise2D + Fbm2D ported from `noise.js`); `NLTAtmosphereSubsystem` enhanced with procedural cloud/star noise + HDRI cubemap support; `PostProcessVolumeActor` LUT support with procedural fallback; Water plugin enabled in `.uproject` + `Build.cs`; Content directory structure created; docs at `WorldEngine/docs/procedural-openworld.md`. Phase 2 (terrain) started by Pool: `ETerrainBiome` enum + `GenerateTerrainHeight`/`ClassifyTerrainBiome` added to `NLTNoiseLibrary`; faithful port of `terrain.js` createHeightField/baseHeight + biome bands; UBT incremental build (UE5.8) — 0 errors in all touched TUs.
+- **Next action:** Port `terrain.js` heightfield to PCG/Landscape — IN PROGRESS (C++ heightfield port done & compiles clean; Landscape mesh instantiation deferred — requires UE editor runtime not available on this box). Building-to-level portal streaming bridge — deferred Phase 3 (cross-lane: requires Codex + Poolside coordination per escalation; NOT started by this agent). See `ENV-TEX-001` below for details.
+
+---
+
+### 🌋 ENV-TEX-001 — Procedural Terrain Heightfield Port (ESC-001 Phase 2)
+- **Agent:** Pool (Poolside) · **Opened:** 2026-09-20 · **Branch:** `fix/win64-asfdk-stubs`
+- **Scope:** Port `openworld-engine/src/world/terrain.js` heightfield (`createHeightField`/`baseHeight`) + biome classification (`buildTerrain` bands) into WorldEngine C++, additive on `NLTNoiseLibrary`, deterministic, NO Landscape mesh (headless).
+- **Delivered:** `ETerrainBiome` enum; `UNLTNoiseLibrary::GenerateTerrainHeight` (continental island falloff + layered hill/mountain fBm — faithful port of `baseHeight` using `NLTNoiseLibrary::Fbm2D`); `UNLTNoiseLibrary::ClassifyTerrainBiome` (sand/grass/rock/snow bands adapted from `buildTerrain`). Files: `Source/WorldEngine/Public/Core/NLTNoiseLibrary.h`, `Source/WorldEngine/Private/Core/NLTNoiseLibrary.cpp`. **UBT incremental build (UE5.8, `WorldEngine Win64 Development`) — 0 errors / 0 warnings** in all touched TUs (`NLTNoiseLibrary.cpp`; `NLTAtmosphereSubsystem.cpp` recompiled against the changed header). Build overall fails ONLY on pre-existing Phase-3 `NLTBuildingPortalActor.cpp` (`StreamingHandle`) / `NLTOpenWorldSubsystem.cpp` (`GetBuildingTypeFromFName`) — not touched by this agent.
+- **Blockers:** No UE editor runtime (headless UBT only) — cannot create Landscape heightmap `.umap`/PCG assets or visually verify terrain. Phase 3 portal-streaming bridge is cross-lane and explicitly out of scope for this agent.
+- **Next action:** (Next session, with UE editor access) Wire `GenerateTerrainHeight` into `NLTWorldGeneratorSubsystem` → UE5 Landscape (or PCG heightfield node) → blend materials by `ClassifyTerrainBiome`. Refactor note: `NLTNoiseLibrary`'s static `Perm[512]` + `bPermInitialized`/`CurrentPermSeed` is a latent thread-safety risk if terrain and atmosphere call concurrently (see handoff).
+
 ---
 
 ### 🎯 Next: Integration & Testing
+
 - **Agent:** — · **Opened:** — · **Branch:** `main`
 - **Scope:** Wire together the now-merged subsystems into a coherent end-to-end flow: LLM-driven avatar → web server → Mass Entity sim → training loop.
 - **Delivered:** —
