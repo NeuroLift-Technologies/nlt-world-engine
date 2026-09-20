@@ -32,7 +32,7 @@ public class NLTGovernanceSubsystem : ModuleRules
             "Networking"
         });
 
-        // ASFDK-C++ ThirdParty include paths via symlink.
+
         // The symlink lives OUTSIDE the module's Source/ tree (at
         // Plugins/NLTGovernanceSubsystem/ThirdParty/ASFDK) so UnrealBuildTool's
         // source glob never descends into the vendored asfdk-cplus tree and
@@ -57,6 +57,9 @@ public class NLTGovernanceSubsystem : ModuleRules
             PublicAdditionalLibraries.Add(Path.Combine(ASFDKPath, "lib", "libasfdk.a"));
             PublicAdditionalLibraries.Add("c++");
         }
-        // TODO: Add Win64 and Mac library names when cross-platform builds are needed.
+        // Win64: Use stub implementations for ASFDK (TODO: build ASFDK lib for Win64)
+        else if (Target.Platform == UnrealTargetPlatform.Win64) {
+            // Stubs compile inline — no external lib needed
+        }
     }
 }

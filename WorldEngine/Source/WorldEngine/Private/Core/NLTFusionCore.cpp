@@ -7,12 +7,12 @@ DEFINE_LOG_CATEGORY(LogNLTFusion);
 
 void FNLTFusionModule::StartupModule()
 {
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTFusion module started"));
+	UE_LOG(LogNLTFusion, Log, TEXT("NLTFusion module started"));
 }
 
 void FNLTFusionModule::ShutdownModule()
 {
-    UE_LOG(LogNLTFusion, Log, TEXT("NLTFusion module shutdown"));
+	UE_LOG(LogNLTFusion, Log, TEXT("NLTFusion module shutdown"));
 }
 
-IMPLEMENT_MODULE(FNLTFusionModule, NLTFusion)
+IMPLEMENT_GAME_MODULE(FNLTFusionModule, NLTFusion)
