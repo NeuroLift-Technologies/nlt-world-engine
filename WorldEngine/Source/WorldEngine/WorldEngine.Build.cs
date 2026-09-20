@@ -44,6 +44,7 @@ public class WorldEngine : ModuleRules
             "NiagaraCore",
             "AnimGraphRuntime",
             "Water",
+            "Landscape",
             "LearningAgents",
             "LearningAgentsTraining",
             "Learning",
