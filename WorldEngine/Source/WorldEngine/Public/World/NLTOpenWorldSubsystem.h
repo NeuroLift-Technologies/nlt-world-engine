@@ -70,15 +70,20 @@ struct FNLTOpenWorldConfig
      *  city. The default 12-building layout is footprint-clear (min clearance ~400 cm, verified and
      *  logged at spawn). Keep new positions >= (r_i + r_j + 400) apart using the per-type footprint
      *  radii from ANLTBuildingPortalActor::GetTargetHalfExtent() (Office 1100, Apartment/School
-     *  1200, Factory 1300, Park 1500, Shop 800, Hut 150). */
+     *  1200, Factory 1300, Park 1500, Shop 800, Hut 150).
+     *
+     *  The Office and Apartment anchors were baked from the Fab Modern City block in Blender
+     *  (see Imports/FabCity/GridSystem): Building 11 tower center at (52.2, -21.7) m and
+     *  Building 12 tower center at (118.1, -65.7) m, scaled to the open world by m * 100 * 0.770
+     *  (the shared scenery scale) so the portals sit on the imported block towers. */
     UPROPERTY(BlueprintReadWrite)
     TArray<FNLTDesiredBuilding> BuildingLayout = {
-        { TEXT("Office"),    FVector(-4200.0f,  4200.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("Office"),    FVector( 4020.0f, -1671.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },  // baked: Blender Building 11
         { TEXT("Office"),    FVector( 4200.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
         { TEXT("Apartment"), FVector(-4200.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
         { TEXT("Apartment"), FVector( 4200.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
         { TEXT("Apartment"), FVector(-4500.0f, -4500.0f, 0.0f), FRotator(0.0f,  45.0f, 0.0f) },
-        { TEXT("Apartment"), FVector( 4200.0f, -4200.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("Apartment"), FVector( 9094.0f, -5059.0f, 0.0f), FRotator(0.0f, 127.0f, 0.0f) },  // baked: Blender Building 12
         { TEXT("School"),    FVector(    0.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
         { TEXT("Factory"),   FVector(-4200.0f, -1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
         { TEXT("Park"),      FVector(    0.0f, -1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
@@ -172,6 +177,10 @@ private:
     /** Placeholder ground plane spawned when the level has no Landscape actor. */
     UPROPERTY()
     class AStaticMeshActor* GroundPlaceholder;
+
+    /** Root actor holding vegetation HISM components. */
+    UPROPERTY()
+    class AActor* VegetationRoot;
 
     /** Spawned city scenery actors (Fab Modern City city-grid pieces). */
     UPROPERTY()

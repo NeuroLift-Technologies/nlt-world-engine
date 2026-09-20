@@ -37,6 +37,21 @@ void ANLTDemoGameMode::BeginPlay()
 					Config.NumTrees = 200;
 					Config.NumRocks = 50;
 					Config.NumGrassPatches = 300;
+					// Explicitly set the baked BuildingLayout (struct default initializers don't propagate via UPROPERTY)
+					Config.BuildingLayout = {
+						{ TEXT("Office"),    FVector( 4020.0f, -1671.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },  // baked: Blender Building 11
+						{ TEXT("Office"),    FVector( 4200.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector(-4200.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector( 4200.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector(-4500.0f, -4500.0f, 0.0f), FRotator(0.0f,  45.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector( 9094.0f, -5059.0f, 0.0f), FRotator(0.0f, 127.0f, 0.0f) },  // baked: Blender Building 12
+						{ TEXT("School"),    FVector(    0.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Factory"),   FVector(-4200.0f, -1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Park"),      FVector(    0.0f, -1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+						{ TEXT("Shop"),      FVector(-1300.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+						{ TEXT("Shop"),      FVector( 1300.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Hut"),       FVector( 7000.0f, -7000.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) }
+					};
 					OWS->GenerateOpenWorld(Config);
 					UE_LOG(LogTemp, Log, TEXT("[Demo] Generated open world (seed=%d) on level '%s'"), Config.Seed, *LevelName);
 				}

@@ -14,27 +14,16 @@
   portals to indoor `.umap` scenarios, upgraded building/ground geometry with AI-usable Fab
   `Modern_City_Environment` assets, procedural determinism (seed → world) preserved.
 - **Delivered (verified in standalone `-game`, seed 42):**
-  - Geometry-only GLB splits imported per mesh (12 portals, 6 city-grid pieces); merged
-    `CityGrid.glb` aligns all pieces via the shared Fab scene origin.
-  - `NLTBuildingPortalActor`: `SceneRoot` added; `UpdateBuildingMesh()` assigns Fab meshes per
-    type with bounds-aware scaling, base-on-spawn anchoring, roof labels, footprint-sized
-    interaction volumes. Cube fallback retained (Hut / load failure).
-  - `NLTOpenWorldSubsystem`: `SpawnCityScenery()` + `bPlaceCityScenery` + `ClearOpenWorld`
-    cleanup. Log: `City scenery: placed 6 Fab Modern City grid pieces (scale 0.193 ...)`,
-    `Open world generation complete: 12 buildings, 12 residents`; portal overlap → level
-    streaming verified live.
-  - **Fixed set-coordinate layout (2026-09-20 PM):** buildings no longer random — new
-    `FNLTOpenWorldConfig.BuildingLayout` (BP-editable list of type + exact location + yaw) is
-    placed verbatim; default 12 authored buildings spread across an enlarged **200×200 m**
-    world, pre-verified footprint-clear (min center distance 2600 cm, min clearance 400 cm —
-    logged at spawn). World size default 5000 → 20000. School + Office always spawn now.
-    Shared `GetTargetHalfExtent()`/`GetFootprintRadius()` tables on the portal actor.
+  - Geometry-only GLB splits imported per mesh (12 portals, **9 city-grid pieces**; 6 original + 3 new: Building_Base plaza, Building_13 podium, Grass cover); merged block aligns all pieces via the shared Fab scene origin.
+  - `NLTBuildingPortalActor`: `SceneRoot` added; `UpdateBuildingMesh()` assigns Fab meshes per type with bounds-aware scaling, base-on-spawn anchoring, roof labels, footprint-sized interaction volumes. Cube fallback retained (Hut / load failure).
+  - `NLTOpenWorldSubsystem`: `SpawnCityScenery()` + `bPlaceCityScenery` + `ClearOpenWorld` cleanup. Log: `City scenery: placed 9 Fab Modern City grid pieces (scale 0.770, base Z 0, world 20000x20000)`, `Open world generation complete: 12 buildings, 12 residents`; portal overlap → level streaming verified live.
+  - **Baked Blender block positions (2026-09-20):** `FNLTOpenWorldConfig.BuildingLayout` (BP-editable list of type + exact location + yaw) now baked from the Fab block in Blender — Building 11 tower center (52.2, -21.7) m → Office at (4020, -1671) cm; Building 12 tower center (118.1, -65.7) m → Apartment at (9094, -5059) cm; shared scenery scale 0.770 (WorldHalf 10000 / max piece half-extent 12985). Default 12 authored buildings spread across enlarged **200×200 m** world, pre-verified footprint-clear (min center distance 2600 cm, min clearance 400 cm — logged at spawn). World size default 5000 → 20000. School + Office always spawn now. Shared `GetTargetHalfExtent()`/`GetFootprintRadius()` tables on the portal actor.
+  - **Vegetation HISM upgraded:** `SM_Mobile_Trees` mesh wired (Fab "Mobile Trees" pack); per-instance scale normalized to native mesh bounds (native ~24 m → target 3-6 m) with base-on-terrain anchoring (corrects pivot offset).
+  - **Hut mesh wired:** merged WoodenHouse kitbash (Blender temp scene, 391 parts → 436 K verts, 17.2×13.7×6.4 m cottage) imported as `/Game/City/Huts/DoorWoodenHouse/WoodenHouse/StaticMeshes/WoodenHouse.WoodenHouse` — fallback to cube if load fails.
 - **Escalation record:** `docs/escalations/2026-09-20-openworld-expansion.md` (Progress Update section).
-- **Blocker for PIE:** MCP `control_editor.play` catalog bug (rejects `control` param; console
-  `PIE.Start` blocked as dangerous) — verification done via standalone `-game` instead.
-- **Next action:** commit; Blender workflow — Joshua arranging the Fab city block in Blender,
-  positions then baked into `BuildingLayout` via blender-mcp. Optional follow-ups: vegetation-HISM
-  `ensure` cleanup, NavMesh for imported meshes, texture pass on NLT_Gray geometry.
+- **Blocker for PIE:** MCP `control_editor.play` catalog bug (rejects `control` param; console `PIE.Start` blocked as dangerous) — verification done via standalone `-game` instead.
+- **Known issues (asset paths, not code):** Path_And_Imperfections and Traffic_Lights GLB imports created assets with different naming conventions (multi-mesh GLBs); WoodenHouse merged GLB re-import asset path needs verification — both are asset registry issues, not code.
+- **Next action:** commit; optional follow-ups: vegetation-HISM `ensure` cleanup, NavMesh for imported meshes, texture pass on NLT_Gray geometry.
 
 ### 📄 DOC-MCP-001 — Unreal MCP Integration Documentation
 - **Agent:** OpenCode · **Opened:** 2026-09-19 · **Branch:** `main`

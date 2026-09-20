@@ -201,13 +201,14 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
 {
     // Fab "Modern_City_Environment" (AI-usable) building meshes - geometry-only GLB imports.
     // Each building type maps to a city tower archetype; Park uses the city grove; the Hut
-    // keeps the placeholder cube (isolated camp structure).
+    // uses the merged WoodenHouse kitbash as its visual.
     static const TCHAR* OfficeMeshPath    = TEXT("/Game/City/Buildings/Building11/Building_11/StaticMeshes/Building_11.Building_11");
     static const TCHAR* ApartmentMeshPath = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
     static const TCHAR* ShopMeshPath      = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
     static const TCHAR* SchoolMeshPath    = TEXT("/Game/City/Buildings/Building11/Building_11/StaticMeshes/Building_11.Building_11");
     static const TCHAR* FactoryMeshPath   = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
     static const TCHAR* ParkMeshPath      = TEXT("/Game/City/Buildings/GridTrees/Grid_Trees__Low_Poly_/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_");
+    static const TCHAR* HutMeshPath       = TEXT("/Game/City/Huts/DoorWoodenHouse/WoodenHouse/StaticMeshes/WoodenHouse.WoodenHouse");
 
     const TCHAR* MeshPath = nullptr;
     switch (BuildingType)
@@ -218,7 +219,7 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
     case ENLTBuildingType::School:    MeshPath = SchoolMeshPath;    break;
     case ENLTBuildingType::Factory:   MeshPath = FactoryMeshPath;   break;
     case ENLTBuildingType::Park:      MeshPath = ParkMeshPath;      break;
-    case ENLTBuildingType::Hut:
+    case ENLTBuildingType::Hut:       MeshPath = HutMeshPath;       break;
     default:
         MeshPath = nullptr;
         break;

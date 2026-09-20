@@ -174,18 +174,20 @@ void UNLTOpenWorldSubsystem::ClearOpenWorld()
     }
     Residents.Empty();
 
-    // Clear vegetation instances
-    if (TreeHISM)
+    // Destroy vegetation root actor (and its HISM components)
+    if (TreeHISM && TreeHISM->GetOwner())
     {
-        TreeHISM->ClearInstances();
+        TreeHISM->GetOwner()->Destroy();
+        TreeHISM = nullptr;
+        GrassHISM = nullptr;
+        RockHISM = nullptr;
     }
-    if (GrassHISM)
+    else
     {
-        GrassHISM->ClearInstances();
-    }
-    if (RockHISM)
-    {
-        RockHISM->ClearInstances();
+        // Clear vegetation instances (fallback if no root actor)
+        if (TreeHISM) TreeHISM->ClearInstances();
+        if (GrassHISM) GrassHISM->ClearInstances();
+        if (RockHISM) RockHISM->ClearInstances();
     }
 
     // Destroy the fallback ground plane (if one was spawned)
@@ -380,8 +382,9 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         return;
     }
 
-    // Fab "Modern_City_Environment" (AI-usable) city-grid layer: the Road network, sidewalks,
-    // fences, tree grove, trash bins and parking structure from the merged CityGrid GLB.
+    // Fab "Modern_City_Environment" (AI-usable) city-block layer: the Road network, sidewalks,
+    // fences, tree grove, trash bins, parking structure, plaza base, podium slab, street lights,
+    // grass cover and path/imperfection details from the Blender block (splits_geo exports).
     // Every piece shares the Fab scene origin, so stacking them at the world origin with one
     // shared scale reproduces the original block layout.
     struct FSceneryPiece
@@ -394,15 +397,21 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
     FSceneryPiece Pieces[] =
     {
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Road_003.Road_003"),                         8.0f,  nullptr },
+        { TEXT("/Game/City/Block/BuildingBase/Building_Base/StaticMeshes/Building_Base.Building_Base"), 12.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Sidewalk_001.Sidewalk_001"),                 15.0f, nullptr },
+        { TEXT("/Game/City/Block/Building13/Building_13/StaticMeshes/Building_13.Building_13"),     16.0f, nullptr },
+        { TEXT("/Game/City/Block/Grass/Grass/StaticMeshes/Grass.Grass"),                            21.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_"),20.0f, nullptr },
+        { TEXT("/Game/City/Block/PathImperfections/Path_And_Imperfections/StaticMeshes/Path_And_Imperfections.Path_And_Imperfections"), 25.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Fences.Fences"),                             24.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Trash_Bins_and_Path_Lights.Trash_Bins_and_Path_Lights"), 26.0f, nullptr },
+        { TEXT("/Game/City/Block/TrafficLights/Traffic_Lights/StaticMeshes/Traffic_Lights.Traffic_Lights"), 28.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Parking_Entrance_001.Parking_Entrance_001"),  30.0f, nullptr },
     };
 
     // Load every piece and compute the shared scale from the widest footprint so the whole
     // block fits inside the open world.
+    UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: SpawnCityScenery called with %d pieces"), 11);
     int32 LoadedCount = 0;
     float MaxHalfExtent = 0.0f;
     for (FSceneryPiece& Piece : Pieces)
@@ -534,25 +543,49 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
         return;
     }
 
-    // Create HISM components for vegetation
-    // These are attached to a root actor (this subsystem's owner)
+    // Create a root actor to hold the HISM components (components need an actor owner to be part of the scene)
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    SpawnParams.Name = TEXT("VegetationRoot");
+    AActor* VegRoot = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+    if (!VegRoot)
+    {
+        UE_LOG(LogNLTOpenWorld, Error, TEXT("Failed to spawn vegetation root actor"));
+        return;
+    }
+    VegRoot->SetActorHiddenInGame(true);
+    VegetationRoot = VegRoot;
+
+    // Create HISM components for vegetation attached to the root actor
 
     // --- Trees ---
-    TreeHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, TEXT("TreeHISM"));
-    TreeHISM->SetMobility(EComponentMobility::Movable); // populated at runtime
+    TreeHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(VegetationRoot, TEXT("TreeHISM"));
+    TreeHISM->SetMobility(EComponentMobility::Movable);
     TreeHISM->RegisterComponent();
+    VegetationRoot->AddInstanceComponent(TreeHISM);
 
-    // Placeholder tree mesh. NOTE: LoadObject, not ConstructorHelpers::FObjectFinder - SpawnVegetation
+    // Fab "Mobile Trees" mesh. NOTE: LoadObject, not ConstructorHelpers::FObjectFinder - SpawnVegetation
     // runs at runtime from BeginPlay and FObjectFinder is a fatal error outside of constructors.
-    if (UStaticMesh* TreeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder")))
+    UStaticMesh* TreeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/City/Trees/MobileTrees/SM_Mobile_Trees.SM_Mobile_Trees"));
+    if (!TreeMesh)
     {
-        TreeHISM->SetStaticMesh(TreeMesh);
+        UE_LOG(LogNLTOpenWorld, Warning, TEXT("Vegetation: failed to load SM_Mobile_Trees - falling back to placeholder cylinder"));
+        TreeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     }
+    TreeHISM->SetStaticMesh(TreeMesh);
+
+    // The Fab tree mesh is authored ~18 x 24 m; normalize instance scale to the imported bounds
+    // so open-world trees land in the 3-6 m range regardless of source scale.
+    const float TreeNativeZ = FMath::Max(TreeMesh->GetBounds().BoxExtent.Z * 2.0f, 100.0f);
+    // Anchor the tree base to the terrain: subtract the bounds-center offset from the instance Z
+    // so a centered-pivot import still plants trees on the ground.
+    const float TreeCenterZ = TreeMesh->GetBounds().Origin.Z;
 
     // --- Grass ---
-    GrassHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, TEXT("GrassHISM"));
-    GrassHISM->SetMobility(EComponentMobility::Movable); // populated at runtime
+    GrassHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(VegetationRoot, TEXT("GrassHISM"));
+    GrassHISM->SetMobility(EComponentMobility::Movable);
     GrassHISM->RegisterComponent();
+    VegetationRoot->AddInstanceComponent(GrassHISM);
 
     if (UStaticMesh* GrassMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")))
     {
@@ -560,9 +593,10 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
     }
 
     // --- Rocks ---
-    RockHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(this, TEXT("RockHISM"));
-    RockHISM->SetMobility(EComponentMobility::Movable); // populated at runtime
+    RockHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(VegetationRoot, TEXT("RockHISM"));
+    RockHISM->SetMobility(EComponentMobility::Movable);
     RockHISM->RegisterComponent();
+    VegetationRoot->AddInstanceComponent(RockHISM);
 
     if (UStaticMesh* RockMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere")))
     {
@@ -583,11 +617,13 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
 
         if (IsSuitableForVegetation(X, Y, Height))
         {
-            float Scale = Rand.FRandRange(0.8f, 2.0f);
+            // Trees land in the 3-6 m height band (world cm), normalized to the imported mesh bounds.
+            const float DesiredHeight = Rand.FRandRange(300.0f, 600.0f);
+            const float Scale = DesiredHeight / TreeNativeZ;
             FTransform InstanceTransform(
                 FRotator(0.0f, Rand.FRandRange(0.0f, 360.0f), 0.0f),
-                FVector(X, Y, Height),
-                FVector(Scale, Scale, Scale * Rand.FRandRange(2.0f, 4.0f))
+                FVector(X, Y, Height - TreeCenterZ * Scale),
+                FVector(Scale, Scale, Scale * Rand.FRandRange(1.0f, 1.3f))
             );
             TreeHISM->AddInstance(InstanceTransform);
         }
