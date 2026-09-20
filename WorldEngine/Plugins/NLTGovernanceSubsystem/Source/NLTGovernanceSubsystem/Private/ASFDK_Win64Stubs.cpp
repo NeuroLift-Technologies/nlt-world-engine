@@ -107,12 +107,23 @@ FoundationStatus ASFDK::getStatus() {
 namespace sleepwalker {
     SleepwalkerProtocol::SleepwalkerProtocol() 
         : m_stateDetector(),
-          m_consentManager(),
+          m_consentManager(nlohmann::json::object()),
           m_continuityManager() {}
-    SleepwalkerProtocol::SleepwalkerProtocol(const Options& /*options*/) 
+    SleepwalkerProtocol::SleepwalkerProtocol(const Options& options) 
         : m_stateDetector(),
-          m_consentManager(),
-          m_continuityManager() {}
+          m_consentManager(options.userToi),
+          m_continuityManager(options.storagePath) {}
+
+    // Win64 link-time member stubs (no-op; real implementations come from the
+    // full ASFDK-C++ CMake build on Linux / when libasfdk is built for Win64).
+    StateDetector::StateDetector() = default;
+    ConsentManager::ConsentManager(const nlohmann::json& /*userToi*/) {}
+    ContinuityManager::ContinuityManager(const std::string& /*storagePath*/) {}
 } // namespace sleepwalker
+
+namespace rrt {
+    // Required by asfdk::ASFDK::~ASFDK() which holds unique_ptr<RRTAdvocate>.
+    RRTAdvocate::~RRTAdvocate() = default;
+} // namespace rrt
 
 #endif // defined(_WIN32)
