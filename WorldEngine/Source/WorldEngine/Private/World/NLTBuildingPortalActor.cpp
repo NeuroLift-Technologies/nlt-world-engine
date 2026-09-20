@@ -355,7 +355,7 @@ void ANLTBuildingPortalActor::StreamInTargetLevel()
         FStreamableManager::AsyncLoadHighPriority
     );
 
-    if (!StreamingHandle)
+    if (!StreamingHandle.IsValid())
     {
         UE_LOG(LogNLTBuildingPortal, Warning, TEXT("Portal '%s': Failed to start async load for '%s'"),
             *GetName(), *TargetLevelName.ToString());
@@ -415,7 +415,7 @@ void ANLTBuildingPortalActor::OnLevelLoadComplete()
     // Release the streaming handle
     if (StreamingHandle)
     {
-        StreamingHandle->ReleaseHandle();
+        StreamingHandle.Reset();
         StreamingHandle = nullptr;
     }
 }

@@ -170,7 +170,7 @@ protected:
 
 private:
     /** The streaming handle for the loaded level. */
-    FStreamableHandle* StreamingHandle;
+    TSharedPtr<FStreamableHandle> StreamingHandle;
 
     /** Player's position before entering the level. */
     FVector SavedPlayerPosition;

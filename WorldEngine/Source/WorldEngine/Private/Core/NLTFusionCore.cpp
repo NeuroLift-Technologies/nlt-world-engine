@@ -15,4 +15,4 @@ void FNLTFusionModule::ShutdownModule()
 	UE_LOG(LogNLTFusion, Log, TEXT("NLTFusion module shutdown"));
 }
 
-IMPLEMENT_GAME_MODULE(FNLTFusionModule, NLTFusion)
+IMPLEMENT_GAME_MODULE(FNLTFusionModule, WorldEngine)
