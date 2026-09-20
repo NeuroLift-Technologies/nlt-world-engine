@@ -2,11 +2,18 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-19
+**Last updated:** 2026-09-20
 
 ---
 
 ## Active Threads
+
+### 🚪 ENV-002 — Relocate Personal_Level Teleporter Doors (UE WorldEngine)
+- **Agent:** OpenCode · **Opened:** 2026-09-20 · **Branch:** `feat/personal-level-door-relocation`
+- **Scope:** The three runtime-spawned `NLTDoorActor` teleporters in `Personal_Level` were hidden in PIE — the Academic door sat behind the kitchen cabinet/stove line and the Social door behind the `Corridor_Wall_E4` corner, both hard to see/reach.
+- **Delivered:** `SpawnLevelDoors()` in `NLTDemoGameMode.cpp` now spawns the doors as a visible row along the open south wall (Y=-885), clear of `Front_Door` and player starts, with yaw 180 so labels face north into the room. `Social_Level`/`Academic_Level` spawn behavior unchanged.
+- **Blocker note:** Doors are code-spawned (not map actors), so the change requires a module rebuild + PIE restart to take effect; `set_transform` is edit-mode-only and cannot move PIE actors.
+- **Next action:** Review PR; rebuild module, run PIE, verify door visibility/labels.
 
 ### 📄 DOC-MCP-001 — Unreal MCP Integration Documentation
 - **Agent:** OpenCode · **Opened:** 2026-09-19 · **Branch:** `main`
