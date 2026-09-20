@@ -25,8 +25,11 @@ struct FNLTOpenWorldConfig
     UPROPERTY(BlueprintReadWrite)
     int32 Seed = 42;
 
+    /** Open world extent (cm). 200 x 200 m so the authored building layout (see BuildingLayout)
+     *  spreads out with footprint clearance instead of cramming - "open, no constraint on space".
+     *  Buildings keep their authored coordinates, so only the world scale changes here. */
     UPROPERTY(BlueprintReadWrite)
-    FVector WorldSize = FVector(5000.0f, 5000.0f, 0.0f);
+    FVector WorldSize = FVector(20000.0f, 20000.0f, 0.0f);
 
     UPROPERTY(BlueprintReadWrite)
     int32 LandscapeResolution = 513;
@@ -61,6 +64,28 @@ struct FNLTOpenWorldConfig
     /** Whether to place the Fab Modern City city-grid layer (roads, sidewalks, fences, trees). */
     UPROPERTY(BlueprintReadWrite)
     bool bPlaceCityScenery = true;
+
+    /** Fixed, authored building layout - every entry is (type, exact location, yaw). Placement is
+     *  NOT random: the generator places these verbatim every run. Edit this array to author the
+     *  city. The default 12-building layout is footprint-clear (min clearance ~400 cm, verified and
+     *  logged at spawn). Keep new positions >= (r_i + r_j + 400) apart using the per-type footprint
+     *  radii from ANLTBuildingPortalActor::GetTargetHalfExtent() (Office 1100, Apartment/School
+     *  1200, Factory 1300, Park 1500, Shop 800, Hut 150). */
+    UPROPERTY(BlueprintReadWrite)
+    TArray<FNLTDesiredBuilding> BuildingLayout = {
+        { TEXT("Office"),    FVector(-4200.0f,  4200.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("Office"),    FVector( 4200.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Apartment"), FVector(-4200.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Apartment"), FVector( 4200.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("Apartment"), FVector(-4500.0f, -4500.0f, 0.0f), FRotator(0.0f,  45.0f, 0.0f) },
+        { TEXT("Apartment"), FVector( 4200.0f, -4200.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("School"),    FVector(    0.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Factory"),   FVector(-4200.0f, -1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Park"),      FVector(    0.0f, -1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("Shop"),      FVector(-1300.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+        { TEXT("Shop"),      FVector( 1300.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Hut"),       FVector( 7000.0f, -7000.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) }
+    };
 };
 
 /**

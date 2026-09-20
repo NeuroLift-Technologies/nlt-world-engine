@@ -74,6 +74,11 @@ public:
     UFUNCTION(BlueprintPure, Category = "NLT|Portal")
     ENLTBuildingType GetBuildingType() const { return BuildingType; }
 
+    /** Footprint radius (larger X/Y target half-extent, cm) for the current building type - used
+     *  by the open-world subsystem to verify authored layout clearances at spawn. */
+    UFUNCTION(BlueprintPure, Category = "NLT|Portal")
+    float GetFootprintRadius() const;
+
     /** Get the target level name. */
     UFUNCTION(BlueprintPure, Category = "NLT|Portal")
     FName GetTargetLevelName() const { return TargetLevelName; }
@@ -174,6 +179,10 @@ protected:
     void UpdateBuildingMesh();
 
 private:
+    /** Footprint box (target half-extents, cm) for the current building type - single source of
+     *  truth shared by UpdateBuildingMesh() scaling and GetFootprintRadius() layout checks. */
+    FVector GetTargetHalfExtent() const;
+
     /** The streaming handle for the loaded level. */
     TSharedPtr<FStreamableHandle> StreamingHandle;
 

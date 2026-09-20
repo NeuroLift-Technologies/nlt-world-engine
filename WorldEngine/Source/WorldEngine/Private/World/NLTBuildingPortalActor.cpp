@@ -236,19 +236,9 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
     {
         BuildingMesh->SetStaticMesh(CityMesh);
 
-        // Target footprint (half extents, UE cm) per type - city-block proportions for the
-        // 5000x5000 open world: towers ~20-26m, low-rise ~12m, park grove wide and low.
-        FVector TargetHalfExtent(1000.0f, 900.0f, 800.0f);
-        switch (BuildingType)
-        {
-        case ENLTBuildingType::Office:    TargetHalfExtent = FVector(1100.0f, 1100.0f, 1200.0f); break;
-        case ENLTBuildingType::Apartment: TargetHalfExtent = FVector(1200.0f,  900.0f, 1100.0f); break;
-        case ENLTBuildingType::Shop:      TargetHalfExtent = FVector( 800.0f,  600.0f,  600.0f); break;
-        case ENLTBuildingType::School:    TargetHalfExtent = FVector(1200.0f,  900.0f, 1000.0f); break;
-        case ENLTBuildingType::Factory:   TargetHalfExtent = FVector(1300.0f, 1000.0f,  950.0f); break;
-        case ENLTBuildingType::Park:      TargetHalfExtent = FVector(1500.0f, 1100.0f,  700.0f); break;
-        default:                          break;
-        }
+        // Target footprint (half extents, UE cm) per type - single table shared with the layout
+        // footprint queries (GetFootprintRadius) used to verify authored city spacing at spawn.
+        const FVector TargetHalfExtent = GetTargetHalfExtent();
 
         const FBox SourceBounds = CityMesh->GetBoundingBox();
         const FVector SourceCenter = SourceBounds.GetCenter();
@@ -319,6 +309,33 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
         BuildingLabel->SetRelativeLocation(FVector(0.0f, 0.0f, 250.0f));
         BuildingLabelBack->SetRelativeLocation(FVector(0.0f, 0.0f, 250.0f));
     }
+}
+
+FVector ANLTBuildingPortalActor::GetTargetHalfExtent() const
+{
+    // Target footprint (half extents, UE cm) per building type - single source of truth for both
+    // the mesh scaling above and GetFootprintRadius() layout checks. City-block proportions for
+    // the 200 m open world: towers ~20-26 m, low-rise ~12 m, park grove wide and low.
+    //
+    // Keep in sync with FNLTOpenWorldConfig.BuildingLayout: building centers must stay
+    // >= (r_i + r_j + ~400 cm) apart; the open-world subsystem logs the true clearance at spawn.
+    switch (BuildingType)
+    {
+    case ENLTBuildingType::Office:    return FVector(1100.0f, 1100.0f, 1200.0f);
+    case ENLTBuildingType::Apartment: return FVector(1200.0f,  900.0f, 1100.0f);
+    case ENLTBuildingType::Shop:      return FVector( 800.0f,  600.0f,  600.0f);
+    case ENLTBuildingType::School:    return FVector(1200.0f,  900.0f, 1000.0f);
+    case ENLTBuildingType::Factory:   return FVector(1300.0f, 1000.0f,  950.0f);
+    case ENLTBuildingType::Park:      return FVector(1500.0f, 1100.0f,  700.0f);
+    default:                          return FVector( 150.0f,  150.0f,  200.0f); // Hut / placeholder cube
+    }
+}
+
+float ANLTBuildingPortalActor::GetFootprintRadius() const
+{
+    // Footprint radius for separation checks: the larger X/Y half-extent of the authored box.
+    const FVector HalfExtent = GetTargetHalfExtent();
+    return FMath::Max(HalfExtent.X, HalfExtent.Y);
 }
 
 // ============== Overlap Events ==============

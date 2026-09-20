@@ -91,7 +91,8 @@ void UNLTOpenWorldSubsystem::GenerateOpenWorld(const FNLTOpenWorldConfig& Config
     GenParams.Seed = Config.Seed;
     GenParams.WorldSize = Config.WorldSize;
     GenParams.NumDistricts = 4;
-    GenParams.NumBuildings = Config.NumBuildings;
+    GenParams.NumBuildings = Config.NumBuildings; // overridden by BuildingLayout count when set
+    GenParams.BuildingLayout = Config.BuildingLayout;
 
     if (WorldGenerator)
     {
@@ -117,6 +118,31 @@ void UNLTOpenWorldSubsystem::GenerateOpenWorld(const FNLTOpenWorldConfig& Config
 
             SpawnBuildingPortal(Building.BuildingType, AdjustedTransform);
         }
+    }
+
+    // Verify the authored layout: log the closest building pair so a mis-edited config (or a
+    // footprint size change) is caught immediately. Clearance = center distance - (r_i + r_j).
+    if (BuildingPortals.Num() > 1)
+    {
+        float MinCenterDistance = FLT_MAX;
+        float MinFootprintClearance = FLT_MAX;
+        for (int32 i = 0; i < BuildingPortals.Num(); ++i)
+        {
+            for (int32 j = i + 1; j < BuildingPortals.Num(); ++j)
+            {
+                const float CenterDist = FVector::Dist2D(
+                    BuildingPortals[i]->GetActorLocation(), BuildingPortals[j]->GetActorLocation());
+                const float Clearance = CenterDist
+                    - BuildingPortals[i]->GetFootprintRadius()
+                    - BuildingPortals[j]->GetFootprintRadius();
+                MinCenterDistance = FMath::Min(MinCenterDistance, CenterDist);
+                MinFootprintClearance = FMath::Min(MinFootprintClearance, Clearance);
+            }
+        }
+        UE_LOG(LogNLTOpenWorld, Log,
+            TEXT("Building layout: %d portals, min center distance %.0f cm, min footprint clearance %.0f cm - %s"),
+            BuildingPortals.Num(), MinCenterDistance, MinFootprintClearance,
+            MinFootprintClearance < 0.0f ? TEXT("OVERLAP DETECTED") : TEXT("clear"));
     }
 
     // Spawn AI residents

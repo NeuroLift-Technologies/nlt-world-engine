@@ -432,3 +432,61 @@ Portal 'NLTBuildingPortalActor_1': Pawn 'DefaultPawn_0' entered range → auto-s
   "dangerous"), which is why verification ran via standalone `-game` instead.
 - Known follow-ups (not this session): Office/School spawn weighting (no Office/School spawn
   at seed 42), vegetation HISM ensure cleanup, NavMesh for imported meshes.
+
+---
+
+## Progress Update (2026-09-20 evening) — Fixed Set-Coordinate Building Layout
+
+**Agent:** OpenCode (Poolside) · **All items DONE; built + runtime verified in standalone `-game` (seed 42).**
+
+### Context
+
+Joshua flagged two layout issues in the open world: (1) buildings were too close together /
+overlapping, and (2) building spawn coordinates were random (seed-driven `FRandRange`) and
+needed to be **set coordinates**. Decision (with Joshua): **config-driven fixed layout** —
+an editable list of (type, exact location, yaw) that the generator places verbatim every run.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `NLTWorldGenerator.h` | New `FNLTDesiredBuilding` USTRUCT (BuildingType / Location / Rotation); `FNLTWorldGenerationParams::BuildingLayout` array. |
+| `NLTWorldGenerator.cpp` | `GenerateBuildings()` now copies `BuildingLayout` verbatim (no random placement; empty → warning + zero buildings). Added School + Hut branches to `GenerateBuildingSemantics`. |
+| `NLTOpenWorldSubsystem.h` | `FNLTOpenWorldConfig.WorldSize` default **5000 → 20000** (50 m → 200 m open world so the authored layout spreads out); new `BuildingLayout` default with **12 authored buildings**, pre-verified pairwise footprint-clear. |
+| `NLTOpenWorldSubsystem.cpp` | Plumbs `Config.BuildingLayout` into `GenerateWorld`; **new spawn-time layout diagnostic** (min center distance + min footprint clearance between all portal pairs via `GetFootprintRadius()`). |
+| `NLTBuildingPortalActor.h/.cpp` | Shared `GetTargetHalfExtent()` table (single source of truth for mesh scaling + spacing checks); public `GetFootprintRadius()` = max(X/Y) half-extent. |
+| `NLTDemoGameMode.cpp` | Dropped the hard-coded `WorldSize=5000` override (uses config defaults now). |
+
+### Authored default layout (12 buildings, cm coords)
+
+Offices ×2, Apartments ×4, School, Factory, Park, Shops ×2, Hut — spread across the 200 m
+world, min center distance **2600 cm**, min edge clearance **400 cm** (no overlaps, all within
+bounds). Rotation/yaw authored per building; Z is auto-raised onto terrain at spawn.
+
+### Runtime verification (standalone `-game`, seed 42, OpenWorld_Level)
+
+```
+Generating open world with seed 42, world size 20000x20000
+City scenery: placed 6 Fab Modern City grid pieces (scale 0.770, base Z 0, world 20000x20000)
+World generated with 12 explicit building placements
+Spawned building portal 'Office' at (-4200, 4200, 10)    ... (12 portals: Office×2, Apartment×4, School, Factory, Park, Shop×2, Hut)
+Building layout: 12 portals, min center distance 2600 cm, min footprint clearance 400 cm - clear
+Open world generation complete: 12 buildings, 12 residents
+```
+
+- Formation is seed-independent: positions/types are fixed; seed still varies per-building
+  semantic detail + landscape/vegetation (reproducibility requirement preserved).
+- **Resolved a prior follow-up:** Office and School now always spawn (old RNG never emitted
+  School; seed 42 never hit Office/School weighting).
+
+### Handoff notes for Joshua
+
+- Build note: this machine's pagefile is **fixed at 1 GB** (`C:\pagefile.sys`,
+  `AutomaticManagedPageFile=False`) — UE unity-PCH builds OOM (`C3859`) while an editor
+  instance is running. Workaround used here: close the editor + `-NoUnity
+  -MaxParallelActions=2` (build ~50 s). Recommend raising the pagefile (admin) long-term.
+- **Blender workflow (next step, per Joshua):** Joshua is arranging the Fab
+  `Modern_City_Environment` block in Blender (currently loaded, buildings at origin). Plan:
+  read the arranged building world-transforms via blender-mcp and bake them into
+  `FNLTOpenWorldConfig.BuildingLayout` as the set coordinates (no asset re-export needed).
+- Commit: `[OPENCODE] feat(openworld): fixed set-coordinate building layout (no overlap)`.

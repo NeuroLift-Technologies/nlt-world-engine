@@ -30,7 +30,8 @@ void ANLTDemoGameMode::BeginPlay()
 				{
 					FNLTOpenWorldConfig Config;
 					Config.Seed = 42;
-					Config.WorldSize = FVector(5000.0f, 5000.0f, 0.0f);
+					// World size + building layout come from FNLTOpenWorldConfig defaults: 200 m
+					// open world with a fixed, authored 12-building layout (no random placement).
 					Config.NumBuildings = 12;
 					Config.NumResidents = 8;
 					Config.NumTrees = 200;

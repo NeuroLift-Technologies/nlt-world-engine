@@ -23,11 +23,18 @@
     cleanup. Log: `City scenery: placed 6 Fab Modern City grid pieces (scale 0.193 ...)`,
     `Open world generation complete: 12 buildings, 12 residents`; portal overlap → level
     streaming verified live.
+  - **Fixed set-coordinate layout (2026-09-20 PM):** buildings no longer random — new
+    `FNLTOpenWorldConfig.BuildingLayout` (BP-editable list of type + exact location + yaw) is
+    placed verbatim; default 12 authored buildings spread across an enlarged **200×200 m**
+    world, pre-verified footprint-clear (min center distance 2600 cm, min clearance 400 cm —
+    logged at spawn). World size default 5000 → 20000. School + Office always spawn now.
+    Shared `GetTargetHalfExtent()`/`GetFootprintRadius()` tables on the portal actor.
 - **Escalation record:** `docs/escalations/2026-09-20-openworld-expansion.md` (Progress Update section).
 - **Blocker for PIE:** MCP `control_editor.play` catalog bug (rejects `control` param; console
   `PIE.Start` blocked as dangerous) — verification done via standalone `-game` instead.
-- **Next action:** commit; optional follow-ups (Office/School spawn weighting, HISM ensure
-  cleanup, NavMesh for imported meshes, textures pass on NLT_Gray geometry).
+- **Next action:** commit; Blender workflow — Joshua arranging the Fab city block in Blender,
+  positions then baked into `BuildingLayout` via blender-mcp. Optional follow-ups: vegetation-HISM
+  `ensure` cleanup, NavMesh for imported meshes, texture pass on NLT_Gray geometry.
 
 ### 📄 DOC-MCP-001 — Unreal MCP Integration Documentation
 - **Agent:** OpenCode · **Opened:** 2026-09-19 · **Branch:** `main`
