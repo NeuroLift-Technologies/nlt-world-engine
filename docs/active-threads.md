@@ -24,6 +24,12 @@
 - **Blocker for PIE:** MCP `control_editor.play` catalog bug (rejects `control` param; console `PIE.Start` blocked as dangerous) — verification done via standalone `-game` instead.
 - **Known issues (asset paths, not code):** Path_And_Imperfections and Traffic_Lights GLB imports created assets with different naming conventions (multi-mesh GLBs); WoodenHouse merged GLB re-import asset path needs verification — both are asset registry issues, not code.
 - **Next action:** commit; optional follow-ups: vegetation-HISM `ensure` cleanup, NavMesh for imported meshes, texture pass on NLT_Gray geometry.
+### 🚪 ENV-002 — Relocate Personal_Level Teleporter Doors (UE WorldEngine)
+- **Agent:** OpenCode · **Opened:** 2026-09-20 · **Branch:** `feat/personal-level-door-relocation`
+- **Scope:** The three runtime-spawned `NLTDoorActor` teleporters in `Personal_Level` were hidden in PIE — the Academic door sat behind the kitchen cabinet/stove line and the Social door behind the `Corridor_Wall_E4` corner, both hard to see/reach.
+- **Delivered:** `SpawnLevelDoors()` in `NLTDemoGameMode.cpp` now spawns the doors as a visible row along the open south wall (Y=-885), clear of `Front_Door` and player starts, with yaw 180 so labels face north into the room. `Social_Level`/`Academic_Level` spawn behavior unchanged.
+- **Blocker note:** Doors are code-spawned (not map actors), so the change requires a module rebuild + PIE restart to take effect; `set_transform` is edit-mode-only and cannot move PIE actors.
+- **Next action:** Review PR; rebuild module, run PIE, verify door visibility/labels.
 
 ### 📄 DOC-MCP-001 — Unreal MCP Integration Documentation
 - **Agent:** OpenCode · **Opened:** 2026-09-19 · **Branch:** `main`
