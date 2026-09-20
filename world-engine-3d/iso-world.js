@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+if (typeof window !== 'undefined' && window.__weMarkBoot) window.__weMarkBoot('iso-world module ran');
+
 const WE = window.WE_DATA;
 const SIM = window.WE_SIM_CORE;
 
@@ -44,9 +46,6 @@ sunLight.shadow.bias=-0.0001;sunLight.shadow.radius=4;sunLight.shadow.normalBias
 scene.add(sunLight);
 
 const hemiLight=new THREE.HemisphereLight(0x87CEEB,0x2d5a3d,0.4);scene.add(hemiLight);
-
-// Ground ambient occlusion
-const aoPass = new THREE.ApproximateToneMappingPass ? null : null;
 
 const roomLights=[];
 for(const room of WE.ROOMS){
@@ -239,8 +238,12 @@ function triggerFusionCeremony(av,mesh,aideMesh){
 // ─── CHARACTER CREATION ──────────────────────────────────────────────
 function createCharacter(sim,isAide=false){
   const group=new THREE.Group();const hue=sim.hue/360;
-  const bodyColor=isAide?new THREE.Color().setHSL((hue+0.5)%1,0.5,0.5):new THREE.Color().setHSL(hue,0.6,0.5);
-  const skinColor=new THREE.Color(0xffddbb);
+  // Live avatars get stable outfit colors from the asset manifest
+  // (assets.js); scenario avatars keep hue/aide colors.
+  let manifestEntry=null;
+  try{ if(sim.name&&window.WE_ASSETS)manifestEntry=window.WE_ASSETS.characterFor(sim.name); }catch(e){/* optional */}
+  const bodyColor=manifestEntry?new THREE.Color(manifestEntry.tint):(isAide?new THREE.Color().setHSL((hue+0.5)%1,0.5,0.5):new THREE.Color().setHSL(hue,0.6,0.5));
+  const skinColor=manifestEntry?new THREE.Color(manifestEntry.skin):new THREE.Color(0xffddbb);
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(0.25,16),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.25}));
   shadow.rotation.x=-Math.PI/2;shadow.position.y=0.02;group.add(shadow);
   const legGeo=new THREE.CapsuleGeometry(0.06,0.25,4,8);
@@ -451,8 +454,14 @@ function updateSimInfo(){
   document.getElementById('sim-info').style.display='block';
   document.getElementById('sim-name').textContent=av.name;
   document.getElementById('sim-trait').textContent=av.blurb||av.trait||'';
-  const needs={focus:av.focus,cognitive_load:av.cogLoad,stress:av.stress,burnout:av.burnout,independence:av.independence,fusion_ready:av.fusionReady};
-  const colors={focus:'#6bff95',cognitive_load:'#ffaa00',stress:'#ff6b6b',burnout:'#ff0000',independence:'#6bb5ff',fusion_ready:'#e879f9'};
+  // Live avatars carry Sims-style needs; scenario avatars carry cognitive
+  // metrics. Show whichever the avatar has.
+  const needs = av.needs ? {
+    energy: av.needs.energy ?? 0, hunger: av.needs.hunger ?? 0,
+    hygiene: av.needs.hygiene ?? 0, fun: av.needs.fun ?? 0,
+    social: av.needs.social ?? 0,
+  } : {focus:av.focus,cognitive_load:av.cogLoad,stress:av.stress,burnout:av.burnout,independence:av.independence,fusion_ready:av.fusionReady};
+  const colors={focus:'#6bff95',cognitive_load:'#ffaa00',stress:'#ff6b6b',burnout:'#ff0000',independence:'#6bb5ff',fusion_ready:'#e879f9',energy:'#ffd166',hunger:'#ff9f1c',hygiene:'#2ec4b6',fun:'#e879f9',social:'#6bb5ff'};
   const el=document.getElementById('sim-needs');el.innerHTML='';
   for(const[k,v]of Object.entries(needs)){const pct=Math.round(v*100);el.innerHTML+=`<div class="need-bar"><span class="name">${k.replace('_',' ')}</span><div class="bar"><div class="fill" style="width:${pct}%;background:${colors[k]||'#888'}"></div></div></div>`;}
   if(mesh){
@@ -516,7 +525,57 @@ function runAideCoaching(av,mesh,aideMesh){
   }
 }
 
+// --- Live mode: stream the real Python engine instead of the offline sim ---
+// ?live=1 connects to server.py via WE_LIVE (live-client.js). Live avatars
+// are reconciled into the scene; offline behavior is unchanged.
+let liveHandle=null;
+const LIVE = (typeof window!=='undefined' && window.WE_LIVE) ? window.WE_LIVE : null;
+const isLiveMode = LIVE ? LIVE.isLiveMode() : false;
+
+function syncLiveAvatars(liveAvatars){
+  const seen=new Set();
+  for(const av of liveAvatars){
+    seen.add(av.id);
+    // Keep the sim-core avatar object in sync so the decision engine,
+    // HUD, and event feed keep working on live data.
+    let core=worldState.avatars.find(a=>a.id===av.id);
+    if(!core){ core={...av}; worldState.avatars.push(core); }
+    else { Object.assign(core, av); }
+    let mesh=simMeshes.get(av.id);
+    if(!mesh){
+      mesh=createCharacter(av,false);
+      mesh.position.set(av.px,0,av.py);
+      scene.add(mesh);simMeshes.set(av.id,mesh);
+    }
+  }
+  // Remove avatars that left the live world
+  for(const [id,mesh] of [...simMeshes]){
+    if(!seen.has(id) && !WE.AVATARS.some(a=>a.id===id)){
+      scene.remove(mesh);simMeshes.delete(id);
+      const i=worldState.avatars.findIndex(a=>a.id===id);
+      if(i>=0)worldState.avatars.splice(i,1);
+    }
+  }
+}
+
+function onLiveState(next){
+  syncLiveAvatars(next.avatars||[]);
+  // Merge live event feed into the HUD feed (dedupe by id)
+  for(const evt of (next.events||[])){
+    if(!eventFeed.some(e=>e.id===evt.id)){
+      eventFeed.unshift({...evt,t:Date.now()});
+    }
+  }
+  eventFeed=eventFeed.slice(0,80);
+  document.getElementById('events').innerHTML=eventFeed.map(e=>{
+    const time=new Date(e.t).toLocaleTimeString();
+    return `<div class="event-item"><span class="event-time">${time}</span>${e.text||e.kind}</div>`;
+  }).join('');
+  updateSimInfo();
+}
+
 function tick(){
+  if(isLiveMode)return; // live state arrives via onLiveState
   if(paused)return;tickCount++;gameTime+=2;if(gameTime>1440)gameTime=0;
   worldState=SIM.tickWorld(worldState,{ts:2,dysOn:true,threshold:0.6});
 
@@ -574,6 +633,23 @@ function tick(){
 }
 setInterval(tick,1000);
 
+// Show the scene as soon as the first frame renders (module scripts run
+// after classic scripts; nothing after this line depends on the network).
+document.getElementById('loading').style.display='none';
+
+// Live status pill (?live=1 only) + connection bootstrap
+if(isLiveMode){
+  const pill=document.createElement('div');
+  pill.id='live-status';
+  pill.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(10,40,20,.92);border:1px solid rgba(0,255,136,.35);border-radius:999px;padding:6px 14px;font-size:12px;color:#6bff95';
+  pill.textContent='live · connecting…';
+  document.body.appendChild(pill);
+  liveHandle=LIVE.connect({
+    onState:onLiveState,
+    onStatus:(t)=>{pill.textContent=t;},
+  });
+}
+
 const clock=new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);const delta=clock.getDelta();const time=clock.getElapsedTime();
@@ -592,5 +668,4 @@ animate();
 
 window.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();paused=!paused;}if(e.code==='Digit1'){cameraMode='free';followTarget=null;}if(e.code==='Digit2'){cameraMode='follow';if(selectedSimId)followTarget=simMeshes.get(selectedSimId);}if(e.code==='Digit3'){cameraMode='cinematic';}});
 window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
-document.getElementById('loading').style.display='none';
 addEvent('World Engine initialized','info');addEvent('StayAlert entered the world','info');

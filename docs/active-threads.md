@@ -2,11 +2,18 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-18
 
 ---
 
 ## Active Threads
+
+### 🎯 LIVE-001 — Live Sims world: Python ECS + Agent API + three.js viewer
+- **Agent:** Cline · **Opened:** 2026-09-18 · **Branch:** `main` (uncommitted)
+- **Scope:** Make AI agents connect and "live" in the Sims-like world via an API with lifelike graphics for observers. Reuse the Python ECS engine as-is; add `world-engine/server.py` (WS `/ws` agent protocol + REST `/api/world|scene|status`); upgrade `world-engine-3d/` with `live-client.js` bridge, `assets.js` character manifest, articulated procedural humans + walk cycle; add `connectors/scripted_bot.py` + `connectors/llm_connector.py`; tests + `docs/adr-live-world.md`.
+- **Delivered:** server.py (join/perceive/act/observe, utility NPC fallback, per-tick broadcasts), 9/9 server tests passing incl. live end-to-end round-trip, 2/2 viewer node tests, ADRs, asset manifest.
+- **Blockers:** None. (Later: Mixamo downloads need user's Adobe account; MetaHuman needs Linux box.)
+- **Next action:** Manual live check (`python server.py`, open `index.html?live=1`, run scripted bot); then commit + open handoff per repo governance.
 
 ### 🎯 CHAR-001 — Character Animation & Emotion System (UE WorldEngine)
 - **Agent:** Claude Code (Poolside) · **Opened:** 2026-09-13 · **Branch:** `feat/character-animation-emotion-system`
