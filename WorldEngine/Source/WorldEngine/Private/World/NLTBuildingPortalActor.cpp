@@ -4,13 +4,16 @@
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Engine/AssetManager.h"
+#include "Engine/EngineUtils.h"
 #include "Engine/Font.h"
+#include "Engine/LevelStreamingDynamic.h"
+#include "Engine/StreamableManager.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
-#include "Engine/LevelStreamingDynamic.h"
 
 DEFINE_LOG_CATEGORY(LogNLTBuildingPortal);
 
@@ -107,7 +110,7 @@ void ANLTBuildingPortalActor::BeginPlay()
 
 void ANLTBuildingPortalActor::Tick(float DeltaTime)
 {
-    Super::DeltaTime);
+    Super::Tick(DeltaTime);
 
     // Label facing: orient toward the player if nearby
     if (BuildingLabel && OverlappingPlayer)
@@ -276,17 +279,16 @@ void ANLTBuildingPortalActor::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, 
             // If we were streaming, start a timer to unload
             if (bLevelLoaded && !bIsTransitioning)
             {
-                // Return to open world after exit
-                GetWorldTimerManager().SetTimer(
-                    [this]()
+                FTimerHandle UnloadTimer;
+                FTimerDelegate UnloadDelegate;
+                UnloadDelegate.BindLambda([this]()
+                {
+                    if (!OverlappingPlayer)
                     {
-                        if (!OverlappingPlayer)
-                        {
-                            ReturnPlayerToOpenWorld();
-                        }
-                    },
-                    5.0f, false
-                );
+                        ReturnPlayerToOpenWorld();
+                    }
+                });
+                GetWorldTimerManager().SetTimer(UnloadTimer, UnloadDelegate, 5.0f, false);
             }
         }
     }
@@ -346,7 +348,7 @@ void ANLTBuildingPortalActor::StreamInTargetLevel()
     }
 
     // Async load the target level
-    FStreamableManager& StreamableManager = UGameplayStatics::GetStreamableManager();
+    FStreamableManager& StreamableManager = UAssetManager::GetStreamableManager();
     StreamingHandle = StreamableManager.RequestAsyncLoad(
         FSoftObjectPath(LevelPath),
         FStreamableDelegate::CreateUObject(this, &ANLTBuildingPortalActor::OnLevelLoadComplete),

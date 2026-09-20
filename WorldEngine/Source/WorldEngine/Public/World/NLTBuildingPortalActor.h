@@ -5,6 +5,8 @@
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Engine/StreamableManager.h"
+#include "Engine/EngineUtils.h"
 #include "NLTBuildingPortalActor.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNLTBuildingPortal, Log, All);
@@ -143,6 +145,10 @@ protected:
 
     /** Stream in the target level. */
     void StreamInTargetLevel();
+
+    /** Called when async level load completes. */
+    UFUNCTION()
+    void OnLevelLoadComplete();
 
     /** Stream out the target level. */
     void StreamOutTargetLevel();

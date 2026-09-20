@@ -164,4 +164,7 @@ private:
 
     /** Get a random point on the landscape. */
     FVector GetRandomLandscapePoint(FRandomStream& Rand) const;
+
+    /** Map building type name to enum. */
+    ENLTBuildingType GetBuildingTypeFromFName(FName TypeName) const;
 };
