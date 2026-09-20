@@ -204,7 +204,7 @@ int32 UVsBlueprintReferencesCommandlet::Run(
 	GIsRunning = true; // Required for the blueprint search to work.
 
 	FString* ReferencesSymbol = ParamVals.Find(SymbolParamVal);
-	if (ReferencesSymbol->IsEmpty())
+	if (!ReferencesSymbol || ReferencesSymbol->IsEmpty())
 	{
 		UE_LOG(LogVisualStudioTools, Error, TEXT("Missing required symbol parameter."));
 		PrintHelp();

@@ -1,5 +1,4 @@
 // NLTFusion module implementation
-// This module is part of WorldEngine — no separate IMPLEMENT_MODULE needed.
 
 #include "Core/NLTFusionCore.h"
 #include "Modules/ModuleManager.h"
@@ -15,3 +14,5 @@ void FNLTFusionModule::ShutdownModule()
 {
 	UE_LOG(LogNLTFusion, Log, TEXT("NLTFusion module shutdown"));
 }
+
+IMPLEMENT_GAME_MODULE(FNLTFusionModule, NLTFusion)

@@ -89,7 +89,7 @@ full list and the CI/governance layout.
 
 ## MCP Server
 
-The project exposes an MCP endpoint on `127.0.0.1:8000` (ModelContextProtocol
+The project exposes an MCP endpoint on `127.0.0.1:8001` (ModelContextProtocol
 plugin). Tools available for agent-driven editing:
 
 - **EditorAppToolset** — `StartPIE`, `StopPIE`, `OpenEditorForAsset`, save/inspect

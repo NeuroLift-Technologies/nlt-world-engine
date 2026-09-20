@@ -2,11 +2,18 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-19
 
 ---
 
 ## Active Threads
+
+### 📄 DOC-MCP-001 — Unreal MCP Integration Documentation
+- **Agent:** OpenCode · **Opened:** 2026-09-19 · **Branch:** `main`
+- **Scope:** Register the unreal-mcp server config and document the WorldEngine integration. Global OpenCode MCP registration (`http://127.0.0.1:8001/mcp`, ✓ connected).
+- **Delivered:** `unreal-mcp` entry + governance note added to `mcp-config.yaml`; `docs/world-engine/UNREAL-MCP-INTEGRATION.md` created.
+- **Blockers:** `McpAutomationBridge` plugin not yet installed in `WorldEngine/Plugins/` — its native MCP port must be set to **8001** to match.
+- **Next action:** Install plugin into WorldEngine (copy or external plugin dir), set native MCP port to 8001, enable Native MCP, restart editor.
 
 ### 🎯 CHAR-001 — Character Animation & Emotion System (UE WorldEngine)
 - **Agent:** Claude Code (Poolside) · **Opened:** 2026-09-13 · **Branch:** `feat/character-animation-emotion-system`

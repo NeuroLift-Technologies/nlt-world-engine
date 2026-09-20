@@ -135,7 +135,7 @@ bool UVisualStudioToolsBlueprintBreakpointExtension::GetRunningVisualStudioDTE(T
 			IMoniker* CurrentMoniker;
 			while (MonikersTable->Next(1, &CurrentMoniker, NULL) == S_OK)
 			{
-				IBindCtx* BindContext;
+				IBindCtx* BindContext = nullptr;
 				LPOLESTR OutName;
 				if (SUCCEEDED(CreateBindCtx(0, &BindContext)) && SUCCEEDED(CurrentMoniker->GetDisplayName(BindContext, NULL, &OutName)))
 				{
@@ -171,7 +171,10 @@ bool UVisualStudioToolsBlueprintBreakpointExtension::GetRunningVisualStudioDTE(T
 				{
 					UE_LOG(LogUVisualStudioToolsBlueprintBreakpointExtension, Error, TEXT("Could not get display name for moniker"));
 				}
-				BindContext->Release();
+				if (BindContext)
+				{
+					BindContext->Release();
+				}
 				CurrentMoniker->Release();
 				if (bResult) break;
 			}

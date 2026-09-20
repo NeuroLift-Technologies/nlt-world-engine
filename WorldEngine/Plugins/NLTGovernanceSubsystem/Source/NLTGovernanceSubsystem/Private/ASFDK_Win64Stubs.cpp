@@ -3,6 +3,8 @@
 // can link on Win64 without requiring the full ASFDK-C++ CMake build.
 // TODO: Replace with proper Win64 ASFDK library build when available.
 
+#if defined(_WIN32)
+
 #pragma warning(disable: 4668)
 
 #include <string>
@@ -111,4 +113,6 @@ namespace sleepwalker {
         : m_stateDetector(),
           m_consentManager(),
           m_continuityManager() {}
-}
+} // namespace sleepwalker
+
+#endif // defined(_WIN32)

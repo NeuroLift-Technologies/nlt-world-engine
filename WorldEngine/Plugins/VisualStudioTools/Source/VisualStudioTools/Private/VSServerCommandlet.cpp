@@ -41,11 +41,11 @@ UVSServerCommandlet::UVSServerCommandlet()
 void UVSServerCommandlet::ExecuteSubCommandlet(FString ueServerNamedPipe)
 {
 	char buffer[1024];
-	DWORD dwRead;
+	DWORD dwRead = 0;
 	std::string result = "0";
 
 	// Open the named pipe.
-	std::wstring pipeName = L"\\\\.\\pipe\\";
+	std::wstring pipeName = L"\\\\\\\\.\\\\pipe\\\\";
 	pipeName.append(ueServerNamedPipe.GetCharArray().GetData());
 	HANDLE HPipe = CreateFile(pipeName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	if (HPipe != INVALID_HANDLE_VALUE)
@@ -56,7 +56,12 @@ void UVSServerCommandlet::ExecuteSubCommandlet(FString ueServerNamedPipe)
 		if (bSuccess)
 		{
 			// Read data from the named pipe.
-			ReadFile(HPipe, buffer, sizeof(buffer) - 1, &dwRead, NULL);
+			if (!ReadFile(HPipe, buffer, sizeof(buffer) - 1, &dwRead, NULL))
+			{
+				UE_LOG(LogVisualStudioTools, Error, TEXT("Failed to read from named pipe."));
+				CloseHandle(HPipe);
+				return;
+			}
 			buffer[dwRead] = '\0';
 			std::string strSubCommandletParams(buffer, dwRead);
 			FString SubCommandletParams = FString(strSubCommandletParams.c_str());
@@ -67,12 +72,12 @@ void UVSServerCommandlet::ExecuteSubCommandlet(FString ueServerNamedPipe)
 				UVSTestAdapterCommandlet *Commandlet = NewObject<UVSTestAdapterCommandlet>();
 				try
 				{
-					int32 subCommandletResult = Commandlet->Main(SubCommandletParams);
+					result = std::to_string(Commandlet->Main(SubCommandletParams));
 				}
 				catch (const std::exception &ex)
 				{
 					UE_LOG(LogVisualStudioTools, Display, TEXT("Exception invoking VSTestAdapter commandlet: %s"), UTF8_TO_TCHAR(ex.what()));
-					result = "0";
+					result = "1";
 				}
 			}
 			else if (SubCommandletParams.Contains("KillVSServer"))
@@ -88,6 +93,8 @@ void UVSServerCommandlet::ExecuteSubCommandlet(FString ueServerNamedPipe)
 
 			WriteFile(HPipe, result.c_str(), result.size(), &dwRead, NULL);
 		}
+
+		CloseHandle(HPipe);
 	}
 }
 

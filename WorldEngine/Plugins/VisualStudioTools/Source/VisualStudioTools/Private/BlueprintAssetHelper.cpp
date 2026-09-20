@@ -75,17 +75,18 @@ void ForEachAsset(
 		UE_LOG(LogVisualStudioTools, Display, TEXT("Processing blueprints [%d/%d]: %s"), Idx + 1, TargetAssets.Num(), *GenClassPath.ToString());
 
 		TSharedPtr<FStreamableHandle> Handle = AssetLoader.RequestSyncLoad(GenClassPath);
-		ON_SCOPE_EXIT
-		{
-			// We're done, notify an unload.
-			Handle->ReleaseHandle();
-		};
 
 		if (!Handle.IsValid())
 		{
 			UE_LOG(LogVisualStudioTools, Warning, TEXT("Failed to get a streamable handle for Blueprint. Skipping. GenClassPath: %s"), *GenClassPath.ToString());
 			continue;
 		}
+
+		ON_SCOPE_EXIT
+		{
+			// We're done, notify an unload.
+			Handle->ReleaseHandle();
+		};
 
 		if (auto BlueprintGeneratedClass = Cast<UBlueprintGeneratedClass>(Handle->GetLoadedAsset()))
 		{
