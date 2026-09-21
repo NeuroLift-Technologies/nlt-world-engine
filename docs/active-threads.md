@@ -2,11 +2,30 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-21
 
 ---
 
 ## Active Threads
+
+### 🔧 BUILD-WIN64-001 — Win64 build repair: ASFDK wiring + hot-reload state
+- **Agent:** Cline · **Opened:** 2026-09-21 · **Branch:** `fix/win64-asfdk-stubs` · **Status:** resolved (pending PR)
+- **Summary:** User's Visual Studio `WorldEngineEditor Win64 Development` build failed with C1083
+  (`asfdk/ASFDK.h`), LNK1104 (`UnrealEditor-WorldEngine-0002.lib.rsp` missing), and MSB3073.
+  Root causes: (1) the `ThirdParty/ASFDK` junction in the C: UE build tree pointed at the
+  pre-move `C:\...\nlt-repos\asfdk-cplus` location (nlt-repos now on D:); (2) legacy
+  hot-reload-from-IDE re-applying a stale, inconsistent `HotReloadState.json` while
+  `UnrealEditor.exe` was running. The canonical repo additionally had a dangling gitlink
+  (no `.gitmodules` mapping) for the ASFDK submodule.
+- **Delivered (verified):** hardened `NLTGovernanceSubsystem.Build.cs` (ASFDK_ROOT override +
+  loud BuildException, duplicate-nlohmann guard); `ASFDK_Win64Stubs.cpp` rewritten and proven
+  compile/link-clean against the real headers (standalone MSVC probe + full UBT builds);
+  `.gitmodules` added and submodule restored at pinned `55b21fe`; forensic write-up at
+  `WorldEngine/docs/building/LNK1104-rsp-diagnosis.md`. Both `WorldEngine` and
+  `WorldEngineEditor` targets build `Result: Succeeded` in the C: build tree.
+- **Handoff:** `docs/agent-log/handoffs/2026-09-21-cline-win64-asfdk-build-repair.json`
+- **Next action:** push branch + open PR; Joshua to decide on a real Win64 ASFDK library build
+  (stubs remain the verified interim) and on the C:-build-tree ↔ canonical-repo sync story.
 
 ### 🏙️ ESC-001 — UE Open-World Expansion (Fab Modern City assets as outdoor layer)
 - **Agent:** OpenCode (Poolside) · **Opened:** 2026-09-20 · **Branch:** `main` (uncommitted)
