@@ -102,10 +102,19 @@ public class NLTGovernanceSubsystem : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Linux) {
             string ASFDKLibraryPath = Path.Combine(ASFDKPath, "lib", "libasfdk.a");
             if (!File.Exists(ASFDKLibraryPath)) {
-                // Not fatal on purpose: libasfdk.a comes from the standalone g++ build
-                // documented in the README and is only needed on Linux. Warn here rather
-                // than let the linker report a bare "-lasfdk not found".
-                Console.WriteLine("NLTGovernanceSubsystem: warning: ASFDK static library missing: " + ASFDKLibraryPath);
+                // Fatal on purpose. A warning does not keep this build alive: the
+                // nonexistent path was still handed to the linker, so the run died
+                // later with a bare "cannot open file ... libasfdk.a" that names none
+                // of the fix. Fail here instead, with the same repair guidance the
+                // header-root check in ResolveASFDKRoot gives.
+                throw new BuildException(
+                    "NLTGovernanceSubsystem: ASFDK static library missing: " + ASFDKLibraryPath + Environment.NewLine +
+                    "  The ASFDK headers resolved (root = " + ASFDKPath + "), but the compiled library is not" + Environment.NewLine +
+                    "  present, so linking cannot succeed." + Environment.NewLine +
+                    "  Fix - build libasfdk.a from the asfdk-cplus checkout first:" + Environment.NewLine +
+                    "    see the plugin README, section 'Build Requirements'" + Environment.NewLine +
+                    "  Inspect the expected lib directory:" + Environment.NewLine +
+                    "    dir \"" + Path.GetFullPath(Path.Combine(ASFDKPath, "lib")) + "\"");
             }
             PublicAdditionalLibraries.Add(ASFDKLibraryPath);
             PublicAdditionalLibraries.Add("c++");
