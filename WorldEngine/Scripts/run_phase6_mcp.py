@@ -4,7 +4,7 @@ import json
 import urllib.request
 
 SESSION_ID = "01a05feffd767e9ca96db87b721fa2f5"
-MCP_URL = "http://127.0.0.1:8000/mcp"
+MCP_URL = "http://127.0.0.1:8001/mcp"
 
 # Read the validation script
 with open("/home/joshd/Desktop/nlt-repos/nlt-fusion/WorldEngine/Scripts/phase6_mcp_validation.py") as f:

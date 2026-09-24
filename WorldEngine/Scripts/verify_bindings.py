@@ -10,7 +10,7 @@ import os
 import sys
 
 SESSION_ID = "01a05fdb5eb176e2bfb3a18d0bd1028c"
-MCP_URL = "http://127.0.0.1:8000/mcp"
+MCP_URL = "http://127.0.0.1:8001/mcp"
 
 def mcp_call(tool_name, arguments=None, toolset_name=None, request_id=1):
     """Make an MCP tools/call request and return the parsed result."""

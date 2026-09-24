@@ -3,7 +3,7 @@
 import json
 import urllib.request
 
-MCP_URL = "http://127.0.0.1:8000/mcp"
+MCP_URL = "http://127.0.0.1:8001/mcp"
 
 # Step 1: Initialize MCP session
 print("Initializing MCP session...")

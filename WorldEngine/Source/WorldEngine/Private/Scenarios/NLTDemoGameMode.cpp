@@ -3,6 +3,7 @@
 #include "Scenarios/Demo/NLTScenarioManagerSubsystem.h"
 #include "Scenarios/UScenarioLibrary.h"
 #include "World/NLTDoorActor.h"
+#include "World/NLTOpenWorldSubsystem.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -14,6 +15,52 @@ ANLTDemoGameMode::ANLTDemoGameMode()
 void ANLTDemoGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Auto-generate open world if this is an OpenWorld level.
+	// Any level whose name contains "OpenWorld" (e.g. OpenWorld_Level, OpenWorld_City) is
+	// treated as an open world hub, so renaming/duplicating the level keeps working.
+	if (UWorld* World = GetWorld())
+	{
+		const FString LevelName = UGameplayStatics::GetCurrentLevelName(World);
+		if (LevelName.Contains(TEXT("OpenWorld"), ESearchCase::IgnoreCase))
+		{
+			if (UNLTOpenWorldSubsystem* OWS = World->GetSubsystem<UNLTOpenWorldSubsystem>())
+			{
+				if (!OWS->IsWorldGenerated())
+				{
+					FNLTOpenWorldConfig Config;
+					Config.Seed = 42;
+					// World size + building layout come from FNLTOpenWorldConfig defaults: 200 m
+					// open world with a fixed, authored 12-building layout (no random placement).
+					Config.NumBuildings = 12;
+					Config.NumResidents = 8;
+					Config.NumTrees = 200;
+					Config.NumRocks = 50;
+					Config.NumGrassPatches = 300;
+					// Explicitly set the baked BuildingLayout (struct default initializers don't propagate via UPROPERTY)
+					Config.BuildingLayout = {
+						{ TEXT("Office"),    FVector( 4020.0f, -1671.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },  // baked: Blender Building 11
+						{ TEXT("Office"),    FVector( 4200.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector(-4200.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector( 4200.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector(-4500.0f, -4500.0f, 0.0f), FRotator(0.0f,  45.0f, 0.0f) },
+						{ TEXT("Apartment"), FVector( 9094.0f, -5059.0f, 0.0f), FRotator(0.0f, 127.0f, 0.0f) },  // baked: Blender Building 12
+						{ TEXT("School"),    FVector(    0.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Factory"),   FVector(-4200.0f, -1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Park"),      FVector(    0.0f, -1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+						{ TEXT("Shop"),      FVector(-1300.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
+						{ TEXT("Shop"),      FVector( 1300.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+						{ TEXT("Hut"),       FVector( 7000.0f, -7000.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) }
+					};
+					OWS->GenerateOpenWorld(Config);
+					UE_LOG(LogTemp, Log, TEXT("[Demo] Generated open world (seed=%d) on level '%s'"), Config.Seed, *LevelName);
+				}
+			}
+			return; // Skip scenario/level-door logic for open world
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("[Demo] Level '%s' is not an OpenWorld level; no world generated"), *LevelName);
+	}
 
 	// Spawn doors that lead to other levels
 	SpawnLevelDoors();
@@ -113,8 +160,18 @@ void ANLTDemoGameMode::SpawnLevelDoors()
 			{ TEXT("Academic_Level"), FVector(1580.0f,  400.0f, 100.0f), FRotator(0.0f, 90.0f, 0.0f) },
 		};
 	}
-	else if (CurrentLevel == TEXT("Personal_Level") ||
-			 CurrentLevel == TEXT("Social_Level") ||
+	else if (CurrentLevel == TEXT("Personal_Level"))
+	{
+		// Personal_Level: spawn the teleporters as a visible row along the open
+		// south wall (Y=-885), clear of Front_Door (0,-895) and the player starts,
+		// facing north into the room so the labels read from the interior.
+		DoorSpawns = {
+			{ TEXT("Workplace_Level"), FVector(-800.0f, -885.0f, 100.0f), FRotator(0.0f, 180.0f, 0.0f) },
+			{ TEXT("Social_Level"),    FVector( 250.0f, -885.0f, 100.0f), FRotator(0.0f, 180.0f, 0.0f) },
+			{ TEXT("Academic_Level"),  FVector( 800.0f, -885.0f, 100.0f), FRotator(0.0f, 180.0f, 0.0f) },
+		};
+	}
+	else if (CurrentLevel == TEXT("Social_Level") ||
 			 CurrentLevel == TEXT("Academic_Level"))
 	{
 		const auto HomeDoorX = [](const FName& TargetId) -> float
@@ -124,14 +181,12 @@ void ANLTDemoGameMode::SpawnLevelDoors()
 			if (TargetId == TEXT("Social_Level"))    return  200.0f;
 			return  700.0f;
 		};
-		const float DoorY = (CurrentLevel == TEXT("Social_Level") ||
-							CurrentLevel == TEXT("Academic_Level")) ? 950.0f : 870.0f;
 		for (const FLevelInfo& Info : AllLevels)
 		{
 			if (Info.LevelId == CurrentLevel) continue;
 			DoorSpawns.Add(FDoorSpawn{
 				Info.LevelId,
-				FVector(HomeDoorX(Info.LevelId), DoorY, 100.0f),
+				FVector(HomeDoorX(Info.LevelId), 950.0f, 100.0f),
 				FRotator(0.0f, 0.0f, 0.0f)
 			});
 		}

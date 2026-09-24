@@ -57,7 +57,7 @@ void UNLTWebServerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 
 	// Host the web server at engine boot so it (and the shared HTTP listeners,
-	// including the ModelContextProtocol MCP endpoint on port 8000) are not tied
+	// including the ModelContextProtocol MCP endpoint on port 8001) are not tied
 	// to any single PIE world lifecycle. Engine subsystems initialize before the
 	// HTTP module is guaranteed to be loaded, so defer the start to post-engine-init.
 	PostEngineInitHandle = FCoreDelegates::GetOnPostEngineInit().AddUObject(this, &UNLTWebServerSubsystem::OnPostEngineInit);

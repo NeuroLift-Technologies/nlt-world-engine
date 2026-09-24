@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 # ─── Configuration ───
-MCP_URL = "http://127.0.0.1:8000/mcp"
+MCP_URL = "http://127.0.0.1:8001/mcp"
 PROJECT_PATH = "/home/joshd/Desktop/nlt-repos/nlt-fusion/WorldEngine"
 UPROJECT = f"{PROJECT_PATH}/WorldEngine.uproject"
 CONTENT_DIR = f"{PROJECT_PATH}/Content"
