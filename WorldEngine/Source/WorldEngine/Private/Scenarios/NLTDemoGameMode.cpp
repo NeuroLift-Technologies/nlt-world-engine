@@ -160,8 +160,18 @@ void ANLTDemoGameMode::SpawnLevelDoors()
 			{ TEXT("Academic_Level"), FVector(1580.0f,  400.0f, 100.0f), FRotator(0.0f, 90.0f, 0.0f) },
 		};
 	}
-	else if (CurrentLevel == TEXT("Personal_Level") ||
-			 CurrentLevel == TEXT("Social_Level") ||
+	else if (CurrentLevel == TEXT("Personal_Level"))
+	{
+		// Personal_Level: spawn the teleporters as a visible row along the open
+		// south wall (Y=-885), clear of Front_Door (0,-895) and the player starts,
+		// facing north into the room so the labels read from the interior.
+		DoorSpawns = {
+			{ TEXT("Workplace_Level"), FVector(-800.0f, -885.0f, 100.0f), FRotator(0.0f, 180.0f, 0.0f) },
+			{ TEXT("Social_Level"),    FVector( 250.0f, -885.0f, 100.0f), FRotator(0.0f, 180.0f, 0.0f) },
+			{ TEXT("Academic_Level"),  FVector( 800.0f, -885.0f, 100.0f), FRotator(0.0f, 180.0f, 0.0f) },
+		};
+	}
+	else if (CurrentLevel == TEXT("Social_Level") ||
 			 CurrentLevel == TEXT("Academic_Level"))
 	{
 		const auto HomeDoorX = [](const FName& TargetId) -> float
@@ -171,14 +181,12 @@ void ANLTDemoGameMode::SpawnLevelDoors()
 			if (TargetId == TEXT("Social_Level"))    return  200.0f;
 			return  700.0f;
 		};
-		const float DoorY = (CurrentLevel == TEXT("Social_Level") ||
-							CurrentLevel == TEXT("Academic_Level")) ? 950.0f : 870.0f;
 		for (const FLevelInfo& Info : AllLevels)
 		{
 			if (Info.LevelId == CurrentLevel) continue;
 			DoorSpawns.Add(FDoorSpawn{
 				Info.LevelId,
-				FVector(HomeDoorX(Info.LevelId), DoorY, 100.0f),
+				FVector(HomeDoorX(Info.LevelId), 950.0f, 100.0f),
 				FRotator(0.0f, 0.0f, 0.0f)
 			});
 		}
