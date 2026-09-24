@@ -3,6 +3,10 @@
 > **Status:** ✅ Complete. Training infrastructure is live in both UE5 and Python.
 > `train_nlt.py` exists in `neurolift-ai-fusion/src/simulation/training/`.
 
+**NLT World Engine is an embodied multi-agent simulation where machine learning models inhabit a persistent world, control their characters, interact with environments and other agents, and transition between meaningful life scenarios.**
+
+> **Core principle: Fusion owns semantic reality; Unreal owns physical reality.**
+
 ## How Training Works
 
 ### Dual-Policy PPO
@@ -143,14 +147,14 @@ cd WorldEngine && make WorldEngineEditor && make WorldEngine
 
 **Step 3 — Run Python PPO training (optional, for monitoring or standalone):**
 ```bash
-cd /home/joshd/Desktop/nlt-repos/neurolift-ai-fusion/src/simulation/training
+cd D:/nlt-repos/neurolift-ai-fusion/src/simulation/training
 python3 train_nlt.py --port 5555 --agents 20 --iterations 500 --scenario pers_4
 # Use --standalone for Python-only training (no UE5 needed)
 ```
 
 **Step 4 — Monitor:**
 ```bash
-python3 -m tensorboard --logdir=/home/joshd/Desktop/nlt-repos/nlt-world-engine/WorldEngine/Saved/LearningAgents/TensorBoard/ --port 6006
+python3 -m tensorboard --logdir=D:/nlt-repos/nlt-world-engine/WorldEngine/Saved/LearningAgents/TensorBoard/ --port 6006
 ```
 
 Open http://localhost:6006 → look for:

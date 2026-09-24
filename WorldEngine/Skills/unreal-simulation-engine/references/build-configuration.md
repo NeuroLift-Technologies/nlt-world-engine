@@ -117,7 +117,7 @@ PublicDependencyModuleNames.AddRange(new string[] {
 ## Build Commands
 
 ```bash
-cd ~/Desktop/nlt-repos/nlt-fusion/WorldEngine
+cd D:\\nlt-repos/nlt-fusion/WorldEngine
 make configure                    # Generate project files
 make WorldEngineEditor            # Build editor target
 make WorldEngine                  # Build game target
