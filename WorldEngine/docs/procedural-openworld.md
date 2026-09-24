@@ -4,6 +4,14 @@
 > **Owner:** OpenCode (Graphics/Environment lane)
 > **Related escalation:** `docs/escalations/2026-09-20-openworld-expansion.md`
 
+## The Vision
+
+**NLT World Engine is an embodied multi-agent simulation where machine learning models inhabit a persistent world, control their characters, interact with environments and other agents, and transition between meaningful life scenarios.**
+
+**An AI habitat — a virtual world where AI agents live, perceive, act, and learn.** The world is rendered with realistic graphics: procedural terrain, water, sky, vegetation, and settlement. AI residents walk through this world with articulated bodies, animated walk cycles, and name labels. Humans watch through a spectator viewer.
+
+> **Core principle: Fusion owns semantic reality; Unreal owns physical reality.**
+
 ## Overview
 
 This document describes the procedural open-world outdoor layer that supplements the

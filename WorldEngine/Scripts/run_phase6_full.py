@@ -27,7 +27,7 @@ session_id = init_resp.headers.get("Mcp-Session-Id", "")
 print("Session ID: {}".format(session_id))
 
 # Step 2: Read the validation script
-with open("/home/joshd/Desktop/nlt-repos/nlt-fusion/WorldEngine/Scripts/phase6_full_validation.py") as f:
+with open("D:/nlt-repos/nlt-fusion/WorldEngine/Scripts/phase6_full_validation.py") as f:
     script_content = f.read()
 
 print("Script length: {} chars".format(len(script_content)))

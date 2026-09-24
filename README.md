@@ -1,5 +1,11 @@
 # NLT World Engine — UE 5.8 Authoritative Simulation
 
+## The Vision
+
+**NLT World Engine is an embodied multi-agent simulation where machine learning models inhabit a persistent world, control their characters, interact with environments and other agents, and transition between meaningful life scenarios.**
+
+**An AI habitat — a virtual world where AI agents live, perceive, act, and learn.** The world is rendered with realistic graphics: procedural terrain, water, sky, vegetation, and settlement. AI residents walk through this world with articulated bodies, animated walk cycles, and name labels. Humans watch through a spectator viewer.
+
 NeuroLift Technologies Simulation Environment — the deterministic runtime where AI Avatars (with ADHD traits) and AI Aides live inside. This repo owns the **physical simulation layer** and is the **authoritative simulation training environment** for the Avatar-Aide-Advocate system: world state, space, time, objects, needs, NPCs, scenario instantiation, and the Unreal Engine 5.8 authoritative simulation. Avatar/Aide/Advocate *intelligence* — ADHD trait modeling, coaching expertise, training loop, fusion — lives in [`neurolift-ai-fusion`](https://github.com/NeuroLift-Technologies/neurolift-ai-fusion) and connects through the agent interface.
 
 > **Architecture docs:** [`WorldEngine/docs/architecture/`](WorldEngine/docs/architecture/) is the authoritative UE-side documentation — [`TECHNICAL_DIAGRAM.md`](WorldEngine/docs/architecture/TECHNICAL_DIAGRAM.md), [`unreal-simulation-architecture.md`](WorldEngine/docs/architecture/unreal-simulation-architecture.md), [`fusion-unreal-domain-mapping.md`](WorldEngine/docs/architecture/fusion-unreal-domain-mapping.md). Core principle: **Fusion owns semantic reality; Unreal owns physical reality.**
@@ -90,10 +96,14 @@ nlt-world-engine/
 │       ├── fusion-unreal-domain-mapping.md
 │       ├── build-documentation.md
 │       └── TECHNICAL_DIAGRAM.md
-├── world-engine-v2/              # Babylon.js + Vite + TypeScript viewer
-├── world-engine/                 # Python ECS engine (reference, not authoritative)
-├── ARCHITECTURE.md               # MMO architecture overview
-├── DEPLOYMENT.md                 # Cloudflare + Vercel deployment
+├── _archive/                     # Prototype directories (reference only)
+│   ├── world-engine/             # Original Python ECS engine + React prototype
+│   ├── world-engine-v2/          # Babylon.js viewer (superseded)
+│   ├── world-engine-3d/          # Early Three.js experiment
+│   ├── openworld-engine/         # Open-world exploration variant
+│   └── studio/                   # Claude Design shell (superseded)
+├── ARCHITECTURE.md               # UE 5.8 architecture
+├── DEPLOYMENT.md                 # UE 5.8 build + deployment
 └── .github/workflows/            # CI (governance + v2 build)
 ```
 

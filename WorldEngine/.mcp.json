@@ -8,14 +8,14 @@
       "type": "local",
       "command": [
         "C:\\Users\\joshd\\AppData\\Local\\hermes\\node\\node.exe",
-        "C:\\Users\\joshd\\Documents\\nlt-repos\\asfdk-harness\\dist\\mcp-server.js"
+        "D:\\nlt-repos\\asfdk-harness\\dist\\mcp-server.js"
       ],
       "enabled": true,
       "timeout": 180000,
       "environment": {
         "ASFDK_GOVERNANCE_TOOLS": "approved",
-        "ASFDK_TOI_PATH": "C:\\Users\\joshd\\Documents\\nlt-repos\\asfdk-harness\\.toi.default",
-        "ASFDK_OTOI_PATH": "C:\\Users\\joshd\\Documents\\nlt-repos\\asfdk-harness\\.otoi"
+        "ASFDK_TOI_PATH": "D:\\nlt-repos\\asfdk-harness\\.toi.default",
+        "ASFDK_OTOI_PATH": "D:\\nlt-repos\\asfdk-harness\\.otoi"
       },
       "cwd": "C:\\Users\\joshd\\.asfdk"
     },
@@ -28,7 +28,7 @@
       "enabled": true,
       "timeout": 180000,
       "environment": {
-        "UE_PROJECT_PATH": "C:/Users/joshd/Documents/nlt-repos/nlt-world-engine/WorldEngine"
+        "UE_PROJECT_PATH": "D:/nlt-repos/nlt-world-engine/WorldEngine"
       }
     },
     "blender-mcp": {
