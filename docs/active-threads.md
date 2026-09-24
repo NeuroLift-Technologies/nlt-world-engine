@@ -2,14 +2,23 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-21
+**Last updated:** 2026-09-24
 
 ---
 
 ## Active Threads
 
 ### 🔧 BUILD-WIN64-001 — Win64 build repair: ASFDK wiring + hot-reload state
-- **Agent:** Cline · **Opened:** 2026-09-21 · **Branch:** `fix/win64-asfdk-stubs` · **Status:** resolved (pending PR)
+- **Status:** resolved
+- **Owner:** Cline
+- **Started:** 2026-09-21
+- **Last updated:** 2026-09-24
+- **Branch:** `fix/win64-asfdk-stubs` · **PR:** [#50](https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/50)
+- **Blockers:** None for the Win64 editor build. Two decisions remain with Joshua: (1) build a
+  real Win64 ASFDK library — the Win64 stubs remain the verified interim; (2) the
+  C:-build-tree ↔ canonical-repo sync story. Linux builds are additionally blocked until
+  `libasfdk.a` exists in the ASFDK checkout; the module now fails with repair guidance at
+  rule-evaluation time instead of a bare linker error.
 - **Summary:** User's Visual Studio `WorldEngineEditor Win64 Development` build failed with C1083
   (`asfdk/ASFDK.h`), LNK1104 (`UnrealEditor-WorldEngine-0002.lib.rsp` missing), and MSB3073.
   Root causes: (1) the `ThirdParty/ASFDK` junction in the C: UE build tree pointed at the
@@ -18,14 +27,17 @@
   `UnrealEditor.exe` was running. The canonical repo additionally had a dangling gitlink
   (no `.gitmodules` mapping) for the ASFDK submodule.
 - **Delivered (verified):** hardened `NLTGovernanceSubsystem.Build.cs` (ASFDK_ROOT override +
-  loud BuildException, duplicate-nlohmann guard); `ASFDK_Win64Stubs.cpp` rewritten and proven
+  loud BuildException, duplicate-nlohmann guard, and a fatal guard when `libasfdk.a` is
+  absent on Linux); `ASFDK_Win64Stubs.cpp` rewritten and proven
   compile/link-clean against the real headers (standalone MSVC probe + full UBT builds);
   `.gitmodules` added and submodule restored at pinned `55b21fe`; forensic write-up at
   `WorldEngine/docs/building/LNK1104-rsp-diagnosis.md`. Both `WorldEngine` and
   `WorldEngineEditor` targets build `Result: Succeeded` in the C: build tree.
 - **Handoff:** `docs/agent-log/handoffs/2026-09-21-cline-win64-asfdk-build-repair.json`
-- **Next action:** push branch + open PR; Joshua to decide on a real Win64 ASFDK library build
-  (stubs remain the verified interim) and on the C:-build-tree ↔ canonical-repo sync story.
+- **Next action:** PR [#50](https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/50)
+  is open with all 8 CodeRabbit review comments addressed (2026-09-24). Awaiting Joshua's
+  decisions on a real Win64 ASFDK library build and on the C:-build-tree ↔ canonical-repo
+  sync story.
 
 ### 🏙️ ESC-001 — UE Open-World Expansion (Fab Modern City assets as outdoor layer)
 - **Agent:** OpenCode (Poolside) · **Opened:** 2026-09-20 · **Branch:** `main` (uncommitted)

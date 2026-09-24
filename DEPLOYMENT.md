@@ -118,9 +118,13 @@ editor (UBT self-cleans on the next build) or delete
 ```dockerfile
 FROM ubuntu:22.04
 
-# Install dependencies
+# Install dependencies.
+# OpenSSL 3, not 1.1: Jammy (22.04) ships libssl3 and does not carry the 1.1
+# series in its default package set, so requesting it aborts the apt step and
+# the image never builds. (UE 5.x also bundles its own OpenSSL for Linux, so
+# this dependency serves host tooling rather than the engine itself.)
 RUN apt-get update && apt-get install -y \
-    libicu70 libssl1.1 libcurl4 libx11-6 \
+    libicu70 libssl3 libcurl4 libx11-6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy UE server binaries
@@ -169,6 +173,45 @@ spec:
             cpu: "4"
 ```
 
+The Service is what makes the pair addressable: `containerPort` is documentation
+only and creates no DNS name, so a Deployment on its own cannot be reached by
+the viewer.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: worldengine-pair-sa01
+  labels:
+    app: worldengine
+    pair: sa01
+spec:
+  type: ClusterIP
+  selector:
+    app: worldengine
+    pair: sa01
+  ports:
+    # WebSocket for the spectator viewer (TCP) and the UE game protocol (UDP).
+    # Same number, distinct protocols - valid and distinct Service ports.
+    - name: websocket
+      port: 7777
+      targetPort: 7777
+      protocol: TCP
+    - name: game
+      port: 7777
+      targetPort: 7777
+      protocol: UDP
+```
+
+In-cluster the pair resolves as
+`worldengine-pair-sa01.<namespace>.svc.cluster.local`. The
+`pair-sa01.worldengine.internal` hostname used elsewhere in this document only
+works if that name actually resolves to this Service — via a Service named
+`pair-sa01` in a namespace/zone that resolves as `worldengine.internal`, or via
+a DNS alias. To reach the pair from outside the cluster, put a Gateway,
+Ingress, or LoadBalancer in front of the Service; see "Web Viewer Deployment"
+for the externally visible form.
+
 ---
 
 ## Web Viewer Deployment
@@ -186,11 +229,25 @@ Deploy `dist/` to:
 - **Cloudflare Pages**: `npx wrangler pages deploy dist/`
 - **S3 + CloudFront**: `aws s3 sync dist/ s3://worldengine-viewer/`
 
-The viewer connects to the UE server via WebSocket:
+The viewer connects to the UE server via WebSocket. Put the pair Service behind a
+Gateway/Ingress/LoadBalancer that terminates TLS, and point the viewer at the
+`wss://` endpoint: a browser that loaded the viewer over HTTPS cannot open a
+plaintext `ws://` socket (mixed content is blocked), and the cleartext hop is
+readable and modifiable by anything on the network path.
 
 ```javascript
-const ws = new WebSocket('ws://pair-sa01.worldengine.internal:7777');
+// External: TLS terminated at the edge in front of the pair Service.
+const ws = new WebSocket('wss://pair-sa01.worldengine.example.com:7777');
+
+// In-cluster only: acceptable on a private network between a viewer and the
+// Service, never across a public network.
+const wsInternal = new WebSocket(
+  'ws://worldengine-pair-sa01.default.svc.cluster.local:7777');
 ```
+
+TLS is transport encryption, not authentication — a `wss://` endpoint still
+needs an auth story (per-observer token, signed URL, or gateway-level auth)
+before it is exposed publicly.
 
 ---
 
@@ -225,7 +282,7 @@ UE_WS_PORT=7777
 UE_HTTP_PORT=8080
 
 # Observer Gateway
-WEBSOCKET_URL=ws://pair-XXX.worldengine.internal:7777
+WEBSOCKET_URL=wss://pair-XXX.worldengine.example.com:7777
 PAIR_ID=pair-sa01
 ```
 
@@ -259,7 +316,10 @@ jobs:
           # Push container image, rollout to K8s
           docker build -t neurolift/worldengine:${{ github.sha }} .
           docker push neurolift/worldengine:${{ github.sha }}
-          kubectl set image deployment/worldengine-* worldengine=neurolift/worldengine:${{ github.sha }}
+          # kubectl has no resource-name wildcard: a `deployment/<name-glob>`
+          # argument is parsed as TYPE/NAME and matches nothing. Roll every pair
+          # Deployment with a label selector instead.
+          kubectl set image deployment -l app=worldengine worldengine=neurolift/worldengine:${{ github.sha }}
 ```
 
 ---
