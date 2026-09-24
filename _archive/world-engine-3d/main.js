@@ -287,24 +287,63 @@ function createFurnitureMesh(furn) {
 
 function createSimMesh(sim) {
   const group = new THREE.Group();
-  const hue = sim.hue / 360;
-  const color = new THREE.Color().setHSL(hue, 0.6, 0.5);
+  const asset = (window.WE_ASSETS ? window.WE_ASSETS.characterFor(sim.name)
+                                  : { tint: 0x4a90d9, skin: 0xffddbb });
 
-  // Body
-  const bodyGeo = new THREE.CapsuleGeometry(0.2, 0.5, 8, 16);
-  const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  body.position.y = 0.55;
-  body.castShadow = true;
-  group.add(body);
+  // Articulated low-poly human (until a GLB in assets.js replaces it):
+  // torso + head + arms + legs that swing while walking, so Sims read as
+  // people at a glance. GLB models load async and swap the body in place.
+  const clothMat = new THREE.MeshStandardMaterial({ color: asset.tint, roughness: 0.6 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: asset.skin, roughness: 0.55 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: 0x2a1f18, roughness: 0.85 });
 
-  // Head
-  const headGeo = new THREE.SphereGeometry(0.15, 16, 16);
-  const headMat = new THREE.MeshStandardMaterial({ color: 0xffddbb, roughness: 0.6 });
-  const head = new THREE.Mesh(headGeo, headMat);
-  head.position.y = 1.0;
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.42, 6, 12), clothMat);
+  torso.position.y = 0.62;
+  torso.castShadow = true;
+  group.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 18, 14), skinMat);
+  head.position.y = 1.12;
   head.castShadow = true;
   group.add(head);
+
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.145, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+  hair.position.y = 1.15;
+  group.add(hair);
+
+  function limb(w, len, mat, x, y) {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, y, 0);
+    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(w, len, 4, 8), mat);
+    mesh.position.y = -(len / 2 + w);
+    mesh.castShadow = true;
+    pivot.add(mesh);
+    group.add(pivot);
+    return pivot;
+  }
+  const armL = limb(0.05, 0.3, clothMat, -0.24, 0.86);
+  const armR = limb(0.05, 0.3, clothMat, 0.24, 0.86);
+  const legL = limb(0.065, 0.34, new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.7 }), -0.09, 0.42);
+  const legR = limb(0.065, 0.34, new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.7 }), 0.09, 0.42);
+  group.userData.limbs = { armL, armR, legL, legR };
+  group.userData.walkPhase = Math.random() * Math.PI * 2;
+
+  // Async GLB upgrade: if assets.js points this Sim at a model file,
+  // load and swap it in without touching the ring/label above.
+  if (asset.model && asset.model !== 'procedural') {
+    import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => {
+      new GLTFLoader().load(asset.model, (gltf) => {
+        const model = gltf.scene;
+        model.traverse(c => { if (c.isMesh) { c.castShadow = true; } });
+        model.position.y = 0;
+        // Hide procedural body, keep ring + label
+        for (const child of [...group.children]) {
+          if (child.isMesh && child !== head) child.visible = false;
+        }
+        group.add(model);
+      }, undefined, () => { /* keep procedural on failure */ });
+    }).catch(() => {});
+  }
 
   // State glow ring
   const ringGeo = new THREE.RingGeometry(0.25, 0.35, 16);
@@ -438,8 +477,22 @@ function updateSimPositions() {
   for (const av of worldState.avatars) {
     const mesh = simMeshes.get(av.id);
     if (mesh) {
-      mesh.position.x += (av.px - mesh.position.x) * 0.05;
-      mesh.position.z += (av.py - mesh.position.z) * 0.05;
+      const dx = av.px - mesh.position.x;
+      const dz = av.py - mesh.position.z;
+      const moving = Math.abs(dx) + Math.abs(dz) > 0.02;
+      mesh.position.x += dx * 0.05;
+      mesh.position.z += dz * 0.05;
+      // Walk cycle: swing limbs while moving, relax when idle
+      const limbs = mesh.userData.limbs;
+      if (limbs) {
+        mesh.userData.walkPhase += moving ? 0.18 : 0.02;
+        const swing = moving ? 0.55 : 0.03;
+        const t = mesh.userData.walkPhase;
+        limbs.legL.rotation.x = Math.sin(t) * swing;
+        limbs.legR.rotation.x = -Math.sin(t) * swing;
+        limbs.armL.rotation.x = -Math.sin(t) * swing * 0.8;
+        limbs.armR.rotation.x = Math.sin(t) * swing * 0.8;
+      }
       // Update state ring color
       const ring = mesh.getObjectByName('state-ring');
       if (ring) {
@@ -534,8 +587,11 @@ renderer.domElement.addEventListener('click', (event) => {
   }
 });
 
-// Tick loop
+// Tick loop — live mode streams the real engine; offline ticks sim-core.
+let liveHandle = null;
+let liveStatusEl = null;
 function tick() {
+  if (liveHandle) return; // live state arrives via onLiveState
   tickCount++;
   simTime += 1;
   worldState = WE_SIM_CORE.tickWorld(worldState, {
@@ -548,7 +604,56 @@ function tick() {
   updateTimeDisplay();
   updateSimInfo();
 }
-setInterval(tick, 1000);
+
+/** Reconcile renderer meshes with a new avatar list (join/leave/move). */
+function syncAvatarsToState() {
+  const seen = new Set();
+  for (const av of worldState.avatars) {
+    seen.add(av.id);
+    let mesh = simMeshes.get(av.id);
+    if (!mesh) {
+      mesh = createSimMesh(av);
+      mesh.position.set(av.px, 0, av.py);
+      worldGroup.add(mesh);
+      simMeshes.set(av.id, mesh);
+    } else {
+      // Carry the new target over; updateSimPositions eases toward it.
+      mesh.position.y = 0;
+    }
+    // Keep label fresh
+    mesh.userData.simName = av.name;
+  }
+  for (const [id, mesh] of [...simMeshes]) {
+    if (!seen.has(id)) {
+      worldGroup.remove(mesh);
+      simMeshes.delete(id);
+    }
+  }
+  document.getElementById('sim-count').textContent = worldState.avatars.length;
+}
+
+function onLiveState(next) {
+  worldState = next;
+  tickCount++;
+  syncAvatarsToState();
+  updateSimPositions();
+  updateEventLog();
+  updateTimeDisplay();
+  updateSimInfo();
+}
+if (window.WE_LIVE && window.WE_LIVE.isLiveMode()) {
+  liveStatusEl = document.createElement('div');
+  liveStatusEl.id = 'live-status';
+  liveStatusEl.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(10,40,20,.92);border:1px solid rgba(0,255,136,.35);border-radius:999px;padding:6px 14px;font-size:12px;color:#6bff95';
+  liveStatusEl.textContent = 'live · connecting…';
+  document.body.appendChild(liveStatusEl);
+  liveHandle = window.WE_LIVE.connect({
+    onState: onLiveState,
+    onStatus: (t) => { liveStatusEl.textContent = t; },
+  });
+} else {
+  setInterval(tick, 1000);
+}
 
 // Animation loop
 function animate() {
