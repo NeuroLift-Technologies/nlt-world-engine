@@ -2,6 +2,7 @@
 
 #include "World/NLTBuildingPortalActor.h"
 #include "Agents/NLTPlayerController.h"
+#include "World/NLTWorldPalette.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -203,13 +204,13 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
     // Fab "Modern_City_Environment" (AI-usable) building meshes - geometry-only GLB imports.
     // Each building type maps to a city tower archetype; Park uses the city grove; the Hut
     // uses the merged WoodenHouse kitbash as its visual.
-    static const TCHAR* OfficeMeshPath    = TEXT("/Game/City/Buildings/Building11/Building_11/StaticMeshes/Building_11.Building_11");
-    static const TCHAR* ApartmentMeshPath = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
-    static const TCHAR* ShopMeshPath      = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
-    static const TCHAR* SchoolMeshPath    = TEXT("/Game/City/Buildings/Building11/Building_11/StaticMeshes/Building_11.Building_11");
-    static const TCHAR* FactoryMeshPath   = TEXT("/Game/City/Buildings/Building12/Building_12/StaticMeshes/Building_12.Building_12");
-    static const TCHAR* ParkMeshPath      = TEXT("/Game/City/Buildings/GridTrees/Grid_Trees__Low_Poly_/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_");
-    static const TCHAR* HutMeshPath       = TEXT("/Game/City/Huts/DoorWoodenHouse/WoodenHouse/StaticMeshes/WoodenHouse.WoodenHouse");
+    static const TCHAR* OfficeMeshPath    = TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Building_11.Grid_System_Building_11");
+    static const TCHAR* ApartmentMeshPath = TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Building_12.Grid_System_Building_12");
+    static const TCHAR* ShopMeshPath      = TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Building_12.Grid_System_Building_12");
+    static const TCHAR* SchoolMeshPath    = TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Building_11.Grid_System_Building_11");
+    static const TCHAR* FactoryMeshPath   = TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Building_12.Grid_System_Building_12");
+    static const TCHAR* ParkMeshPath      = TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Grid_Trees__Low_Poly_.Grid_System_Grid_Trees__Low_Poly_");
+    static const TCHAR* HutMeshPath       = TEXT("/Game/City/Huts/WoodenHouse/SM_WoodenHouse.SM_WoodenHouse");
 
     const TCHAR* MeshPath = nullptr;
     switch (BuildingType)
@@ -232,6 +233,22 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
         UE_LOG(LogNLTBuildingPortal, Warning,
             TEXT("UpdateBuildingMesh: city mesh '%s' failed to load (type %d) - using placeholder cube"),
             MeshPath, (int32)BuildingType);
+    }
+
+    // Per-type facade palette (golden-hour friendly; painted over imported grey).
+    FLinearColor FacadeColor = NLTWorldPalette::TowerTint();
+    float FacadeRoughness = 0.7f;
+    float FacadeMetallic = 0.0f;
+    switch (BuildingType)
+    {
+    case ENLTBuildingType::Office:    FacadeColor = NLTWorldPalette::GlassTeal();     FacadeRoughness = 0.5f;  break;
+    case ENLTBuildingType::Apartment: FacadeColor = NLTWorldPalette::BuildingStone();  FacadeRoughness = 0.7f;  break;
+    case ENLTBuildingType::Shop:      FacadeColor = NLTWorldPalette::BuildingStone();  FacadeRoughness = 0.7f;  break;
+    case ENLTBuildingType::School:    FacadeColor = NLTWorldPalette::GlassTeal();     FacadeRoughness = 0.5f;  break;
+    case ENLTBuildingType::Factory:   FacadeColor = NLTWorldPalette::RoadAsphalt();    FacadeRoughness = 0.6f;  FacadeMetallic = 0.4f; break;
+    case ENLTBuildingType::Park:      FacadeColor = NLTWorldPalette::TreeCanopy();     FacadeRoughness = 0.8f;  break;
+    case ENLTBuildingType::Hut:       FacadeColor = NLTWorldPalette::TrunkBrown();     FacadeRoughness = 0.7f;  break;
+    default:                          break;
     }
 
     if (CityMesh)
@@ -284,6 +301,9 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
         const float LabelZ = ScaledExtent.Z * 2.0f + 500.0f;
         BuildingLabel->SetRelativeLocation(FVector(0.0f, 0.0f, LabelZ));
         BuildingLabelBack->SetRelativeLocation(FVector(0.0f, 0.0f, LabelZ));
+
+        // CityGridTextured meshes carry real PBR materials — skip flat palette override.
+        // The Hut also keeps its authentic imported materials (wood/roof/window/metal).
     }
     else
     {
@@ -305,6 +325,10 @@ void ANLTBuildingPortalActor::UpdateBuildingMesh()
         }
         BuildingMesh->SetRelativeLocation(FVector::ZeroVector);
         BuildingMesh->SetRelativeScale3D(CubeScale);
+
+        // Paint the placeholder shell with the type palette too (wood hut, stone, etc).
+        NLTWorldPalette::PaintMesh(BuildingMesh, TEXT("/Game/Environment/Materials/MI_Plant.MI_Plant"),
+            FacadeColor, FacadeRoughness, FacadeMetallic);
 
         InteractionVolume->SetRelativeLocation(FVector::ZeroVector);
         InteractionVolume->SetBoxExtent(FVector(150.0f, 150.0f, 200.0f));
@@ -443,21 +467,10 @@ void ANLTBuildingPortalActor::OnInteract()
         return;
     }
 
-    // Hub portals (for example, Hut -> OpenWorld_Level) must not reload the
-    // map that the player is already in.
-    const FString CurrentLevelName = UGameplayStatics::GetCurrentLevelName(World);
-    if (CurrentLevelName.Equals(TargetLevelName.ToString(), ESearchCase::IgnoreCase))
-    {
-        UE_LOG(LogNLTBuildingPortal, Verbose,
-            TEXT("Portal '%s': Target '%s' is the current level; staying in place"),
-            *GetName(), *TargetLevelName.ToString());
-        return;
-    }
-
     bIsTransitioning = true;
 
-    // Use a real map transition instead of creating a dynamic LevelInstance in
-    // the open world. ANLTPlayerController uses the same path as the level doors.
+    // Use the same non-seamless travel path as ANLTDoorActor. This loads the
+    // destination map instead of creating a dynamic LevelInstance in the open world.
     if (ANLTPlayerController* NltPC = Cast<ANLTPlayerController>(PC))
     {
         NltPC->TravelToLevel(TargetLevelName);
