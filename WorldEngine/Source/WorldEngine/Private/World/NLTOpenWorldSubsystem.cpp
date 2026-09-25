@@ -2,6 +2,7 @@
 
 #include "World/NLTOpenWorldSubsystem.h"
 #include "World/NLTBuildingPortalActor.h"
+#include "World/NLTWorldPalette.h"
 #include "Agents/AvatarCharacter.h"
 #include "Simulation/NLTAtmosphereSubsystem.h"
 #include "NavigationSystem.h"
@@ -76,16 +77,15 @@ void UNLTOpenWorldSubsystem::GenerateOpenWorld(const FNLTOpenWorldConfig& Config
     // Generate landscape from heightmap
     GenerateLandscape(Heightmap);
 
-    // Place the Fab Modern City city-grid layer before the fallback ground so
-    // the fallback can be skipped only after the city layer actually spawns.
-    SpawnCityScenery();
-
     // A Landscape actor cannot be created at runtime (Landscape editing is editor-only), so if the
     // level does not contain one, spawn a simple ground plane to keep the world visible.
     SpawnGroundPlaceholder();
 
     // Place water plane at configured water level
     PlaceWaterPlane();
+
+    // Place the Fab Modern City city-grid layer on the ground
+    SpawnCityScenery();
 
     // Generate world data (districts, buildings) via World Generator
     FNLTWorldGenerationParams GenParams;
@@ -207,7 +207,6 @@ void UNLTOpenWorldSubsystem::ClearOpenWorld()
         }
     }
     CityScenery.Empty();
-    bCityGroundSpawned = false;
 
     bWorldGenerated = false;
 }
@@ -297,12 +296,11 @@ void UNLTOpenWorldSubsystem::SpawnGroundPlaceholder()
         }
     }
 
-    // Skip the fallback only after the city base ground mesh has loaded and
-    // spawned. If the mesh is missing or fails to spawn, retain the fallback
-    // so the open world never becomes floor-less.
-    if (CurrentConfig.bPlaceCityScenery && bCityGroundSpawned)
+    // When city scenery is active, the Building_Base ground slab IS the ground — skip the
+    // green placeholder plane so it doesn't cover the road/sidewalk textures.
+    if (CurrentConfig.bPlaceCityScenery)
     {
-        UE_LOG(LogNLTOpenWorld, Log, TEXT("Ground: city base ground spawned; skipped placeholder plane"));
+        UE_LOG(LogNLTOpenWorld, Log, TEXT("Ground: skipped placeholder plane (city scenery provides ground)"));
         return;
     }
 
@@ -346,10 +344,10 @@ void UNLTOpenWorldSubsystem::SpawnGroundPlaceholder()
         GroundMesh->SetStaticMesh(PlaneMesh);
         GroundMesh->SetWorldScale3D(FVector(ScaleX, ScaleY, 1.0f));
 
-        if (UMaterialInterface* ShapeMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")))
-        {
-            GroundMesh->SetMaterial(0, ShapeMaterial);
-        }
+        // Real color instead of the engine-grey placeholder: tint the ground a
+        // natural grass green from the project's own M_Solid material set.
+        NLTWorldPalette::PaintMesh(GroundMesh, TEXT("/Game/Environment/Materials/MI_Plant.MI_Plant"),
+            NLTWorldPalette::GroundGrass(), 0.85f, 0.0f);
     }
 
     UE_LOG(LogNLTOpenWorld, Log,
@@ -393,39 +391,36 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         return;
     }
 
-    // Fab "Modern_City_Environment" (AI-usable) city-block layer: the road network, sidewalks,
-    // fences, tree grove, trash bins, parking structure, plaza base, podium slab, and grass cover
-    // from the Blender block (splits_geo exports).
-    // Every piece shares the Fab scene origin, so stacking them at the world origin with one
-    // shared scale reproduces the original block layout.
+    // ---- PHASE 1: Ground layers (stacked at origin, shared scale) ----
+    // Building_Base = ground slab with sidewalk/road geometry baked in.
+    // Road_003 = road surface mesh, Sidewalk_001 = raised sidewalk edges.
+    // Fences and Trash_Bins = low-profile street props.
     struct FSceneryPiece
     {
         const TCHAR* MeshPath;
         float ZOffset;        // cm above the ground plane
         UStaticMesh* Mesh;    // resolved below
+        FLinearColor Tint;    // world palette swatch (only used when bTint=true)
+        float Roughness;      // material roughness (only used when bTint=true)
+        bool bTint;           // true = override with flat palette; false = use imported PBR materials
     };
 
-    FSceneryPiece Pieces[] =
+    FSceneryPiece GroundPieces[] =
     {
-        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Road_003.Road_003"),                         8.0f,  nullptr },
-        { TEXT("/Game/City/Block/BuildingBase/Building_Base/StaticMeshes/Building_Base.Building_Base"), 12.0f, nullptr },
-        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Sidewalk_001.Sidewalk_001"),                 15.0f, nullptr },
-        // Building visuals are supplied by the authored BuildingLayout portals;
-        // do not spawn a second decorative building here.
-        { TEXT("/Game/City/Block/Grass/Grass/StaticMeshes/Grass.Grass"),                            21.0f, nullptr },
-        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_"),20.0f, nullptr },
-        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Fences.Fences"),                             24.0f, nullptr },
-        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Trash_Bins_and_Path_Lights.Trash_Bins_and_Path_Lights"), 26.0f, nullptr },
-        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Parking_Entrance_001.Parking_Entrance_001"),  30.0f, nullptr },
+        // Ground slab (textured PBR)
+        { TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Building_Base.Grid_System_Building_Base"),                8.0f,  nullptr, FLinearColor::White, 0.5f, false },
+        // Road surface + sidewalk edges (non-textured geometry from original import)
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Road_003.Road_003"),                                            10.0f, nullptr, FLinearColor(0.15f, 0.15f, 0.15f), 0.9f, true  },
+        { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Sidewalk_001.Sidewalk_001"),                                    12.0f, nullptr, FLinearColor(0.75f, 0.73f, 0.68f), 0.8f, true  },
+        // Street props
+        { TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Fences.Grid_System_Fences"),                             14.0f, nullptr, FLinearColor::White, 0.5f, false },
+        { TEXT("/Game/City/Grid/CityGridTextured/Grid_System_Trash_Bins_and_Path_Lights.Grid_System_Trash_Bins_and_Path_Lights"), 16.0f, nullptr, FLinearColor::White, 0.5f, false },
     };
 
-    // Load every piece and use the authored Fab block scale. The building portal anchors in
-    // FNLTOpenWorldConfig::BuildingLayout were baked with this same scale, so computing a new
-    // scale from the widest mesh would pull the roads and sidewalks away from those anchors.
-    UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: SpawnCityScenery called with %d pieces"), static_cast<int32>(UE_ARRAY_COUNT(Pieces)));
-    bCityGroundSpawned = false;
+    UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: loading %d ground pieces"), (int32)UE_ARRAY_COUNT(GroundPieces));
     int32 LoadedCount = 0;
-    for (FSceneryPiece& Piece : Pieces)
+    float MaxHalfExtent = 0.0f;
+    for (FSceneryPiece& Piece : GroundPieces)
     {
         Piece.Mesh = LoadObject<UStaticMesh>(nullptr, Piece.MeshPath);
         if (!Piece.Mesh)
@@ -434,6 +429,8 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
             continue;
         }
         ++LoadedCount;
+        const FVector PieceExtent = Piece.Mesh->GetBounds().BoxExtent;
+        MaxHalfExtent = FMath::Max(MaxHalfExtent, FMath::Max(PieceExtent.X, PieceExtent.Y));
     }
 
     if (LoadedCount == 0)
@@ -442,18 +439,15 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         return;
     }
 
-    // This is the shared scale used by the imported Fab block and by the authored building
-    // anchors in BuildingLayout. Keep it fixed instead of fitting each runtime world size.
-    constexpr float SharedScale = 0.7700998187f;
+    const float WorldHalf = FMath::Min(CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y) * 0.5f;
+    const float SharedScale = (MaxHalfExtent > 1.0f) ? (WorldHalf / MaxHalfExtent) : 1.0f;
     const float GroundZ = GetTerrainHeight(0.0f, 0.0f);
 
+    // Spawn ground layers at the origin with shared scale.
     int32 Spawned = 0;
-    for (const FSceneryPiece& Piece : Pieces)
+    for (const FSceneryPiece& Piece : GroundPieces)
     {
-        if (!Piece.Mesh)
-        {
-            continue;
-        }
+        if (!Piece.Mesh) continue;
 
         FActorSpawnParameters SpawnParams;
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -461,30 +455,32 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         const FVector SpawnLocation(0.0f, 0.0f, GroundZ + Piece.ZOffset);
         AStaticMeshActor* Scenery = World->SpawnActor<AStaticMeshActor>(
             AStaticMeshActor::StaticClass(), SpawnLocation, FRotator::ZeroRotator, SpawnParams);
-        if (!Scenery)
-        {
-            continue;
-        }
+        if (!Scenery) continue;
 
         if (UStaticMeshComponent* MeshComp = Scenery->GetStaticMeshComponent())
         {
             MeshComp->SetMobility(EComponentMobility::Movable);
             MeshComp->SetStaticMesh(Piece.Mesh);
+            if (Piece.bTint)
+            {
+                NLTWorldPalette::PaintMesh(MeshComp, TEXT("/Game/Environment/Materials/MI_Plant.MI_Plant"),
+                    Piece.Tint, Piece.Roughness, 0.0f);
+            }
         }
         Scenery->SetActorScale3D(FVector(SharedScale, SharedScale, SharedScale));
         CityScenery.Add(Scenery);
-        if (FCString::Strcmp(Piece.MeshPath, TEXT("/Game/City/Block/BuildingBase/Building_Base/StaticMeshes/Building_Base.Building_Base")) == 0)
-        {
-            bCityGroundSpawned = true;
-        }
         ++Spawned;
     }
 
     UE_LOG(LogNLTOpenWorld, Log,
-        TEXT("City scenery: placed %d Fab Modern City grid pieces (scale %.3f, base Z %.0f, world %.0fx%.0f)"),
-        Spawned, SharedScale, GroundZ, CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y);
-    UE_LOG(LogNLTOpenWorld, Log,
-        TEXT("City scenery: building visuals are supplied by BuildingLayout portals"));
+        TEXT("City scenery: placed %d ground pieces (scale %.3f, base Z %.0f)"),
+        Spawned, SharedScale, GroundZ);
+
+    // Buildings are intentionally not spawned here. ANLTBuildingPortalActor is the single
+    // source of truth for building visuals and placement; GenerateOpenWorld() creates those
+    // portals from FNLTOpenWorldConfig::BuildingLayout after this ground layer is placed.
+    // Spawning a second decorative building grid here puts shells outside the authored block.
+    UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: building visuals are supplied by BuildingLayout portals"));
 }
 
 void UNLTOpenWorldSubsystem::PlaceAtmosphere()
@@ -583,12 +579,20 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
     // Fab "Mobile Trees" mesh. NOTE: LoadObject, not ConstructorHelpers::FObjectFinder - SpawnVegetation
     // runs at runtime from BeginPlay and FObjectFinder is a fatal error outside of constructors.
     UStaticMesh* TreeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/City/Trees/MobileTrees/SM_Mobile_Trees.SM_Mobile_Trees"));
+    const bool bTreeIsFallbackCylinder = (TreeMesh == nullptr);
     if (!TreeMesh)
     {
         UE_LOG(LogNLTOpenWorld, Warning, TEXT("Vegetation: failed to load SM_Mobile_Trees - falling back to placeholder cylinder"));
         TreeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     }
     TreeHISM->SetStaticMesh(TreeMesh);
+    if (bTreeIsFallbackCylinder)
+    {
+        // Green canopy tint for the grey engine cylinder only - the imported Fab
+        // tree keeps its real bark/leaf materials (Mobile28_Trunk / Mobile28_Leaf).
+        NLTWorldPalette::PaintMesh(TreeHISM, TEXT("/Game/Environment/Materials/MI_Plant.MI_Plant"),
+            NLTWorldPalette::TreeCanopy(), 0.8f, 0.0f);
+    }
 
     // The Fab tree mesh is authored ~18 x 24 m; normalize instance scale to the imported bounds
     // so open-world trees land in the 3-6 m range regardless of source scale.
@@ -607,6 +611,9 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
     {
         GrassHISM->SetStaticMesh(GrassMesh);
     }
+    // Grass tuft tint.
+    NLTWorldPalette::PaintMesh(GrassHISM, TEXT("/Game/Environment/Materials/MI_Plant.MI_Plant"),
+        NLTWorldPalette::GrassPatch(), 0.85f, 0.0f);
 
     // --- Rocks ---
     RockHISM = NewObject<UHierarchicalInstancedStaticMeshComponent>(VegetationRoot, TEXT("RockHISM"));
@@ -618,6 +625,9 @@ void UNLTOpenWorldSubsystem::SpawnVegetation()
     {
         RockHISM->SetStaticMesh(RockMesh);
     }
+    // Rock tint.
+    NLTWorldPalette::PaintMesh(RockHISM, TEXT("/Game/Environment/Materials/MI_Metal.MI_Metal"),
+        NLTWorldPalette::RockGrey(), 0.9f, 0.0f);
 
     // Scatter vegetation across the landscape
     FRandomStream Rand(CurrentConfig.Seed + 100);
@@ -751,8 +761,7 @@ void UNLTOpenWorldSubsystem::SpawnResidents()
     }
 
     // Spawn residents with daily routines
-    const int32 NumResidents = FMath::Max(0, CurrentConfig.NumResidents);
-    for (int32 i = 0; i < NumResidents; ++i)
+    for (int32 i = 0; i < 12; i++)
     {
         FVector SpawnPos = GetRandomLandscapePoint(Rand);
         SpawnPos.Z += 90.0f;  // Feet height offset for character
