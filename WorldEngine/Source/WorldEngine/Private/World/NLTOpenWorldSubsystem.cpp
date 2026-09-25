@@ -76,15 +76,16 @@ void UNLTOpenWorldSubsystem::GenerateOpenWorld(const FNLTOpenWorldConfig& Config
     // Generate landscape from heightmap
     GenerateLandscape(Heightmap);
 
+    // Place the Fab Modern City city-grid layer before the fallback ground so
+    // the fallback can be skipped only after the city layer actually spawns.
+    SpawnCityScenery();
+
     // A Landscape actor cannot be created at runtime (Landscape editing is editor-only), so if the
     // level does not contain one, spawn a simple ground plane to keep the world visible.
     SpawnGroundPlaceholder();
 
     // Place water plane at configured water level
     PlaceWaterPlane();
-
-    // Place the Fab Modern City city-grid layer on the ground
-    SpawnCityScenery();
 
     // Generate world data (districts, buildings) via World Generator
     FNLTWorldGenerationParams GenParams;
@@ -206,6 +207,7 @@ void UNLTOpenWorldSubsystem::ClearOpenWorld()
         }
     }
     CityScenery.Empty();
+    bCityGroundSpawned = false;
 
     bWorldGenerated = false;
 }
@@ -295,6 +297,15 @@ void UNLTOpenWorldSubsystem::SpawnGroundPlaceholder()
         }
     }
 
+    // Skip the fallback only after the city base ground mesh has loaded and
+    // spawned. If the mesh is missing or fails to spawn, retain the fallback
+    // so the open world never becomes floor-less.
+    if (CurrentConfig.bPlaceCityScenery && bCityGroundSpawned)
+    {
+        UE_LOG(LogNLTOpenWorld, Log, TEXT("Ground: city base ground spawned; skipped placeholder plane"));
+        return;
+    }
+
     if (GroundPlaceholder)
     {
         return; // Already spawned (e.g. GenerateOpenWorld called twice)
@@ -382,9 +393,9 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         return;
     }
 
-    // Fab "Modern_City_Environment" (AI-usable) city-block layer: the Road network, sidewalks,
-    // fences, tree grove, trash bins, parking structure, plaza base, podium slab, street lights,
-    // grass cover and path/imperfection details from the Blender block (splits_geo exports).
+    // Fab "Modern_City_Environment" (AI-usable) city-block layer: the road network, sidewalks,
+    // fences, tree grove, trash bins, parking structure, plaza base, podium slab, and grass cover
+    // from the Blender block (splits_geo exports).
     // Every piece shares the Fab scene origin, so stacking them at the world origin with one
     // shared scale reproduces the original block layout.
     struct FSceneryPiece
@@ -399,21 +410,21 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Road_003.Road_003"),                         8.0f,  nullptr },
         { TEXT("/Game/City/Block/BuildingBase/Building_Base/StaticMeshes/Building_Base.Building_Base"), 12.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Sidewalk_001.Sidewalk_001"),                 15.0f, nullptr },
-        { TEXT("/Game/City/Block/Building13/Building_13/StaticMeshes/Building_13.Building_13"),     16.0f, nullptr },
+        // Building visuals are supplied by the authored BuildingLayout portals;
+        // do not spawn a second decorative building here.
         { TEXT("/Game/City/Block/Grass/Grass/StaticMeshes/Grass.Grass"),                            21.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Grid_Trees__Low_Poly_.Grid_Trees__Low_Poly_"),20.0f, nullptr },
-        { TEXT("/Game/City/Block/PathImperfections/Path_And_Imperfections/StaticMeshes/Path_And_Imperfections.Path_And_Imperfections"), 25.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Fences.Fences"),                             24.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Trash_Bins_and_Path_Lights.Trash_Bins_and_Path_Lights"), 26.0f, nullptr },
-        { TEXT("/Game/City/Block/TrafficLights/Traffic_Lights/StaticMeshes/Traffic_Lights.Traffic_Lights"), 28.0f, nullptr },
         { TEXT("/Game/City/Grid/CityGrid/StaticMeshes/Parking_Entrance_001.Parking_Entrance_001"),  30.0f, nullptr },
     };
 
-    // Load every piece and compute the shared scale from the widest footprint so the whole
-    // block fits inside the open world.
-    UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: SpawnCityScenery called with %d pieces"), 11);
+    // Load every piece and use the authored Fab block scale. The building portal anchors in
+    // FNLTOpenWorldConfig::BuildingLayout were baked with this same scale, so computing a new
+    // scale from the widest mesh would pull the roads and sidewalks away from those anchors.
+    UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: SpawnCityScenery called with %d pieces"), static_cast<int32>(UE_ARRAY_COUNT(Pieces)));
+    bCityGroundSpawned = false;
     int32 LoadedCount = 0;
-    float MaxHalfExtent = 0.0f;
     for (FSceneryPiece& Piece : Pieces)
     {
         Piece.Mesh = LoadObject<UStaticMesh>(nullptr, Piece.MeshPath);
@@ -423,8 +434,6 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
             continue;
         }
         ++LoadedCount;
-        const FVector PieceExtent = Piece.Mesh->GetBounds().BoxExtent;
-        MaxHalfExtent = FMath::Max(MaxHalfExtent, FMath::Max(PieceExtent.X, PieceExtent.Y));
     }
 
     if (LoadedCount == 0)
@@ -433,8 +442,9 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         return;
     }
 
-    const float WorldHalf = FMath::Min(CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y) * 0.5f;
-    const float SharedScale = (MaxHalfExtent > 1.0f) ? (WorldHalf / MaxHalfExtent) : 1.0f;
+    // This is the shared scale used by the imported Fab block and by the authored building
+    // anchors in BuildingLayout. Keep it fixed instead of fitting each runtime world size.
+    constexpr float SharedScale = 0.7700998187f;
     const float GroundZ = GetTerrainHeight(0.0f, 0.0f);
 
     int32 Spawned = 0;
@@ -463,12 +473,18 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         }
         Scenery->SetActorScale3D(FVector(SharedScale, SharedScale, SharedScale));
         CityScenery.Add(Scenery);
+        if (FCString::Strcmp(Piece.MeshPath, TEXT("/Game/City/Block/BuildingBase/Building_Base/StaticMeshes/Building_Base.Building_Base")) == 0)
+        {
+            bCityGroundSpawned = true;
+        }
         ++Spawned;
     }
 
     UE_LOG(LogNLTOpenWorld, Log,
         TEXT("City scenery: placed %d Fab Modern City grid pieces (scale %.3f, base Z %.0f, world %.0fx%.0f)"),
         Spawned, SharedScale, GroundZ, CurrentConfig.WorldSize.X, CurrentConfig.WorldSize.Y);
+    UE_LOG(LogNLTOpenWorld, Log,
+        TEXT("City scenery: building visuals are supplied by BuildingLayout portals"));
 }
 
 void UNLTOpenWorldSubsystem::PlaceAtmosphere()
@@ -735,7 +751,8 @@ void UNLTOpenWorldSubsystem::SpawnResidents()
     }
 
     // Spawn residents with daily routines
-    for (int32 i = 0; i < 12; i++)
+    const int32 NumResidents = FMath::Max(0, CurrentConfig.NumResidents);
+    for (int32 i = 0; i < NumResidents; ++i)
     {
         FVector SpawnPos = GetRandomLandscapePoint(Rand);
         SpawnPos.Z += 90.0f;  // Feet height offset for character

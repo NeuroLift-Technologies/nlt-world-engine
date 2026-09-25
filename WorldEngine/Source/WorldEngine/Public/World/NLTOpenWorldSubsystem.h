@@ -79,13 +79,13 @@ struct FNLTOpenWorldConfig
     UPROPERTY(BlueprintReadWrite)
     TArray<FNLTDesiredBuilding> BuildingLayout = {
         { TEXT("Office"),    FVector( 4020.0f, -1671.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },  // baked: Blender Building 11
-        { TEXT("Office"),    FVector( 4200.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
-        { TEXT("Apartment"), FVector(-4200.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Office"),    FVector( 5200.0f,  5700.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Apartment"), FVector(-5200.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
         { TEXT("Apartment"), FVector( 4200.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
-        { TEXT("Apartment"), FVector(-4500.0f, -4500.0f, 0.0f), FRotator(0.0f,  45.0f, 0.0f) },
+        { TEXT("Apartment"), FVector(-6000.0f, -6000.0f, 0.0f), FRotator(0.0f,  45.0f, 0.0f) },
         { TEXT("Apartment"), FVector( 9094.0f, -5059.0f, 0.0f), FRotator(0.0f, 127.0f, 0.0f) },  // baked: Blender Building 12
         { TEXT("School"),    FVector(    0.0f,  4200.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
-        { TEXT("Factory"),   FVector(-4200.0f, -1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
+        { TEXT("Factory"),   FVector(-5200.0f, -2000.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
         { TEXT("Park"),      FVector(    0.0f, -1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
         { TEXT("Shop"),      FVector(-1300.0f,  1500.0f, 0.0f), FRotator(0.0f,   0.0f, 0.0f) },
         { TEXT("Shop"),      FVector( 1300.0f,  1500.0f, 0.0f), FRotator(0.0f,  90.0f, 0.0f) },
@@ -185,6 +185,9 @@ private:
     /** Spawned city scenery actors (Fab Modern City city-grid pieces). */
     UPROPERTY()
     TArray<class AStaticMeshActor*> CityScenery;
+
+    /** Whether the city base ground mesh loaded and spawned successfully. */
+    bool bCityGroundSpawned = false;
 
     /** Spawned building portals. */
     UPROPERTY()

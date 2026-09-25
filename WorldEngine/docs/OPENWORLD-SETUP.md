@@ -17,7 +17,7 @@ The Open World system provides a persistent outdoor environment with:
 
 - **Procedural landscape** generated from FBM noise (seed-based, deterministic)
 - **Hierarchical Instanced Static Mesh (HISM)** vegetation scatter (trees, grass, rocks)
-- **Building portals** that stream in scenario levels on overlap
+- **Building portals** that travel the local player to scenario levels on overlap
 - **AI residents** with daily routines (work → social → home)
 - **Day/night cycle** synced with the Atmosphere subsystem
 
@@ -36,8 +36,9 @@ The Open World system provides a persistent outdoor environment with:
 2. Set the following properties:
    - **Section Size:** 63x63 quads
    - **Sections Per Component:** 1x1
-   - **Number of Components:** 8x8 (creates a 503x503 quad landscape)
-   - **Total Size:** ~5000x5000 units (matches `WorldSize` in config)
+   - **Number of Components:** 8x8 (creates a 504x504 quad landscape)
+   - **X/Y Scale:** ~39.68 (so 504 quads spans ~20000 units)
+   - **Total Size:** ~20000x20000 units (200m x 200m; matches `WorldSize` in config)
 3. Click **Create**
 4. Assign a landscape material (see Required Content Assets below)
 
@@ -52,8 +53,8 @@ The `NLTAtmosphereSubsystem` will find or create these at runtime:
 
 ### Step 4: Add a Player Spawn
 
-1. Place a **Player Start** actor at coordinates near (0, 0, 200)
-2. This is where the player spawns when entering the open world
+1. Place a **Player Start** actor at coordinates near `(0, 300, 200)` for the open world
+2. If the map has no PlayerStart, `ANLTDemoGameMode` applies the same safe spawn location at runtime
 
 ### Step 5: Add a Post Process Volume
 
@@ -112,7 +113,7 @@ Configurable via Blueprint or C++:
 ```cpp
 FNLTOpenWorldConfig Config;
 Config.Seed = 42;                    // Deterministic world seed
-Config.WorldSize = FVector(5000, 5000, 0);  // World extent in units
+Config.WorldSize = FVector(20000, 20000, 0);  // 200m x 200m world extent in cm
 Config.LandscapeResolution = 513;    // Heightmap resolution
 Config.LandscapeHeightScale = 800.0f; // Max terrain height
 Config.NumBuildings = 12;            // Number of building portals
@@ -132,7 +133,7 @@ Per-building configuration:
 | Property | Default | Description |
 |----------|---------|-------------|
 | `BuildingType` | Office | Determines target level |
-| `TargetLevelName` | Workplace_Level | Level to stream in |
+| `TargetLevelName` | Workplace_Level | Level to travel to |
 | `DisplayName` | "Office Building" | Label text |
 | `InteractPrompt` | "Press E to enter" | UI prompt |
 | `bIsActive` | true | Whether portal is usable |
@@ -147,7 +148,7 @@ Synced with open world time:
 | `RealSecondsPerGameDay` | 600 | 10 min = 1 game day |
 | `bAutoAdvanceTime` | false | Auto-progress time |
 
-## Level Streaming Setup
+## Level Travel Setup
 
 ### Scenario Levels
 
@@ -161,22 +162,20 @@ The following levels must exist in `Content/Scenarios/Levels/`:
 | `Academic_Level` | School | Indoor school/classroom |
 | `OpenWorld_Level` | Hub | Return to open world |
 
-### Level Streaming Configuration
+### Travel Method
 
-1. **Add to World Settings:**
-   - Open **Window → World Settings**
-   - Under **Streaming Levels**, add all 5 levels
-   - Set initial state: OpenWorld_Level = Loaded, others = Not Loaded
+1. **Building portal overlap:**
+   - When the local player enters a building portal, the portal calls `ANLTPlayerController::TravelToLevel`.
+   - Travel uses `UGameplayStatics::OpenLevel` with the full `/Game/Scenarios/Levels/...` package path.
+   - The open-world map is replaced by the destination map; no dynamic `LevelInstance` is created in the open world.
 
-2. **Streaming Method:**
-   - The portal uses `ULevelStreamingDynamic::LoadLevelInstance` for runtime streaming
-   - Levels are loaded on demand when a player/AI enters a building
-   - Levels are unloaded after the player exits (with a 5-second delay)
+2. **Return doors:**
+   - Each indoor scenario level spawns one `ANLTDoorActor` targeting `OpenWorld_Level`.
+   - The return door is placed in the existing central door row for that level.
 
-3. **Teleport Targets:**
-   - Each scenario level should contain a `TargetPoint` named `PortalEntrance`
-   - This is where the player/AI appears when entering the level
-   - Place it at the desired spawn location (e.g., inside the building)
+3. **Spawn points:**
+   - Each scenario level uses its own `PlayerStart` for the arriving player.
+   - If `OpenWorld_Level` has no PlayerStart, the GameMode uses `(0, 300, 200)` as a safe runtime fallback.
 
 ### AI Resident Daily Routines
 

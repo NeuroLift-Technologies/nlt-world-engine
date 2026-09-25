@@ -213,7 +213,6 @@ License TBD — Open Source. See `LICENSE` for details when available.
 ## Remaining Work
 
 - StateTree behavior trees on Mass entities
-- Cross-level navigation (rooms → world cells)
 - Full Fusion ↔ Unreal WebSocket protocol
 - Replay deterministic verification
 - LOD transition logic for avatar actors
