@@ -212,10 +212,10 @@ License TBD — Open Source. See `LICENSE` for details when available.
 
 ## Remaining Work
 
-- StateTree behavior trees on Mass entities
-- Full Fusion ↔ Unreal WebSocket protocol
-- Replay deterministic verification
-- LOD transition logic for avatar actors
+- Native Mass StateTree runtime integration and authored `.sttree` behavior assets
+- Full Fusion ↔ Unreal WebSocket protocol conformance and session authorization
+- Authoritative UE replay recording/execution with intermediate and final parity
+- Visual-only LOD transition logic and rendered PIE validation
 - Headless server build configuration
 - UE5 unit tests (AutomationDriver /AutomationTest framework)
 - Build validation in CI
