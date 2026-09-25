@@ -443,6 +443,17 @@ void ANLTBuildingPortalActor::OnInteract()
         return;
     }
 
+    // Hub portals (for example, Hut -> OpenWorld_Level) must not reload the
+    // map that the player is already in.
+    const FString CurrentLevelName = UGameplayStatics::GetCurrentLevelName(World);
+    if (CurrentLevelName.Equals(TargetLevelName.ToString(), ESearchCase::IgnoreCase))
+    {
+        UE_LOG(LogNLTBuildingPortal, Verbose,
+            TEXT("Portal '%s': Target '%s' is the current level; staying in place"),
+            *GetName(), *TargetLevelName.ToString());
+        return;
+    }
+
     bIsTransitioning = true;
 
     // Use a real map transition instead of creating a dynamic LevelInstance in

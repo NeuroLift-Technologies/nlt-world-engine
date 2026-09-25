@@ -76,15 +76,16 @@ void UNLTOpenWorldSubsystem::GenerateOpenWorld(const FNLTOpenWorldConfig& Config
     // Generate landscape from heightmap
     GenerateLandscape(Heightmap);
 
+    // Place the Fab Modern City city-grid layer before the fallback ground so
+    // the fallback can be skipped only after the city layer actually spawns.
+    SpawnCityScenery();
+
     // A Landscape actor cannot be created at runtime (Landscape editing is editor-only), so if the
     // level does not contain one, spawn a simple ground plane to keep the world visible.
     SpawnGroundPlaceholder();
 
     // Place water plane at configured water level
     PlaceWaterPlane();
-
-    // Place the Fab Modern City city-grid layer on the ground
-    SpawnCityScenery();
 
     // Generate world data (districts, buildings) via World Generator
     FNLTWorldGenerationParams GenParams;
@@ -206,6 +207,7 @@ void UNLTOpenWorldSubsystem::ClearOpenWorld()
         }
     }
     CityScenery.Empty();
+    bCityGroundSpawned = false;
 
     bWorldGenerated = false;
 }
@@ -295,11 +297,12 @@ void UNLTOpenWorldSubsystem::SpawnGroundPlaceholder()
         }
     }
 
-    // The city ground slab supplies the visible ground when city scenery is active;
-    // do not cover its road/sidewalk textures with the fallback plane.
-    if (CurrentConfig.bPlaceCityScenery)
+    // Skip the fallback only after the city base ground mesh has loaded and
+    // spawned. If the mesh is missing or fails to spawn, retain the fallback
+    // so the open world never becomes floor-less.
+    if (CurrentConfig.bPlaceCityScenery && bCityGroundSpawned)
     {
-        UE_LOG(LogNLTOpenWorld, Log, TEXT("Ground: skipped placeholder plane (city scenery provides ground)"));
+        UE_LOG(LogNLTOpenWorld, Log, TEXT("Ground: city base ground spawned; skipped placeholder plane"));
         return;
     }
 
@@ -420,6 +423,7 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
     // FNLTOpenWorldConfig::BuildingLayout were baked with this same scale, so computing a new
     // scale from the widest mesh would pull the roads and sidewalks away from those anchors.
     UE_LOG(LogNLTOpenWorld, Log, TEXT("City scenery: SpawnCityScenery called with %d pieces"), static_cast<int32>(UE_ARRAY_COUNT(Pieces)));
+    bCityGroundSpawned = false;
     int32 LoadedCount = 0;
     for (FSceneryPiece& Piece : Pieces)
     {
@@ -469,6 +473,10 @@ void UNLTOpenWorldSubsystem::SpawnCityScenery()
         }
         Scenery->SetActorScale3D(FVector(SharedScale, SharedScale, SharedScale));
         CityScenery.Add(Scenery);
+        if (FCString::Strcmp(Piece.MeshPath, TEXT("/Game/City/Block/BuildingBase/Building_Base/StaticMeshes/Building_Base.Building_Base")) == 0)
+        {
+            bCityGroundSpawned = true;
+        }
         ++Spawned;
     }
 

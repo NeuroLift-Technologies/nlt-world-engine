@@ -36,7 +36,8 @@ The Open World system provides a persistent outdoor environment with:
 2. Set the following properties:
    - **Section Size:** 63x63 quads
    - **Sections Per Component:** 1x1
-   - **Number of Components:** 8x8 (creates a 503x503 quad landscape)
+   - **Number of Components:** 8x8 (creates a 504x504 quad landscape)
+   - **X/Y Scale:** ~39.68 (so 504 quads spans ~20000 units)
    - **Total Size:** ~20000x20000 units (200m x 200m; matches `WorldSize` in config)
 3. Click **Create**
 4. Assign a landscape material (see Required Content Assets below)
