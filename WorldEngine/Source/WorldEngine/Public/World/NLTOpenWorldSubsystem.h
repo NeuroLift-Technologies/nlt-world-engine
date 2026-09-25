@@ -186,9 +186,6 @@ private:
     UPROPERTY()
     TArray<class AStaticMeshActor*> CityScenery;
 
-    /** Whether the city base ground mesh loaded and spawned successfully. */
-    bool bCityGroundSpawned = false;
-
     /** Spawned building portals. */
     UPROPERTY()
     TArray<class ANLTBuildingPortalActor*> BuildingPortals;
