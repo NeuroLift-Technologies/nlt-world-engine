@@ -28,6 +28,14 @@ void ANLTDemoGameMode::BeginPlay()
 		const FString LevelName = UGameplayStatics::GetCurrentLevelName(World);
 		if (LevelName.Contains(TEXT("OpenWorld"), ESearchCase::IgnoreCase))
 		{
+			// Dedicated servers do not need generated presentation scenery. Keep
+			// scenario startup for the regular scenario maps below.
+			if (IsRunningDedicatedServer())
+			{
+				UE_LOG(LogTemp, Log, TEXT("Demo: Dedicated server skipped OpenWorld scenery generation"));
+				return;
+			}
+
 			if (UNLTOpenWorldSubsystem* OWS = World->GetSubsystem<UNLTOpenWorldSubsystem>())
 			{
 				if (!OWS->IsWorldGenerated())
@@ -172,6 +180,12 @@ void ANLTDemoGameMode::SpawnLevelDoors()
 {
 	UWorld* World = GetWorld();
 	if (!World) return;
+
+	// Dedicated servers do not create a local player or need a PlayerStart.
+	if (IsRunningDedicatedServer())
+	{
+		return;
+	}
 
 	const FName CurrentLevel = FName(*UGameplayStatics::GetCurrentLevelName(World));
 	UE_LOG(LogTemp, Log, TEXT("SpawnLevelDoors: Current level is '%s'"), *CurrentLevel.ToString());

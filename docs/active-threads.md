@@ -2,11 +2,33 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-24
+**Last updated:** 2026-09-25
 
 ---
 
 ## Active Threads
+
+### 🧪 DET-001 — Deterministic state verification and headless build foundation
+- **Status:** open
+- **Owner:** Cline
+- **Started:** 2026-09-25
+- **Last updated:** 2026-09-25
+- **Branch:** `cline/d8d52`
+- **Summary:** Added a versioned UE-side BLAKE3 canonical state hash, deterministic RNG reset metadata with legacy seed-save compatibility, project AutomationTests, a dedicated server target/config, dedicated-server guards, and a versioned JSON replay record/verifier with action/event integrity and observed final-state comparison.
+- **Blockers:** The installed UE 5.8 distribution reports that server targets are not currently supported, so `WorldEngineServer` cannot be compiled on this machine. The Editor target builds successfully with `ASFDK_ROOT=D:\nlt-repos\asfdk-cplus`. UE automation tests pass 7/7 using `UnrealEditor-Cmd.exe -DisablePython`.
+- **Next action:** Build and run `WorldEngineServer` on a UE distribution with server target support, then add CI runner/build validation once the supported runner is selected. Add approved action semantics before implementing replay action execution.
+### 👁️ LOD-001 — Shared visual LOD policy for Mass and actor residents
+- **Status:** open
+- **Owner:** Cline
+- **Started:** 2026-09-25
+- **Last updated:** 2026-09-25
+- **Branch:** `cline/d8d52`
+- **Summary:** Added a shared configurable visual LOD policy with distance thresholds, hysteresis, viewer fallback, Mesh/HISM/fallback representation selection, and explicit visual-only semantics. Integrated it into Mass HISM visualization and actor-resident mesh visibility without changing simulation fragments, movement, cognition, or update rates.
+- **Blockers:** The installed UE 5.8 distribution still cannot create the Dedicated Server target. LOD policy automation passes 4/4 and the Editor build succeeds.
+- **Next action:** Validate visual transitions in a live scene with representative Mass/actor residents, then add a CI job once a UE-capable runner is selected. Simulation-frequency LOD remains out of scope.
+
+
+
 
 ### 🔧 BUILD-WIN64-001 — Win64 build repair: ASFDK wiring + hot-reload state
 - **Status:** resolved
