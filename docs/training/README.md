@@ -23,15 +23,17 @@ state and chooses one of 10 coaching strategies.
 
 Training runs on **two paths** depending on mode:
 
-**Path A — UE5 Runtime (default):** PPO training runs inside UE5 via the
-Learning Agents module (`ULearningAgentsPPOTrainer`). UE5 creates a
-shared-memory communicator (`MakeSharedMemoryTrainingProcess()`) on port 5555
-that the LearningAgents trainer uses for synchronization. The Python
+**Path A — Rendered UE5 runtime (default):** PPO training runs inside UE5 via the
+Learning Agents module (`ULearningAgentsPPOTrainer`) in the UE Editor or a rendered
+standalone game. The human watches the same Unreal world in which agents act and learn.
+UE5 creates a shared-memory communicator (`MakeSharedMemoryTrainingProcess()`) on port
+5555 that the LearningAgents trainer uses for synchronization. The Python
 `train_nlt.py` can connect to this communicator for monitoring/logging.
 
-**Path B — Python Standalone:** `train_nlt.py --standalone` runs the full PPO
-loop in Python without UE5, using a simulated cognitive-state evolution
-(`update_cognitive_state()` mirrors `LTCognitiveStateComponent`).
+**Path B — Python Standalone (optional tooling):** `train_nlt.py --standalone` runs
+a Python-only PPO loop without UE5, using a simulated cognitive-state evolution
+(`update_cognitive_state()` mirrors `LTCognitiveStateComponent`). This is not the
+primary training architecture.
 
 #### UE5 Tick Flow (`NLTTrainingManager::Tick()`):
 
@@ -137,13 +139,20 @@ repo provides:
 cd WorldEngine && make WorldEngineEditor && make WorldEngine
 ```
 
-**Step 2 — Launch UE5 in headless training mode:**
+**Step 2 — Launch the rendered UE5 training runtime:**
+
+Open `WorldEngine.uproject` in the UE Editor, select the training scenario, and run the configured training flow in Play In Editor or a rendered standalone game. The human watches the same Unreal world in which the agents simulate and learn.
+
+**Optional headless automation:**
+
 ```bash
 ~/Documents/NLT/Engine/Binaries/Linux/UnrealEditor \
   WorldEngine.uproject \
-  -nullrhi -game -server -log \
+  -nullrhi -game -unattended -log \
   -MAP=/Game/Scenarios/Levels/Workplace_Level.Workplace_Level
 ```
+
+A future `WorldEngineServer` is optional infrastructure for running the same UE physical world without a rendered viewport; neither headless mode is required for the primary training path.
 
 **Step 3 — Run Python PPO training (optional, for monitoring or standalone):**
 ```bash

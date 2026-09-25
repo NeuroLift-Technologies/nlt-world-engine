@@ -10,31 +10,39 @@
 
 ## TL;DR
 
-UE 5.8 dedicated servers run the authoritative simulation — the embodied multi-agent world itself. The Babylon.js web viewer (spectator viewer) is deployed as a static site and connects to the UE servers via WebSocket.
+UE 5.8 Editor or a rendered standalone game is the primary build, training, and spectator path. The Babylon.js web viewer can observe the same UE runtime through its WebSocket/HTTP APIs. A headless `WorldEngineServer` is optional later infrastructure for running the same UE physical world without a rendered viewport; it is not the primary training architecture.
 
 ---
 
 ## Deployment Architecture
 
-```
+The primary deployment is a rendered Unreal runtime on the machine where the human watches the training world:
+
+```text
                     ┌─────────────────────────────────┐
-                    │         UE 5.8 Build            │
-                    │  WorldEngineEditor (Windows)    │
-                    │  WorldEngine (Linux)            │
-                    │  WorldEngineServer (Linux)      │
+                    │      UE 5.8 Rendered Runtime    │
+                    │ WorldEngineEditor (Windows)      │
+                    │ or WorldEngine standalone game   │
                     └───────────────┬─────────────────┘
-                                    │
+                                    │ WebSocket / HTTP
                     ┌───────────────▼─────────────────┐
-                    │      Container / VM / K8s       │
-                    │    UE Dedicated Server (headless)│
-                    │    -nullrhi -game -unattended   │
-                    │    WebSocket on port 7777       │
+                    │       Human / Web Viewer        │
+                    │  UE viewport or Babylon.js      │
+                    │  spectator observation           │
+                    └─────────────────────────────────┘
+```
+
+The optional headless path uses a future `WorldEngineServer` target or a `-nullrhi` commandlet to run the same UE physical world without a rendered viewport:
+
+```text
+                    ┌─────────────────────────────────┐
+                    │ Optional Headless Infrastructure │
+                    │ WorldEngineServer (future)       │
+                    │ or UnrealEditor-Cmd automation  │
                     └───────────────┬─────────────────┘
-                                    │ WebSocket + HTTP
+                                    │ WebSocket / HTTP
                     ┌───────────────▼─────────────────┐
-                    │     Static Web Viewer (CDN)     │
-                    │  world-engine-v2 (Babylon.js)    │
-                    │  Vercel / Cloudflare Pages / S3 │
+                    │       Human / Web Viewer        │
                     └─────────────────────────────────┘
 ```
 
@@ -44,9 +52,9 @@ UE 5.8 dedicated servers run the authoritative simulation — the embodied multi
 
 | Target | Platform | Purpose |
 |--------|----------|---------|
-| `WorldEngineEditor` | Windows | Development editor |
-| `WorldEngine` | Windows | Client build |
-| `WorldEngineServer` | Linux | Headless dedicated server (production) |
+| `WorldEngineEditor` | Windows | Primary development/training/spectator runtime |
+| `WorldEngine` | Windows | Rendered standalone client (optional packaged runtime) |
+| `WorldEngineServer` | Linux | Optional headless infrastructure (future) |
 | `WorldEngine` | Linux | Linux client (optional) |
 
 ---
@@ -54,17 +62,17 @@ UE 5.8 dedicated servers run the authoritative simulation — the embodied multi
 ## Build Commands
 
 ```bash
-# Windows editor (development)
+# Windows editor (primary development/training path)
 make WorldEngineEditor
 
-# Linux dedicated server (production)
-make WorldEngineServer
-
-# Headless run
+# Optional headless automation path
 ~/Documents/NLT/Engine/Binaries/Linux/UnrealEditor-Cmd \
   -project=WorldEngine.uproject \
   -nullrhi -game -unattended -log \
   -MAP=/Game/Scenarios/Levels/Workplace_Level.Workplace_Level
+
+# Optional Linux dedicated-server infrastructure (future)
+make WorldEngineServer
 ```
 
 ---
@@ -111,7 +119,9 @@ editor (UBT self-cleans on the next build) or delete
 
 ---
 
-## Dedicated Server Deployment
+## Optional Dedicated Server Deployment
+
+The Dedicated Server is a later, optional infrastructure path for running the same UE physical world without a rendered viewport. It is not required for the primary Editor-based training loop.
 
 ### Container (Docker)
 
