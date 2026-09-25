@@ -2,7 +2,7 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-09-25
+**Last updated:** 2026-09-24
 
 ---
 
@@ -17,6 +17,7 @@
 - **Summary:** Added a versioned UE-side BLAKE3 canonical state hash, deterministic RNG reset metadata with legacy seed-save compatibility, project AutomationTests, a dedicated server target/config, dedicated-server guards, and a versioned JSON replay record/verifier with action/event integrity and observed final-state comparison.
 - **Blockers:** None for the primary UE Editor build/train/watch path. The installed UE 5.8 distribution cannot create `WorldEngineServer`, but Dedicated Server is optional later infrastructure and is not a release blocker. The Editor target builds successfully with `ASFDK_ROOT=D:\nlt-repos\asfdk-cplus`; UE automation tests pass 7/7 using `UnrealEditor-Cmd.exe -DisablePython`.
 - **Next action:** Validate the rendered UE Editor/standalone-game training path and live visual LOD transitions. Revisit source-built Dedicated Server compilation and CI only if headless infrastructure is later approved as a separate effort. Add approved action semantics before implementing replay action execution.
+
 ### 👁️ LOD-001 — Shared visual LOD policy for Mass and actor residents
 - **Status:** open
 - **Owner:** Cline
@@ -26,8 +27,6 @@
 - **Summary:** Added a shared configurable visual LOD policy with distance thresholds, hysteresis, viewer fallback, Mesh/HISM/fallback representation selection, and explicit visual-only semantics. Integrated it into Mass HISM visualization and actor-resident mesh visibility without changing simulation fragments, movement, cognition, or update rates.
 - **Blockers:** None for the primary UE Editor build/train/watch path. The installed UE 5.8 distribution cannot create the Dedicated Server target, but that target is optional later infrastructure. LOD policy automation passes 4/4 and the Editor build succeeds.
 - **Next action:** Validate visual transitions in a representative rendered UE scene with Mass/actor residents, then add a CI job when a UE-capable runner is selected. Simulation-frequency LOD remains out of scope.
-
-
 
 
 ### 🔧 BUILD-WIN64-001 — Win64 build repair: ASFDK wiring + hot-reload state
@@ -115,6 +114,45 @@
 - **Next action:** (Next session, with UE editor access) Wire `GenerateTerrainHeight` into `NLTWorldGeneratorSubsystem` → UE5 Landscape (or PCG heightfield node) → blend materials by `ClassifyTerrainBiome`. Refactor note: `NLTNoiseLibrary`'s static `Perm[512]` + `bPermInitialized`/`CurrentPermSeed` is a latent thread-safety risk if terrain and atmosphere call concurrently (see handoff).
 
 ---
+
+### 🔍 SIM-001 — Simulation activation and runtime lifecycle trace
+- **Status:** resolved
+- **Owner:** Kilo
+- **Started:** 2026-09-25
+- **Last updated:** 2026-09-25
+- **Summary:** Traced default-map startup, open-world generation, indoor scenario activation, Mass Entity spawning, simulation clocks, web/HTTP control, LLM command paths, and PPO training activation. Confirmed the default `OpenWorld_Level` path generates scenery and resident actors but does not start the Mass simulation; indoor levels spawn Mass agents and start the simulation. Identified documentation/code mismatches, including the disconnected authoritative clock, unregistered Mass processors, HTTP-only web server, and separate internal/external LLM control paths.
+- **Blockers:** None for the investigation. Runtime verification remains unavailable because no UE editor runtime is present in this session.
+- **Next action:** None; findings are ready for integration planning or documentation correction.
+
+### 🌲 ST-001 — StateTree Behavior Layer on Mass Entities (augment)
+- **Status:** active (editor build succeeds; deterministic reference tests pass; native runtime StateTree verification pending)
+- **Owner:** Claude Code (Poolside)
+- **Started:** 2026-09-25
+- **Last updated:** 2026-09-25
+- **Branch:** `pr/statetree-behavior-layer-clean` · **PR:** [#57](https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/57)
+- **Summary:** Augment the custom Mass needs/decision/movement processors (`UNLTScenarioNeedsProcessor`, `UNLTScenarioDecisionProcessor`, `UNLTScenarioMovementProcessor`) with a deterministic behavior processor and StateTree task/condition reference definitions. Native Mass StateTree execution and authored `.sttree` assets remain follow-up work.
+- **Blockers:** Runtime StateTree execution, `.sttree` authoring, and UE automation coverage remain pending; editor compilation now succeeds.
+- **Delivered:**
+  - **C++:** `NLTStateTreeFragments.h` (StateTree behavior fragment + state enum); `NLTDemoStateTreeBehavior.h/.cpp` (data asset with default state configs); `NLTStateTreeBehaviorProcessor.h/.cpp` (Mass processor with full state machine: Idle → EvaluateNeeds → SelectTarget → MoveToTarget → Arrived → Idle, FallbackWander branch); `NLTStateTreeTasks.h/.cpp` (custom StateTree task references); `NLTStateTreeSchema.h/.cpp` (schema with typed external-data bindings); `NLTStateTreeBehaviorTest.h` (inline C++ test harness); `NLTDemoScenarioUtils.h` (shared helpers extracted: candidate sort, need ranking, intent mapping, location scoring); `WorldEngine.cpp` updated with module startup; `NLTAgentSpawnerSubsystem.cpp` updated to spawn StateTree fragments; legacy processors marked deprecated + early-out when the behavior layer is active.
+  - **Build fixes (UE 5.8 compatibility):**
+    - `Build.cs`: `"StateTree"` → `"StateTreeModule"` (module name in `.uplugin`)
+    - StateTree tasks/conditions: UCLASS → USTRUCT pattern (`FMassStateTreeTaskBase`/`FMassStateTreeConditionBase`), handle-based external data access
+    - Include path fixes: `"NLTStateTreeFragments.h"` → `"Agents/NLTStateTreeFragments.h"` across 4 files
+    - Added missing includes (`Agents/NLTAgentFragments.h`)
+    - Removed duplicate local utility functions from `NLTDemoScenarioProcessors.cpp` (now uses shared `NLTDemoScenarioUtils.h`)
+    - Fixed narrowing conversion C2397 (brace-init → field-by-field assignment) in `NLTStateTreeTasks.cpp`, `NLTStateTreeBehaviorProcessor.cpp`, `NLTDemoScenarioProcessors.cpp`
+    - Fixed C3493 lambda capture: added `this` to capture list in `NLTStateTreeBehaviorProcessor.cpp::Execute`
+    - Fixed UE 5.8 `TEnumAsByte` static_assert: replaced `UEnum::GetValueAsString<EnumType>()` with `StaticEnum<EnumType>()->GetNameStringByValue((int64)...)` in `NLTEventBus.cpp` and `NLTStateTreeBehaviorProcessor.cpp`
+    - Fixed Mass `static_assert` fragment traits: added `TMassFragmentTraits<FNLTStateTreeBehaviorConfigFragment>` specialization (TSoftObjectPtr not trivially copyable)
+  - **Fusion/Wire:** `WorldEngine/Scripts/fusion_protocol.py` (versioned envelope codec, action allow-list, atomic multi-tick replay executor, and result comparison); `test_fusion_protocol.py` + `test_fusion_protocol_regression.py` (9 passing reference tests); UE WebSocket listener hardened with safe field access, required action type/target, malformed-JSON rejection, and game-thread dispatch.
+  - **Build result:** `WorldEngineEditor Win64 Development` — `Result: Succeeded`, 0 errors (clean PR worktree, verified 2026-09-25).
+  - **Build.cs:** Uses the UE 5.8 `StateTreeModule` dependency.
+  - **Python reference:** `src/statetree/__init__.py` (enums, constants, `deterministic_hash`, `FRandomStream`); `src/statetree/behavior.py` (full state machine processor); `src/statetree/conditions.py` (3 conditions); `src/statetree/tasks.py` (4 tasks).
+  - **Python tests:** 21 tests — 12 deterministic transition tests + 9 fallback/determinism tests. All passing: `cd _archive\world-engine && python -m unittest tests.test_statetree_transitions tests.test_statetree_fallback -v` → 21 passed.
+  - **Docs:** `WorldEngine/docs/architecture/statetree-behavior-layer.md` (full design doc); `unreal-simulation-architecture.md` §9 open item #2 → "In progress".
+  - **Build script:** `build_statetree.bat` created at repo root for UBT invocation.
+- **Build limitations (verified 2026-09-25):** a clean PR worktree build succeeds; native Mass StateTree execution, authored `.sttree` assets, and registered UE Automation coverage remain pending.
+- **Next action:** (1) Integrate `UMassStateTreeProcessor` and author a `.sttree` asset; (2) register and run the behavior checks as UE Automation tests; (3) run live Python↔UE wire conformance; (4) collect rendered PIE evidence for Mass/actor LOD transitions.
 
 ### 🎯 Next: Integration & Testing
 

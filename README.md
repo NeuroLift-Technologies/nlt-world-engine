@@ -213,15 +213,15 @@ License TBD — Open Source. See `LICENSE` for details when available.
 
 ## Remaining Work
 
-The following work remains after the deterministic verification, replay-integrity, and visual-LOD foundations merged in PR #55.
+The following work remains after the deterministic verification, replay-integrity, visual-LOD, and StateTree/Fusion reference foundations merged through PRs #55–#57.
 
 ### Product and runtime implementation
 
-- **StateTree behavior on Mass entities:** Replace or augment the current custom Mass needs/decision/movement processors with an integrated StateTree behavior layer, including deterministic transition and fallback tests.
-- **Fusion ↔ Unreal WebSocket protocol:** Approve and implement the full wire contract, including versioned message envelopes, session/agent correlation, acknowledgements, errors, and end-to-end conformance tests. The current Unreal server is HTTP-based and the LLM bridge is a separate outbound HTTP path.
+- **Native Mass StateTree runtime integration:** The current behavior path is a deterministic custom C++ Mass processor plus StateTree task/condition references. Native `UMassStateTreeProcessor` execution and authored `.sttree` behavior assets remain follow-up work.
+- **Fusion ↔ Unreal WebSocket protocol:** The UE WebSocket listener now validates versioned envelopes, requires action type/target, rejects malformed JSON, and dispatches authoritative work on the game thread. End-to-end Python↔UE conformance, session/agent correlation, authorization, acknowledgements, and duplicate/timeout handling remain unverified.
 - **Replay action execution:** Define approved action semantics and execute recorded actions against the authoritative simulation. Compare intermediate state/event hashes and the final state/RNG state across a multi-tick replay. The current replay implementation verifies record integrity and observed final state but does not execute action payloads.
 - **Rendered LOD transition validation:** Validate Mass and actor-resident transitions in a representative rendered UE scene, including hysteresis, viewer fallback, mesh/HISM/fallback representation changes, and hidden transitions. The shared visual-only policy and integration are implemented; live-scene evidence is still pending.
-- **Broader UE Automation coverage:** Add integration tests for StateTree behavior, WebSocket protocol handling, replay action execution, rendered LOD transitions, and headless guards. The existing `AutomationTest` suite passes 7/7 `NLT.Simulation` and 4/4 `NLT.VisualLOD.Policy` tests; no separate `AutomationDriver` implementation exists.
+- **Broader UE Automation coverage:** Add integration tests for native StateTree behavior, WebSocket protocol handling, replay action execution, rendered LOD transitions, and headless guards. The existing `AutomationTest` suite passes 7/7 `NLT.Simulation` and 4/4 `NLT.VisualLOD.Policy` tests; the Python Fusion reference suite passes 9 tests but does not prove UE interoperability.
 
 ### Validation and CI
 
@@ -233,4 +233,5 @@ The following work remains after the deterministic verification, replay-integrit
 - Versioned deterministic state hashing and RNG reset/serialization metadata.
 - Versioned JSON replay records with integrity, tamper, serialization, and observed-final-state checks.
 - Shared visual-only LOD policy for Mass HISM and actor residents, with 4/4 policy tests passing.
+- Deterministic C++ Mass behavior processor, StateTree schema/task/condition references, and an expanded Python Fusion protocol/replay reference.
 - Dedicated Server target/configuration and headless runtime guards are present, but the optional Server target has not been compiled on a server-capable UE distribution.
