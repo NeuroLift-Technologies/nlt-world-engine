@@ -39,7 +39,7 @@ struct FNLTWorldGenerationParams
     int32 Seed = 12345;
 
     UPROPERTY(BlueprintReadWrite)
-    FVector WorldSize = FVector(5000.0f, 5000.0f, 0.0f);
+    FVector WorldSize = FVector(20000.0f, 20000.0f, 0.0f);
 
     UPROPERTY(BlueprintReadWrite)
     int32 NumDistricts = 4;

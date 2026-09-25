@@ -27,7 +27,7 @@ enum class ENLTBuildingType : uint8
 };
 
 /**
- * Building portal actor that streams in scenario levels on player overlap.
+ * Building portal actor that travels the local player to a scenario level on overlap.
  * Each building type maps to a specific scenario level:
  * - Office -> Workplace_Level
  * - Apartment -> Personal_Level
@@ -50,7 +50,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Portal")
     ENLTBuildingType BuildingType = ENLTBuildingType::Office;
 
-    /** The target level name to stream in. */
+    /** The target level name to travel to. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "NLT|Portal")
     FName TargetLevelName = TEXT("Workplace_Level");
 
@@ -153,14 +153,14 @@ protected:
     /** Handle player interaction (press E to enter). */
     void OnInteract();
 
-    /** Stream in the target level. */
+    /** Legacy dynamic-streaming helper; player overlap uses map travel instead. */
     void StreamInTargetLevel();
 
     /** Called when async level load completes. */
     UFUNCTION()
     void OnLevelLoadComplete();
 
-    /** Stream out the target level. */
+    /** Legacy dynamic-streaming helper; retained for explicit streaming callers. */
     void StreamOutTargetLevel();
 
     /** Teleport player to the target level. */
