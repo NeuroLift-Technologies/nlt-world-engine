@@ -23,12 +23,16 @@ This document supersedes the earlier Cloudflare/Vercel MMO architecture.
 
 ## Architecture Overview
 
+**Primary runtime:** UE 5.8 Editor or a rendered standalone game running on the developer's machine. The human watches the same Unreal world in which the agents simulate and train. A headless `WorldEngineServer` is optional later infrastructure for running the same physical world without a rendered viewport; it is not the primary training architecture.
+
+The optional `WorldEngineServer` target remains available for a future headless deployment path, but server compilation and deployment are not prerequisites for the Editor-based training loop.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     NLT World Engine (UE 5.8)                       │
 │                                                                     │
 │  ┌───────────────────────────────────────────────────────────────┐ │
-│  │                  UE 5.8 Dedicated Server                      │ │
+│  │                  UE 5.8 Editor / rendered game                   │ │
 │  │                                                               │ │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐  │ │
 │  │  │ Simulation  │  │   World     │  │   Learning Agents    │  │ │
@@ -60,7 +64,7 @@ This document supersedes the earlier Cloudflare/Vercel MMO architecture.
 
 | Old Concept | UE 5.8 Equivalent |
 |-------------|-------------------|
-| Cloudflare Durable Object (per pair) | UE Dedicated Server instance (per pair) |
+| Cloudflare Durable Object (per pair) | UE Editor or rendered standalone game instance (Dedicated Server optional later) |
 | 1Hz tick loop in JS | UE deterministic tick (UNLTSimulationClockSubsystem) |
 | WebSocket fan-out | UE WebSocketNetworking plugin + UNLTWebServerSubsystem |
 | Babylon.js viewer (frontend) | UE Web/2D canvas viewer (Content/Web/) or external web viewer |
@@ -124,7 +128,7 @@ Each **pair** (Avatar + Aide) runs as an isolated UE simulation:
 
 | Resource | Old (Cloudflare) | UE 5.8 Equivalent |
 |----------|------------------|-------------------|
-| Pair instance | Durable Object | UE Dedicated Server (containerized) |
+| Pair instance | Durable Object | UE Editor/rendered game instance; Dedicated Server optional later |
 | Tick loop | JS alarm (1Hz) | UE Game Thread (1Hz deterministic) |
 | WebSocket | Workers API | UE WebSocketNetworking |
 | State | DO storage | UE Mass ECS + save/load snapshots |

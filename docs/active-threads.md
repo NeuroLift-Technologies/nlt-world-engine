@@ -15,8 +15,8 @@
 - **Last updated:** 2026-09-25
 - **Branch:** `cline/d8d52`
 - **Summary:** Added a versioned UE-side BLAKE3 canonical state hash, deterministic RNG reset metadata with legacy seed-save compatibility, project AutomationTests, a dedicated server target/config, dedicated-server guards, and a versioned JSON replay record/verifier with action/event integrity and observed final-state comparison.
-- **Blockers:** The installed UE 5.8 distribution reports that server targets are not currently supported, so `WorldEngineServer` cannot be compiled on this machine. The Editor target builds successfully with `ASFDK_ROOT=D:\nlt-repos\asfdk-cplus`. UE automation tests pass 7/7 using `UnrealEditor-Cmd.exe -DisablePython`.
-- **Next action:** Build and run `WorldEngineServer` on a UE distribution with server target support, then add CI runner/build validation once the supported runner is selected. Add approved action semantics before implementing replay action execution.
+- **Blockers:** None for the primary UE Editor build/train/watch path. The installed UE 5.8 distribution cannot create `WorldEngineServer`, but Dedicated Server is optional later infrastructure and is not a release blocker. The Editor target builds successfully with `ASFDK_ROOT=D:\nlt-repos\asfdk-cplus`; UE automation tests pass 7/7 using `UnrealEditor-Cmd.exe -DisablePython`.
+- **Next action:** Validate the rendered UE Editor/standalone-game training path and live visual LOD transitions. Revisit source-built Dedicated Server compilation and CI only if headless infrastructure is later approved as a separate effort. Add approved action semantics before implementing replay action execution.
 ### 👁️ LOD-001 — Shared visual LOD policy for Mass and actor residents
 - **Status:** open
 - **Owner:** Cline
@@ -24,8 +24,8 @@
 - **Last updated:** 2026-09-25
 - **Branch:** `cline/d8d52`
 - **Summary:** Added a shared configurable visual LOD policy with distance thresholds, hysteresis, viewer fallback, Mesh/HISM/fallback representation selection, and explicit visual-only semantics. Integrated it into Mass HISM visualization and actor-resident mesh visibility without changing simulation fragments, movement, cognition, or update rates.
-- **Blockers:** The installed UE 5.8 distribution still cannot create the Dedicated Server target. LOD policy automation passes 4/4 and the Editor build succeeds.
-- **Next action:** Validate visual transitions in a live scene with representative Mass/actor residents, then add a CI job once a UE-capable runner is selected. Simulation-frequency LOD remains out of scope.
+- **Blockers:** None for the primary UE Editor build/train/watch path. The installed UE 5.8 distribution cannot create the Dedicated Server target, but that target is optional later infrastructure. LOD policy automation passes 4/4 and the Editor build succeeds.
+- **Next action:** Validate visual transitions in a representative rendered UE scene with Mass/actor residents, then add a CI job when a UE-capable runner is selected. Simulation-frequency LOD remains out of scope.
 
 
 

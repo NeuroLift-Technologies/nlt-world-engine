@@ -40,13 +40,18 @@ NLT World Engine (this repo)
 
 **Prerequisites:** UE 5.8 at `~/Documents/NLT/Engine/`, Linux (Clang 20.1.8)
 
+**Primary path — rendered Unreal Editor or standalone game:**
+
 ```bash
 cd WorldEngine
 make configure          # Generate project files
 make WorldEngineEditor  # Build editor (~85s)
 ```
 
-**Run headless simulation:**
+Open `WorldEngine.uproject` in the UE Editor, select the training scenario, and run the configured training flow in Play In Editor or a rendered standalone game. The human watches the same UE world in which agents simulate and learn.
+
+**Optional headless automation:**
+
 ```bash
 ~/Documents/NLT/Engine/Binaries/Linux/UnrealEditor-Cmd \
   -project=WorldEngine.uproject \
@@ -54,11 +59,7 @@ make WorldEngineEditor  # Build editor (~85s)
   -MAP=/Game/Scenarios/Levels/Workplace_Level.Workplace_Level
 ```
 
-**Run editor:**
-```bash
-make WorldEngineEditor
-# Open WorldEngine.uproject in UE Editor
-```
+The headless command is for automation, CI, or later infrastructure. It is not required for the primary training path. A future `WorldEngineServer` target is likewise optional.
 
 ## Project Structure
 
