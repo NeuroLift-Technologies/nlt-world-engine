@@ -114,8 +114,18 @@ export_presets.cfg
 # Godot add-ons/extensions are local-only; godot-cpp above is the sole
 # exception and remains tracked as our submodule. This does not untrack
 # add-ons already committed to the repository.
-world-engine-godot/addons/
+#
+# Note the trailing /* rather than a bare addons/: git cannot re-include a path
+# whose parent directory is excluded, so excluding addons/ itself would make every
+# negation below it silently ineffective. Excluding its *contents* keeps git
+# descending, which is what lets the fusion_agent_loop carve-out below work.
+world-engine-godot/addons/*
 world-engine-godot/ml-MODELS/
+
+# ...except addons we author and ship. fusion_agent_loop is the editor-side opt-in
+# for the Fusion agent loop and is part of the product, not local scratch, so it
+# stays tracked. Only this directory is re-included; every other addon stays ignored.
+!world-engine-godot/addons/fusion_agent_loop/
 ziva_agent_DUPLICATE_moved_out/
 world-engine-godot/.fennara/
 
