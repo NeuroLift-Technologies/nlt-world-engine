@@ -32,6 +32,54 @@ public static class SettlementBuilder
     /// <summary>Widest half-extent a building reaches from its centre: Rad (max 6.4) * 1.5.</summary>
     private const float MaxBuildingHalfExtent = 9.6f;
 
+    /// <summary>Radial roads drawn from the plaza out past the building ring.</summary>
+    public const int RoadCount = 5;
+
+    /// <summary>Angular offset of the first road, matching <see cref="Build"/>.</summary>
+    private const float RoadAngleOffset = 0.4f;
+
+    /// <summary>Road width in metres; half of it is the clearance a building needs.</summary>
+    public const float RoadWidth = 2.5f;
+
+    /// <summary>Road length: the fraction of <c>SettleR</c> each road spans.</summary>
+    private const float RoadLengthFraction = 0.9f;
+
+    /// <summary>
+    /// Is a building footprint at (x, z) clear of every radial road?
+    /// </summary>
+    /// <remarks>
+    /// Roads run from the settlement centre outwards, so they cross the whole building ring. The
+    /// test is the perpendicular distance from the building centre to each road's axis, compared
+    /// against the road's half-width plus <paramref name="buildingHalfExtent"/>. Treating the
+    /// footprint as a circle of that radius is conservative: it can reject a placement that would
+    /// have just missed at some rotations, but it can never let a building overlap a road.
+    /// </remarks>
+    private static bool ClearOfRoads(float x, float z, float buildingHalfExtent)
+    {
+        var dx = x - WorldConstants.SettleX;
+        var dz = z - WorldConstants.SettleZ;
+        var reach = RoadWidth * 0.5f + buildingHalfExtent;
+
+        for (int i = 0; i < RoadCount; i++)
+        {
+            var a = i / (float)RoadCount * Mathf.Pi * 2f + RoadAngleOffset;
+            var ax = MathF.Cos(a);
+            var az = MathF.Sin(a);
+
+            // Component along the road axis, clamped to the road's length: past the far end a
+            // building is beyond the road, before the centre it is inside the plaza instead.
+            var along = dx * ax + dz * az;
+            var len = WorldConstants.SettleR * RoadLengthFraction;
+            if (along < 0f || along > len) continue;
+
+            // Perpendicular distance from the building centre to the road axis.
+            var lateral = MathF.Abs(dx * az - dz * ax);
+            if (lateral < reach) return false;
+        }
+
+        return true;
+    }
+
     /// <summary>Plain word for the doorway label.</summary>
     public static string KindLabel(BuildingKind k) => k switch
     {
@@ -65,8 +113,11 @@ public static class SettlementBuilder
     public static List<Plan> BuildPlans(SimulationRng rng)
     {
         var placed = new List<Plan>();
-        int count = 19, guard = 0;
-        while (placed.Count < count && guard++ < 900)
+        // Roads and the plaza eat a large share of the ring, so rejection sampling needs far more
+        // attempts than the 900 the unconstrained ring needed. The guard is a backstop against a
+        // degenerate terrain, not a budget: it should never be the reason a town comes out small.
+        int count = 19, guard = 0, maxAttempts = 40000;
+        while (placed.Count < count && guard++ < maxAttempts)
         {
             float a = rng.Next() * Mathf.Pi * 2f;
 
@@ -76,13 +127,22 @@ public static class SettlementBuilder
             float minR = PlazaRadius + MaxBuildingHalfExtent;
             float maxR = WorldConstants.SettleR - 6f;
             if (maxR <= minR) return placed;
+
+            // Size is drawn before placement so the road test can use this building's real
+            // footprint. Using the worst case (9.6 m) for every candidate rejected so much of
+            // the ring that only 6 of 19 buildings found a slot.
+            float rad = rng.Range(4.2f, 6.4f);
+            float halfExtent = rad * 1.5f;
+
             float r = minR + MathF.Sqrt(rng.Next()) * (maxR - minR);
             float x = WorldConstants.SettleX + MathF.Cos(a) * r;
             float z = WorldConstants.SettleZ + MathF.Sin(a) * r;
             float ds = MathF.Sqrt((x - WorldConstants.SettleX) * (x - WorldConstants.SettleX) + (z - WorldConstants.SettleZ) * (z - WorldConstants.SettleZ));
             if (ds > maxR) continue;
+            if (ds - halfExtent < PlazaRadius) continue;
             if (!WorldGeometry.Walkable(x, z)) continue;
-            float rad = rng.Range(4.2f, 6.4f);
+            if (!ClearOfRoads(x, z, halfExtent)) continue;
+
             bool clash = false;
             foreach (var p in placed)
                 if (MathF.Sqrt((p.X - x) * (p.X - x) + (p.Z - z) * (p.Z - z)) < p.Rad + rad + 3.4f) { clash = true; break; }
@@ -179,13 +239,15 @@ public static class SettlementBuilder
             Position = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 0.5f, WorldConstants.SettleZ),
         });
 
-        for (int r = 0; r < 5; r++)
+        // Roads use the same RoadCount/RoadWidth/RoadAngleOffset constants BuildPlans tests
+        // against, so a building can never be placed across a road this loop draws.
+        for (int r = 0; r < RoadCount; r++)
         {
-            float a = r / 5f * Mathf.Pi * 2f + 0.4f;
-            float len = WorldConstants.SettleR * 0.9f;
+            float a = r / (float)RoadCount * Mathf.Pi * 2f + RoadAngleOffset;
+            float len = WorldConstants.SettleR * RoadLengthFraction;
             var road = new MeshInstance3D
             {
-                Mesh = new BoxMesh { Size = new Vector3(2.5f, 0.2f, len) },
+                Mesh = new BoxMesh { Size = new Vector3(RoadWidth, 0.2f, len) },
                 MaterialOverride = pathMat,
                 Position = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 0.5f, WorldConstants.SettleZ),
                 Rotation = new Vector3(0, a, 0),
