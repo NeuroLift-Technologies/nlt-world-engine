@@ -20,6 +20,18 @@ public static class SettlementBuilder
         BuildingKind.Apartment, BuildingKind.School, BuildingKind.Apartment,
     };
 
+    /// <summary>
+    /// Radius of the plaza disc at the settlement centre, in metres.
+    /// <see cref="BuildPlans"/> places buildings outside this radius, and <see cref="Build"/> draws
+    /// the disc at exactly this size. They must stay derived from the same constant: when the
+    /// placement ring started at 7 m while the plaza was 13 m across, buildings were generated
+    /// standing on the plaza and their portals were unreachable through solid geometry.
+    /// </summary>
+    public const float PlazaRadius = 13f;
+
+    /// <summary>Widest half-extent a building reaches from its centre: Rad (max 6.4) * 1.5.</summary>
+    private const float MaxBuildingHalfExtent = 9.6f;
+
     /// <summary>Plain word for the doorway label.</summary>
     public static string KindLabel(BuildingKind k) => k switch
     {
@@ -57,11 +69,18 @@ public static class SettlementBuilder
         while (placed.Count < count && guard++ < 900)
         {
             float a = rng.Next() * Mathf.Pi * 2f;
-            float r = 7f + MathF.Sqrt(rng.Next()) * (WorldConstants.SettleR - 11f);
+
+            // Centre distance must clear the plaza disc plus this building's own widest
+            // half-extent, or the footprint lands on the plaza. sqrt() keeps the ring
+            // uniform in area rather than clustering at the inner edge.
+            float minR = PlazaRadius + MaxBuildingHalfExtent;
+            float maxR = WorldConstants.SettleR - 6f;
+            if (maxR <= minR) return placed;
+            float r = minR + MathF.Sqrt(rng.Next()) * (maxR - minR);
             float x = WorldConstants.SettleX + MathF.Cos(a) * r;
             float z = WorldConstants.SettleZ + MathF.Sin(a) * r;
             float ds = MathF.Sqrt((x - WorldConstants.SettleX) * (x - WorldConstants.SettleX) + (z - WorldConstants.SettleZ) * (z - WorldConstants.SettleZ));
-            if (ds > WorldConstants.SettleR - 6f) continue;
+            if (ds > maxR) continue;
             if (!WorldGeometry.Walkable(x, z)) continue;
             float rad = rng.Range(4.2f, 6.4f);
             bool clash = false;
@@ -155,7 +174,7 @@ public static class SettlementBuilder
         // plaza — raised 0.5 so it sits visibly on terrain instead of clipping
         root.AddChild(new MeshInstance3D
         {
-            Mesh = new CylinderMesh { Height = 0.22f, TopRadius = 13f, BottomRadius = 13f, RadialSegments = 40 },
+            Mesh = new CylinderMesh { Height = 0.22f, TopRadius = PlazaRadius, BottomRadius = PlazaRadius, RadialSegments = 40 },
             MaterialOverride = pathMat,
             Position = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 0.5f, WorldConstants.SettleZ),
         });
