@@ -22,14 +22,23 @@ const ENDPOINT_KEY := "NLT_AGENT_LOOP_ENDPOINT"
 const MODEL_KEY := "FUSION_GGUF_MODEL"
 const PORT_KEY := "FUSION_AGENT_LOOP_PORT"
 
+## PYTHONPATH is how the child is told where src/ lives. Godot's OS.execute_with_pipe cannot set a
+## working directory, and the editor's CWD is the Godot project — which does not contain the Fusion
+## package at all. Pointing PYTHONPATH at the Fusion checkout is the one mechanism that survives
+## CreateProcess, and it is restored afterwards so the editor is not left mutated.
+const PYTHONPATH_KEY := "PYTHONPATH"
+const REPO_KEY := "FUSION_REPO"
+
 const DEFAULT_ENDPOINT := "http://127.0.0.1:8001/agent-loop/perception"
 
 ## EditorSettings keys. These persist across sessions without touching the environment,
 ## which is the whole point: no PowerShell step, no $env: to paste, no clipboard involved.
 const SETTING_PYTHON := "fusion_agent_loop/python"
 const SETTING_MODEL := "fusion_agent_loop/model"
+const SETTING_REPO := "fusion_agent_loop/repo"
 
-## The Fusion module to launch, run from the repo root with the venv interpreter.
+## The Fusion module to launch. Resolved against the Fusion checkout via PYTHONPATH, so the
+## editor's CWD no longer decides whether this import succeeds.
 const FUSION_MODULE := "src.fusion.agent_loop_http"
 
 ## Fallback interpreter for this workstation. Only used when nothing is configured and
@@ -37,8 +46,10 @@ const FUSION_MODULE := "src.fusion.agent_loop_http"
 ## dock exposes it as an editable field instead of baking a path into behaviour.
 const FALLBACK_PYTHON := "C:/Users/joshd/Local_models/fusion-gguf-env/Scripts/python.exe"
 
-## Repo root that contains the src/ package, relative to this addon's own location.
-const REPO_ROOT_FROM_PLUGIN := "../../.."
+## Fallback Fusion checkout. Same portability caveat as FALLBACK_PYTHON: the plugin cannot
+## derive this, because the Fusion repo is a sibling of this one rather than a path relative to
+## the addon. Exposed as an editable field for every other developer.
+const FALLBACK_REPO := "C:/Users/joshd/nlt-repos/neurolift-ai-fusion"
 
 var _dock: Control
 var _toggle: CheckButton
@@ -46,8 +57,7 @@ var _endpoint: LineEdit
 var _status: Label
 var _python_edit: LineEdit
 var _model_edit: LineEdit
-var _browse_python: Button
-var _browse_model: Button
+var _repo_edit: LineEdit
 var _start_button: Button
 var _stop_button: Button
 var _log_view: TextEdit
@@ -105,13 +115,14 @@ func _enter_tree() -> void:
 	_dock.add_child(title2)
 
 	var blurb2 := Label.new()
-	blurb2.text = "Runs src.fusion.agent_loop_http with the interpreter below. Start it before pressing Play."
+	blurb2.text = "Runs src.fusion.agent_loop_http from the Fusion repo below. Start it before pressing Play."
 	blurb2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb2.modulate = Color(0.7, 0.7, 0.7)
 	_dock.add_child(blurb2)
 
-	_add_path_row("Python (venv)", _resolve_python(), _on_python_changed)
-	_add_path_row("GGUF model", _resolve_model(), _on_model_changed)
+	_python_edit = _add_path_row("Python (venv)", _resolve_python(), _on_python_changed)
+	_model_edit = _add_path_row("GGUF model", _resolve_model(), _on_model_changed)
+	_repo_edit = _add_path_row("Fusion repo (src/)", _resolve_repo(), _on_repo_changed)
 
 	var row := HBoxContainer.new()
 	_start_button = Button.new()
@@ -160,7 +171,8 @@ func _process(_delta: float) -> void:
 		_server_pid = -1
 		_close_pipes()
 		if _log_view:
-			_log_view.text += "\n[server exited]"
+			_log_view.text += "\n[server exited before binding — check the repo path above and " \
+				+ "whether port %s is already taken]" % _port()
 		_refresh_status()
 
 
@@ -216,7 +228,7 @@ func _add_path_row(label_text: String, value: String, on_changed: Callable) -> L
 	var browse := Button.new()
 	browse.text = "..."
 	browse.custom_minimum_size = Vector2(28, 0)
-	browse.pressed.connect(func() -> void: _browse(edit, label_text))
+	browse.pressed.connect(func() -> void: _browse(edit, label_text, on_changed))
 	inner.add_child(browse)
 
 	row.add_child(inner)
@@ -224,21 +236,25 @@ func _add_path_row(label_text: String, value: String, on_changed: Callable) -> L
 	return edit
 
 
-func _browse(edit: LineEdit, title_text: String) -> void:
+func _browse(edit: LineEdit, title_text: String, on_changed: Callable) -> void:
 	# OS.SystemDir has no EXECUTABLES member in Godot 4.4/4.7, so start from the
 	# filesystem root and let the user navigate to the interpreter or model.
 	var chosen := OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
+	var is_repo := title_text.begins_with("Fusion repo")
 	var filters := PackedStringArray()
 	if title_text.begins_with("GGUF"):
 		filters.append("*.gguf ; GGUF Models")
 	var dialog := EditorFileDialog.new()
-	dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
+	# The repo row names a directory, not a file, so it must not filter by extension.
+	dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_DIR if is_repo else EditorFileDialog.FILE_MODE_OPEN_FILE
 	dialog.access = FileDialog.ACCESS_FILESYSTEM
 	dialog.title = "Select %s" % title_text
 	if not filters.is_empty():
 		dialog.filters = filters
 	dialog.current_path = edit.text if not edit.text.is_empty() else chosen
-	dialog.file_selected.connect(func(path: String) -> void: edit.text = path)
+	dialog.file_selected.connect(func(path: String) -> void:
+		edit.text = path
+		on_changed.call_func(path))
 	dialog.canceled.connect(dialog.queue_free)
 	dialog.confirmed.connect(dialog.queue_free)
 	dialog.close_requested.connect(dialog.queue_free)
@@ -274,9 +290,18 @@ func _on_model_changed(text: String) -> void:
 	EditorInterface.get_editor_settings().set_setting(SETTING_MODEL, text)
 
 
-func _repo_root() -> String:
-	# .../world-engine-godot/addons/fusion_agent_loop -> .../nlt-world-engine
-	return ProjectSettings.globalize_path(REPO_ROOT_FROM_PLUGIN)
+func _resolve_repo() -> String:
+	var from_env := OS.get_environment(REPO_KEY)
+	if not from_env.is_empty():
+		return from_env
+	var saved: Variant = EditorInterface.get_editor_settings().get_setting(SETTING_REPO)
+	if saved != null:
+		return String(saved)
+	return FALLBACK_REPO
+
+
+func _on_repo_changed(text: String) -> void:
+	EditorInterface.get_editor_settings().set_setting(SETTING_REPO, text)
 
 
 func _port() -> String:
@@ -297,7 +322,9 @@ func _on_start_pressed() -> void:
 		_refresh_status()
 		return
 
-	var python := _python_edit.text.strip_edges()
+	# Guard every field the launch reads. A null here used to crash on .text with no usable
+	# message, which is worse than a dock log line naming the missing path.
+	var python: String = _python_edit.text.strip_edges() if _python_edit else ""
 	if python.is_empty():
 		_set_log("Set the venv interpreter path first.")
 		return
@@ -305,7 +332,16 @@ func _on_start_pressed() -> void:
 		_set_log("Interpreter not found:\n%s" % python)
 		return
 
-	var model := _model_edit.text.strip_edges()
+	var repo: String = _repo_edit.text.strip_edges() if _repo_edit else ""
+	if repo.is_empty():
+		_set_log("Set the Fusion repo path (the checkout that contains src/).")
+		return
+	var package_marker := repo.replace("\\", "/").trim_suffix("/") + "/src/fusion/agent_loop_http.py"
+	if not FileAccess.file_exists(package_marker):
+		_set_log("Fusion package not found:\n%s\n\nThat folder must be the checkout containing src/fusion/." % package_marker)
+		return
+
+	var model: String = _model_edit.text.strip_edges() if _model_edit else ""
 
 	# Godot 4.4/4.7 OS.create_process takes only (path, arguments, open_console): it cannot set a
 	# working directory, pass environment, or redirect output. execute_with_pipe does support
@@ -314,6 +350,7 @@ func _on_start_pressed() -> void:
 	# editor itself is not left mutated.
 	var previous_model := OS.get_environment(MODEL_KEY)
 	var previous_port := OS.get_environment(PORT_KEY)
+	var previous_pythonpath := OS.get_environment(PYTHONPATH_KEY)
 	var had_model := OS.has_environment(MODEL_KEY)
 
 	# Fusion treats an unset FUSION_GGUF_MODEL as "use the deterministic fallback"; an empty
@@ -324,12 +361,15 @@ func _on_start_pressed() -> void:
 	else:
 		OS.set_environment(MODEL_KEY, model)
 	OS.set_environment(PORT_KEY, _port())
+	# Without this the child inherits the editor's CWD (the Godot project) and `-m
+	# src.fusion.agent_loop_http` dies with ModuleNotFoundError before uvicorn ever binds.
+	OS.set_environment(PYTHONPATH_KEY, repo + (previous_pythonpath.is_empty() ? "" : ";" + previous_pythonpath))
 
 	var args := PackedStringArray(["-m", FUSION_MODULE])
 	var proc := OS.execute_with_pipe(python, args, false)
+	_restore_server_env(had_model, previous_model, previous_port, previous_pythonpath)
 
 	if proc.is_empty():
-		_restore_server_env(had_model, previous_model, previous_port)
 		_set_log("Failed to launch:\n%s\n\nCheck the interpreter path." % python)
 		_server_pid = -1
 		_refresh_status()
@@ -340,11 +380,14 @@ func _on_start_pressed() -> void:
 	_stderr = proc.get("stderr", null)
 	_log_partial = ""
 
-	_set_log("Started Fusion endpoint (pid %d)." % _server_pid)
+	# A pid is returned even when the module fails to import, so a wrong repo path shows up as a
+	# fast exit rather than a launch failure. Naming the checkout makes that case self-evident in
+	# the log instead of requiring a guess from a bare process id.
+	_set_log("Started Fusion endpoint (pid %d) from:\n%s\n\nWaiting for uvicorn to bind..." % [_server_pid, repo])
 	_refresh_status()
 
 
-func _restore_server_env(had_model: bool, model: String, port: String) -> void:
+func _restore_server_env(had_model: bool, model: String, port: String, pythonpath: String) -> void:
 	if had_model:
 		OS.set_environment(MODEL_KEY, model)
 	else:
@@ -353,6 +396,12 @@ func _restore_server_env(had_model: bool, model: String, port: String) -> void:
 		OS.unset_environment(PORT_KEY)
 	else:
 		OS.set_environment(PORT_KEY, port)
+	# CreateProcess has already copied the environment block into the child by this point, so
+	# restoring here does not reach the server — it only stops the editor being left mutated.
+	if pythonpath.is_empty():
+		OS.unset_environment(PYTHONPATH_KEY)
+	else:
+		OS.set_environment(PYTHONPATH_KEY, pythonpath)
 
 
 func _on_stop_pressed() -> void:
