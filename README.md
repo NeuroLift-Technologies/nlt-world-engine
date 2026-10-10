@@ -251,8 +251,8 @@ License TBD — Open Source. See `LICENSE` for details when available.
 
 **NeuroLift Technologies**
 
-- Website: https://neurolifttech.com
-- Founder: Joshua W. Dorsey — joshua.dorsey@neurolifttech.com
+- Website: https://home.neuroliftsolutions.com
+- Founder: Joshua W. Dorsey — haief@neuroliftsolutions.com
 
 ## Historical UE 5.8 Work Log
 
