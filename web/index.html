@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NLT World Engine — AI Habitat. Real Consequences.</title>
+<meta name="description" content="NLT World Engine is an open-source, human-supervised embodied multi-agent simulation in development, where AI models live, learn and grow in a persistent world.">
+<meta property="og:title" content="NLT World Engine">
+<meta property="og:description" content="An AI habitat where models live, learn and grow. In development. Open source.">
+<meta property="og:type" content="website">
+
+<!--
+  EDITING NOTES FOR CODING AGENTS
+  - Single static file, no build step, no JavaScript required.
+  - Update project status ONLY in the <section id="status"> block. Each row uses:
+        data-status="concept|prototype|training|ready"   and   style="--p:NN%"
+    The label text inside <span class="pill"> must match data-status.
+  - Replace the hero image: set --hero-img on .hero (see CSS) to a real image URL.
+  - Replace scenario tile images the same way via the --img variable on each .tile-img.
+  - REPO_URL placeholders are marked with TODO. Search "TODO" before publishing.
+  - Everything shown as simulation (snapshot card, hero imagery) is a concept visualization
+    until real engine output exists. Keep the "Concept visualization" captions.
+-->
+
+<style>
+  :root{
+    --bg:#06121a;
+    --bg-2:#0a1b26;
+    --panel:#0c2230;
+    --panel-2:#0f2a3a;
+    --line:#1c3b4d;
+    --text:#e8f1f5;
+    --muted:#9bb3c0;
+    --cyan:#22d3c5;
+    --cyan-2:#5eead4;
+    --amber:#f5a623;
+    --green:#34d399;
+    --radius:14px;
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--cyan-2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:3px solid var(--cyan);outline-offset:3px;border-radius:6px}
+  .skip{position:absolute;left:-999px;top:8px;background:var(--cyan);color:#012;padding:8px 14px;border-radius:8px;z-index:100}
+  .skip:focus{left:8px}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+  h1,h2,h3{line-height:1.2;margin:0 0 .5em}
+  h2{font-size:clamp(1.5rem,3vw,2rem)}
+  p{margin:0 0 1em}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:10px;
+    font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);font-weight:700;margin-bottom:14px;
+  }
+  .eyebrow::before{content:"";width:3px;height:14px;background:var(--cyan);border-radius:2px}
+
+  /* ---------- Header ---------- */
+  header.site{
+    position:sticky;top:0;z-index:50;
+    background:rgba(6,18,26,.88);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:20px;height:68px}
+  .brand{display:flex;align-items:center;gap:12px;color:var(--text)}
+  .brand:hover{text-decoration:none}
+  .logo{
+    font-weight:900;font-size:1.5rem;letter-spacing:-.04em;
+    background:linear-gradient(135deg,var(--cyan),#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .brand-name{font-weight:700;font-size:1.05rem;line-height:1.1}
+  .brand-tag{display:block;font-size:.68rem;color:var(--muted);font-weight:500}
+  nav.main{display:flex;gap:4px;flex-wrap:wrap}
+  nav.main a{color:var(--text);padding:8px 12px;border-radius:8px;font-size:.92rem}
+  nav.main a:hover{background:var(--panel);text-decoration:none}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:11px 20px;border-radius:999px;font-weight:700;font-size:.95rem;
+    border:1.5px solid var(--cyan);color:var(--text);background:transparent;cursor:pointer;
+  }
+  .btn:hover{text-decoration:none;background:rgba(34,211,197,.1)}
+  .btn.primary{background:linear-gradient(135deg,var(--cyan),#38bdf8);color:#012;border-color:transparent}
+  .btn.primary:hover{filter:brightness(1.08);background:linear-gradient(135deg,var(--cyan),#38bdf8)}
+  .nav-toggle{display:none}
+  @media (max-width:900px){
+    nav.main{display:none}
+    .header-cta{display:none}
+    .nav-toggle{display:inline-flex}
+    header.site details nav{display:flex;flex-direction:column;padding:8px 0 16px}
+  }
+  header.site details{display:none}
+  @media (max-width:900px){header.site details{display:block}}
+  header.site summary{list-style:none;cursor:pointer;padding:8px 14px;border:1px solid var(--line);border-radius:8px}
+  header.site summary::-webkit-details-marker{display:none}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    --hero-img:none;
+    position:relative;min-height:560px;display:flex;align-items:center;
+    background:
+      linear-gradient(90deg,rgba(6,18,26,.95) 0%,rgba(6,18,26,.75) 45%,rgba(6,18,26,.25) 100%),
+      var(--hero-img),
+      radial-gradient(ellipse at 80% 20%,rgba(245,166,35,.35),transparent 55%),
+      radial-gradient(ellipse at 70% 80%,rgba(34,211,197,.25),transparent 55%),
+      linear-gradient(180deg,#0b2433,#06121a);
+    background-size:cover;background-position:center;
+    border-bottom:1px solid var(--line);
+  }
+  .hero .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center;padding-top:56px;padding-bottom:56px}
+  .badge{
+    display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;
+    border:1px solid var(--amber);color:var(--amber);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;
+  }
+  .hero h1{font-size:clamp(2.1rem,5vw,3.4rem);letter-spacing:-.02em}
+  .hero h1 em{font-style:normal;color:var(--cyan)}
+  .hero p.lead{max-width:56ch;color:#cfe0e8;font-size:1.05rem}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:24px}
+  .snapshot{
+    justify-self:end;width:100%;max-width:320px;
+    background:rgba(10,27,38,.88);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;
+    backdrop-filter:blur(6px);
+  }
+  .snapshot h2{font-size:1rem;margin-bottom:12px}
+  .snapshot dl{margin:0}
+  .snapshot .row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
+  .snapshot dt{color:var(--muted)}
+  .snapshot dd{margin:0;font-weight:600}
+  .caption{font-size:.74rem;color:var(--muted);margin-top:10px;font-style:italic}
+  @media (max-width:900px){
+    .hero .wrap{grid-template-columns:1fr}
+    .snapshot{justify-self:start}
+  }
+
+  /* ---------- Sections ---------- */
+  section{padding:72px 0;border-bottom:1px solid var(--line)}
+  section.alt{background:var(--bg-2)}
+  .lede{color:var(--muted);max-width:68ch}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+  .checks{list-style:none;padding:0;margin:20px 0 0}
+  .checks li{display:flex;gap:12px;align-items:flex-start;padding:7px 0}
+  .checks li::before{
+    content:"✓";flex:none;width:22px;height:22px;border-radius:50%;
+    background:rgba(52,211,153,.18);color:var(--green);display:grid;place-items:center;font-size:.8rem;font-weight:800;margin-top:2px;
+  }
+
+  /* Architecture stack */
+  .stack{display:grid;gap:10px}
+  .layer{border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;background:var(--panel)}
+  .layer h3{font-size:1.05rem;margin-bottom:4px}
+  .layer p{margin:0;color:var(--muted);font-size:.92rem}
+  .layer.fusion{border-color:rgba(245,166,35,.55);background:linear-gradient(180deg,rgba(245,166,35,.1),var(--panel))}
+  .layer.fusion h3{color:var(--amber)}
+  .layer.gov{border-color:rgba(52,211,153,.55);background:linear-gradient(180deg,rgba(52,211,153,.1),var(--panel))}
+  .layer.gov h3{color:var(--green)}
+  .layer.engine{border-color:rgba(34,211,197,.55);background:linear-gradient(180deg,rgba(34,211,197,.1),var(--panel))}
+  .layer.engine h3{color:var(--cyan)}
+  .layer.human{border-color:rgba(245,166,35,.55)}
+  .layer.human h3{color:var(--amber)}
+  .link-line{text-align:center;color:var(--cyan-2);font-size:.82rem;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .quote{
+    margin-top:28px;padding:18px 22px;border-left:3px solid var(--cyan);background:var(--panel);border-radius:0 var(--radius) var(--radius) 0;
+    font-size:1.05rem;
+  }
+
+  /* Cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-top:28px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .card .body{padding:16px 18px}
+  .card h3{font-size:1.05rem;margin-bottom:6px}
+  .card p{margin:0;color:var(--muted);font-size:.92rem}
+  .tile-img{
+    --img:none;
+    height:150px;background:var(--img),linear-gradient(135deg,var(--g1,#14425a),var(--g2,#0b2433));
+    background-size:cover;background-position:center;
+  }
+
+  /* Supervision */
+  .sup-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .sup-panel .tri{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .sup-panel .tri span{padding:6px 14px;border-radius:999px;background:rgba(245,166,35,.14);color:var(--amber);font-weight:700;font-size:.85rem}
+
+  /* Status */
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 26px}
+  .pill{
+    display:inline-block;padding:3px 11px;border-radius:999px;font-size:.74rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    border:1px solid currentColor;
+  }
+  [data-status="concept"] .pill,.pill.concept{color:#94a3b8}
+  [data-status="prototype"] .pill,.pill.prototype{color:var(--amber)}
+  [data-status="training"] .pill,.pill.training{color:#38bdf8}
+  [data-status="ready"] .pill,.pill.ready{color:var(--green)}
+  .status-list{display:grid;gap:12px}
+  .status-row{
+    display:grid;grid-template-columns:1.1fr 2fr auto;gap:18px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;
+  }
+  .status-row h3{font-size:1rem;margin:0}
+  .status-row p{margin:0;color:var(--muted);font-size:.9rem}
+  .meter{width:150px}
+  .meter .track{height:7px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px}
+  .meter .fill{height:100%;width:var(--p,0%);background:linear-gradient(90deg,var(--cyan),#38bdf8)}
+  .meter .pct{font-size:.74rem;color:var(--muted);margin-top:4px;text-align:right}
+  @media (max-width:760px){
+    .status-row{grid-template-columns:1fr}
+    .meter{width:100%}
+  }
+  .linkout{
+    margin-top:26px;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;
+    background:linear-gradient(90deg,rgba(245,166,35,.12),var(--panel));border:1px solid rgba(245,166,35,.45);border-radius:var(--radius);padding:18px 22px;
+  }
+  .linkout p{margin:0}
+  .updated{font-size:.8rem;color:var(--muted);margin-top:14px}
+
+  /* Involved */
+  .involve{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:26px}
+
+  footer{padding:40px 0;background:#040d14;color:var(--muted);font-size:.88rem}
+  footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  footer ul{list-style:none;margin:0;padding:0;display:flex;gap:18px;flex-wrap:wrap}
+
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="NLT World Engine home">
+      <span class="logo" aria-hidden="true">NLT</span>
+      <span class="brand-name">World Engine<span class="brand-tag">AI Habitat. Real Consequences.</span></span>
+    </a>
+
+    <nav class="main" aria-label="Primary">
+      <a href="#top">Home</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#supervision">Human Supervision</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#status">Project Status</a>
+      <a href="#get-involved">Get Involved</a>
+    </nav>
+
+    <a class="btn header-cta" href="https://github.com/NeuroLift-Technologies/nlt-world-engine" target="_blank" rel="noopener">View on GitHub ↗</a> 
+
+    <details>
+      <summary class="nav-toggle">Menu</summary>
+      <nav aria-label="Mobile">
+        <a href="#how-it-works">How It Works</a>
+        <a href="#supervision">Human Supervision</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#status">Project Status</a>
+        <a href="#get-involved">Get Involved</a>
+        <a href="https://github.com/NeuroLift-Technologies/nlt-world-engine" target="_blank" rel="noopener">GitHub ↗</a> 
+      </nav>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ================= HERO (from version 1) ================= -->
+  <div class="hero" id="top" style="--hero-img:url('hero-coastal-dashboard.webp')">
+    <div class="wrap">
+      <div>
+        <div class="eyebrow">NLT World Engine <span class="badge">In Development · Open Source</span></div>
+        <h1>An AI Habitat Where Models <em>Live, Learn and Grow</em></h1>
+        <p class="lead">
+          The NLT World Engine is being built as an embodied multi-agent simulation where machine learning models
+          inhabit a persistent world, control their characters, interact with environments and other agents, and
+          transition between meaningful life scenarios.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="#architecture">▶ Explore the World</a>
+          <a class="btn" href="#how-it-works">How It Works</a>
+          <!-- Re-enable when an overview video exists:
+          <a class="btn" href="VIDEO_URL">Watch Overview</a> -->
+        </div>
+        <p class="caption">Hero art is a concept visualization of the target experience, not engine output.</p>
+      </div>
+
+      <aside class="snapshot" aria-label="Concept visualization of a live world snapshot">
+        <h2>Live World Snapshot</h2>
+        <dl>
+          <div class="row"><dt>Agents Active</dt><dd>24</dd></div>
+          <div class="row"><dt>Scenario</dt><dd>Workplace</dd></div>
+          <div class="row"><dt>Time</dt><dd>08:42 AM</dd></div>
+          <div class="row"><dt>Weather</dt><dd>Clear · 72°F</dd></div>
+        </dl>
+        <p class="caption">Concept visualization. Shows the intended experience, not a running system.</p>
+      </aside>
+    </div>
+  </div>
+
+  <!-- ================= MISSION / HOW IT WORKS ================= -->
+  <section id="how-it-works">
+    <div class="wrap grid-2">
+      <div>
+        <div class="eyebrow">Our Mission</div>
+        <h2>A governed, open, human-supervised world where AI agents learn through experience</h2>
+        <p class="lede">
+          More than a game engine. A living AI habitat for training, research, and real-world intelligence,
+          built so that what an agent learns, it learns through meaningful experience in a realistic, persistent world.
+        </p>
+        <ul class="checks">
+          <li>Embodied agents, not just chatbots</li>
+          <li>Persistent world with real consequences</li>
+          <li>Human oversight and governance</li>
+          <li>Open source. By us, for us.</li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="eyebrow">Two layers. One learning loop.</div>
+        <p class="lede">
+          AI-Fusion provides the semantic intelligence. The World Engine provides the physical reality.
+          A governance boundary authorizes interaction between them, and humans remain active participants
+          with full visibility and control.
+        </p>
+        <div class="quote">“Fusion still holds the semantics. The World Engine brings it to life.”</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SCENARIOS ================= -->
+  <section class="alt" id="scenarios">
+    <div class="wrap">
+      <div class="eyebrow">Planned scenarios</div>
+      <h2>More than a simulation</h2>
+      <p class="lede">A living environment for AI development, research, and real-world impact. These are the life contexts the world is being designed to hold.</p>
+      <div class="cards">
+        <article class="card">
+          <div class="tile-img" style="--g1:#1d4f6b;--g2:#0b2433" role="img" aria-label="Workplace scenario (placeholder)"></div>
+          <div class="body"><h3>Workplace</h3><p>Build skills. Gain confidence. Grow.</p></div>
+        </article>
+        <article class="card">
+          <div class="tile-img" style="--g1:#6b3d1d;--g2:#241a0b" role="img" aria-label="Academic scenario (placeholder)"></div>
+          <div class="body"><h3>Academic</h3><p>Learn. Collaborate. Achieve.</p></div>
+        </article>
+        <article class="card">
+          <div class="tile-img" style="--g1:#1d6b4a;--g2:#0b2419" role="img" aria-label="Social scenario (placeholder)"></div>
+          <div class="body"><h3>Social</h3><p>Make connections. Build relationships.</p></div>
+        </article>
+        <article class="card">
+          <div class="tile-img" style="--g1:#6b5a1d;--g2:#241f0b" role="img" aria-label="Personal scenario (placeholder)"></div>
+          <div class="body"><h3>Personal</h3><p>Manage needs. Find balance. Thrive.</p></div>
+        </article>
+      </div>
+      <p class="caption">Scenario imagery is illustrative.</p>
+    </div>
+  </section>
+
+  <!-- ================= HUMAN SUPERVISION ================= -->
+  <section id="supervision">
+    <div class="wrap grid-2">
+      <div>
+        <div class="eyebrow">Human Supervision</div>
+        <h2>Humans keep the authority</h2>
+        <p class="lede">
+          Nothing About Us, Without Us. Human supervisors design scenarios, watch agent behavior, review outcomes,
+          and intervene where authorized. Governance authority stays with people, by design.
+        </p>
+      </div>
+      <div class="sup-panel">
+        <div class="tri"><span>Observe</span><span>Evaluate</span><span>Guide</span></div>
+        <p>Supervisors can watch agent behavior, review outcomes, and step in where they are authorized to. This is the part of the system everything else is designed around.</p>
+        <p class="caption" style="margin:0">Supervision tooling is part of the roadmap. See Project Status.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ARCHITECTURE ================= -->
+  <section class="alt" id="architecture">
+    <div class="wrap grid-2">
+      <div>
+        <div class="eyebrow">The Architecture</div>
+        <h2>Semantics. Governance. Physics. Humans in authority.</h2>
+        <p class="lede">
+          Each layer has one job. The semantic layer decides what an agent means to do. The governance boundary
+          checks whether it is authorized. The engine determines what physically happens. Humans can see all of it.
+        </p>
+      </div>
+
+      <div class="stack" role="list">
+        <div class="layer fusion" role="listitem">
+          <h3>AI-Fusion</h3>
+          <p>Semantic cognition, meaning, goals, intent, ADHD trait modeling, coaching, and learning.</p>
+        </div>
+        <div class="link-line">↓ nlt.agent-loop.v1 · governed intent exchange ↑</div>
+        <div class="layer gov" role="listitem">
+          <h3>ASFDK Governance Boundary</h3>
+          <p>Authorizes actions against the applicable rules before they reach the world.</p>
+        </div>
+        <div class="link-line">↓ ↑</div>
+        <div class="layer engine" role="listitem">
+          <h3>NLT World Engine</h3>
+          <p>Godot 4.7.2 / C#. Physical world state, perception, movement, collision, and consequences.</p>
+        </div>
+        <div class="link-line">↕</div>
+        <div class="layer human" role="listitem">
+          <h3>Human Supervision</h3>
+          <p>Observe, evaluate, design scenarios, guide learning, and retain governance authority.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PROJECT STATUS (engine only) =================
+       Agents: update data-status, the pill text, style="--p:NN%" and the pct text per row.
+       Allowed statuses: concept | prototype | training | ready
+  -->
+  <section id="status">
+    <div class="wrap">
+      <div class="eyebrow">Project Status</div>
+      <h2>Where the World Engine stands</h2>
+      <p class="lede">This page is about work in progress. Status for the World Engine only; the semantic layer tracks its own.</p>
+
+      <div class="legend" aria-label="Status legend">
+        <span class="pill concept">Concept</span>
+        <span class="pill prototype">Prototype</span>
+        <span class="pill training">Training</span>
+        <span class="pill ready">Ready</span>
+      </div>
+
+      <div class="status-list">
+        <article class="status-row" data-status="prototype" style="--p:35%">
+          <h3>World runtime (Godot 4.7.2 / C#)</h3>
+          <p>Authoritative physical runtime. Procedural open world renders; collision and agent embodiment in progress.</p>
+          <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">35%</div></div>
+        </article>
+
+        <article class="status-row" data-status="prototype" style="--p:40%">
+          <h3>Agent loop (nlt.agent-loop.v1)</h3>
+          <p>Contract, validation, async HTTP transport, and an opt-in one-avatar scene delivered; visible in-scene arrival still unverified.</p>
+          <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">40%</div></div>
+        </article>
+
+        <article class="status-row" data-status="prototype" style="--p:40%">
+          <h3>ASFDK governance boundary</h3>
+          <p>Engine-side intent gate integrated; fails closed on transport and validation errors.</p>
+          <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">40%</div></div>
+        </article>
+
+        <article class="status-row" data-status="prototype" style="--p:45%">
+          <h3>Human supervision tooling</h3>
+          <p>Six observer panels, three reading levels, transport controls, and accessibility delivered; human click-through pending.</p>
+          <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">45%</div></div>
+        </article>
+
+        <article class="status-row" data-status="prototype" style="--p:15%">
+          <h3>Scenario library</h3>
+          <p>Four interior FBX imports plus the procedural open world; building-to-interior wiring still open.</p>
+          <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">15%</div></div>
+        </article>
+      </div>
+
+      <div class="linkout">
+        <p><strong>The semantic layer has its own status.</strong><br>
+        See how far the 19 Avatar-Aide-Advocate pairs have come.</p>
+        <a class="btn primary" href="https://neurolift-ai-fusion-org.vercel.app" target="_blank" rel="noopener">AI-Fusion status ↗</a>
+      </div>
+
+      <p class="updated">Last updated: October 10, 2026</p>
+    </div>
+  </section>
+
+  <!-- ================= GET INVOLVED ================= -->
+  <section class="alt" id="get-involved">
+    <div class="wrap">
+      <div class="eyebrow">Get Involved</div>
+      <h2>Built in the open, with the people it's for</h2>
+      <p class="lede">The World Engine is open source and still early, which is the best time to shape it.</p>
+      <div class="involve">
+        <article class="card"><div class="body">
+          <h3>For developers</h3>
+          <p>Open source and ready for contribution. Read the code, open an issue, or pick up a task.</p>
+          <p style="margin-top:12px"><a href="https://github.com/NeuroLift-Technologies/nlt-world-engine" target="_blank" rel="noopener">GitHub ↗</a></p> 
+        </div></article>
+        <article class="card"><div class="body">
+          <h3>For the neurodivergent community</h3>
+          <p>Nothing About Us, Without Us. Your lived experience should shape what gets built.</p>
+          <p style="margin-top:12px"><a href="mailto:haief@neuroliftsolutions.com">Get in touch</a></p> 
+        </div></article>
+        <article class="card"><div class="body">
+          <h3>For researchers and partners</h3>
+          <p>Interested in embodied agents, governance, or human-supervised learning? Let's talk.</p>
+          <p style="margin-top:12px"><a href="mailto:haief@neuroliftsolutions.com">Get in touch</a></p> 
+        </div></article>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <strong style="color:var(--text)">NLT World Engine</strong><br>
+      A project of NeuroLift Technologies, LLC.<br>
+      © 2026 NeuroLift Technologies, LLC.
+    </div>
+    <ul>
+      <li>Open Source</li>
+      <li>By Us, For Us</li>
+      <li>Local First</li>
+    </ul>
+    <ul>
+      <li><a href="https://github.com/NeuroLift-Technologies/nlt-world-engine" target="_blank" rel="noopener">GitHub</a></li> 
+      <li><a href="https://neurolift-ai-fusion-org.vercel.app" target="_blank" rel="noopener">AI-Fusion</a></li>
+      <li><a href="https://neuroliftsolutions.com" target="_blank" rel="noopener">NeuroLift Technologies</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>
