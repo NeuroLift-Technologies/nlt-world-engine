@@ -63,8 +63,8 @@ public static class SettlementBuilder
         for (int i = 0; i < RoadCount; i++)
         {
             var a = i / (float)RoadCount * Mathf.Pi * 2f + RoadAngleOffset;
-            var ax = MathF.Cos(a);
-            var az = MathF.Sin(a);
+            var ax = MathF.Sin(a);
+            var az = MathF.Cos(a);
 
             // Component along the road axis, clamped to the road's length: past the far end a
             // building is beyond the road, before the centre it is inside the plaza instead.
