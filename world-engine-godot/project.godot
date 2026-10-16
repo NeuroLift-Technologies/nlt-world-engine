@@ -28,7 +28,7 @@ project/assembly_name="NLT World Engine (Godot)"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/Color grading/plugin.cfg", "res://addons/beehave/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/sky_3d/plugin.cfg")
+enabled=PackedStringArray("res://addons/Color grading/plugin.cfg", "res://addons/beehave/plugin.cfg", "res://addons/fusion_agent_loop/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/sky_3d/plugin.cfg")
 
 [importer_defaults]
 
