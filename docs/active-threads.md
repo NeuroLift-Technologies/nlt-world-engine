@@ -67,6 +67,15 @@
     let avatars walk on the lake/sea surface — **Joshua 2026-10-17: off in the open world**; it now
     stays on only inside interiors as a backstop. An avatar that walks into water now wades down
     onto the lake/sea bed (terrain body); no swim/shoreline rule exists yet.
+  - **Fusion tour + server fixes, 2026-10-17 (CLAUDE):** the agent-loop avatar walked off the home
+    interior and fell repeatedly — the tour's anchors are open-world, the default feed shows the
+    home, and #102 had removed the open world's physics under interiors. Now physics stays where
+    the live bodies are (interiors display-only while a tour runs), the tour starts in the open
+    world on the plaza, and the kill-plane lands over-water falls on the plaza. Fusion server
+    (`addons/fusion_agent_loop`) hung while still listening on 8001: output was piped, the pipe
+    read failed (`PeekNamedPipe` errors), the pipe filled and uvicorn blocked. Server output now
+    goes to `user://fusion_agent_loop_server.log` (tailed in the dock); Stop kills the whole venv
+    process tree. Verified the launch path end-to-end on port 8011.
   - **All four interiors dressed, 2026-10-17 (CLAUDE):** `InteriorStyle` now has rule sets for the
     office (`WF_*`), café (`Cafe_*`/`Social_*`) and classroom (`Academic_*`, desks, bookshelves),
     3–4 colour schemes per kind; every building's portal is `<kind>_<n>` so each building looks

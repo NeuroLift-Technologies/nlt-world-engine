@@ -136,7 +136,13 @@ public partial class Main : NltWorldEngine.WorldView
 		if (doc.Scene.Id != _sceneId)
 		{
 			_sceneId = doc.Scene.Id;
-			ShowScene(doc.Scene.Id, doc.Scene.Kind);
+			// The Fusion tour walks the open world (its destinations are WorldAnchorBuilder's
+			// open-world anchors), so that is what the observer sees; a feed that says "Home"
+			// would otherwise show a room while the avatar it follows is outdoors.
+			if (EnableFusionAgentLoop)
+				ShowScene("", "open_world");
+			else
+				ShowScene(doc.Scene.Id, doc.Scene.Kind);
 		}
 
 		Residents.Sync(doc, ReducedMotion);
@@ -246,7 +252,12 @@ public partial class Main : NltWorldEngine.WorldView
 			localAvatar.ReducedMotion = ReducedMotion;
 			AddChild(localAvatar);
 			AgentState? primary = FeedTransport.PrimaryAvatar(doc);
-			Vector3 spawn = primary?.Position3() ?? Vector3.Zero;
+			// Feed positions are scene-local: in an interior document they are room coordinates, and
+			// used as open-world coordinates they put the tour's avatar in empty ground far from any
+			// anchor. Start an open-world tour on the plaza unless the feed is itself open-world.
+			Vector3 spawn = doc.Scene.Kind == "open_world" && primary != null
+				? primary.Position3()
+				: WorldGeometry.PlazaSpawn();
 			localAvatar.GlobalPosition = spawn + new Vector3(2f, 1f, 0f);
 			localAvatar.Observe(localAvatar.GlobalPosition, new[] { 0.5f, 0.5f, 0.5f, 0.5f }, doc.Scene.Id);
 			// Assigned here as well as in StartFusionAgentLoop: the loop builds the anchor set, but
@@ -254,6 +265,7 @@ public partial class Main : NltWorldEngine.WorldView
 			// wander blind while its siblings tour properly.
 			localAvatar.Anchors = _worldAnchors;
 			_avatars[localId] = localAvatar;
+			RefreshWorldPhysics();
 		}
 
 		if (!EnableLiveAvatars)
@@ -299,6 +311,9 @@ public partial class Main : NltWorldEngine.WorldView
 	/// Flat Jolt ground so <c>IsOnFloor()</c> has something to stand on: a backstop under the
 	/// interiors' own UCX floors. Disabled while the open world shows (<see cref="SyncAvatarGround"/>).
 	/// </summary>
+	/// <summary>Live avatars walk the open world, so its physics must stay on while they exist.</summary>
+	protected override bool OpenWorldBodiesLive => _avatars.Count > 0;
+
 	private void EnsureAvatarGround()
 	{
 		if (GetNodeOrNull<StaticBody3D>(AvatarGroundName) != null)
