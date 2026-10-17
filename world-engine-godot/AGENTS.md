@@ -67,6 +67,7 @@ it in three layers:
 | **No asset lands without an `ASSET-MANIFEST.md` row** (source URL, licence, licence text, retrieval date, author). Do not commit unexamined files blind (`RenderStripped.*`, `SK_SimBody_Base.fbx` stay untracked). Mixamo redistribution licence is an **open risk (G1.1)** — do not assume CC0. | `ART-PIPELINE.md` G2.1, `ASSET-MANIFEST.md` |
 | Import art where art is genuinely required (characters, near-camera hero props) — **not** as blanket replacement of procedural terrain/water/vegetation/buildings. | `ART-PIPELINE.md` §4 |
 | The UE tree `../WorldEngine/` is frozen and non-authoritative. Do not change it; do not treat it as a conformance oracle. | ENG-002 |
+| **Physics engine is Jolt** (`project.godot` → `[physics] 3d/physics_engine="Jolt Physics"`, built into the 4.7.2 build in use — there is no Jolt addon under `addons/`). All collision work targets Jolt via the normal Godot API (`CharacterBody3D` + `move_and_slide()`, `PhysicsServer3D`, static level bodies); do not add a second physics stack, and do not assume GodotPhysics behaviour when reasoning about contacts, `move_and_slide()` results, or body overlap. Character collision is **not yet implemented** — `AgentBrain` is a bare `Node3D` and `TerrainBuilderPhysics.cs` is an empty placeholder, so `AGENT-SYSTEM.md` §8.5/§8.6 remain open. | PHYS-001 |
 | PR ≤ 100 changed files (CodeRabbit skips review above it). | `MIGRATION-PLAN.md` §10 |
 
 ---

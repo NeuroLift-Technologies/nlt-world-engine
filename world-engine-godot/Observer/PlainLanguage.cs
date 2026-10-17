@@ -27,6 +27,30 @@ public static class PlainLanguage
             : $"for about {Math.Round(mins):0} minutes";
     }
 
+    /// <summary>
+    /// How long ago something happened — the mirror of <see cref="Duration"/>, and deliberately a
+    /// different wording rather than a flag on it.
+    ///
+    /// <para>
+    /// <see cref="Duration"/> answers "how long has this been going on", so it reads "for about 40
+    /// seconds". An event list answering the same question with the same phrase puts "started a task
+    /// for about 12 seconds" on a row, which reads as though the task is still running rather than as
+    /// a timestamp. This says "12 seconds ago", and says "just now" at zero rather than "just
+    /// started", which described the task rather than the row.
+    /// </para>
+    /// </summary>
+    public static string Ago(long ticks)
+    {
+        if (ticks <= 0)
+            return "just now";
+        if (ticks < 60)
+            return $"{ticks}s ago";
+        double mins = ticks / 60.0;
+        return mins < 10
+            ? $"{mins:0.#}m ago"
+            : $"{Math.Round(mins)}m ago";
+    }
+
     public static string StateWord(string state) => state switch
     {
         "settled" => "Settled",

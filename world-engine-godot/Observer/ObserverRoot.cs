@@ -61,6 +61,11 @@ public partial class ObserverRoot : Control
     private FusionGatePanel _fusionGate = null!;
     private AideLogPanel _aideLog = null!;
     private LearningTimelinePanel _timeline = null!;
+    // GRAPH-002 / GP-3: the dashboard chrome the Phase D layout did not have.
+    private EventFeedPanel _eventFeed = null!;
+    private EnvironmentHeader _environmentHeader = null!;
+    private Minimap _minimap = null!;
+    private Control _chromeHost = null!;
     private VBoxContainer _leftRail = null!;
     private VBoxContainer _rightRail = null!;
 
@@ -127,7 +132,10 @@ public partial class ObserverRoot : Control
         _feed.DocumentChanged += _ => RefreshAll();
         _feed.StatusChanged += RefreshStatus;
         _a11y.Changed += OnAccessibilityChanged;
-        _feed.Load(ReplayFixture);
+        // Default bundle, unless --fixture named another on the command line. Resolved here rather than in
+        // Main: Attach is what performs the load, and Main calls it before ObserverCapture.TryCreate
+        // exists, so an override read there would always arrive too late to matter.
+        _feed.Load(ObserverCapture.RequestedFixture ?? ReplayFixture);
 
         // Apply the world-side accessibility state up front, not only on the first change. PR #80
         // gave WorldView a SkyPaused seam for reduced motion; if the setting starts on, the sky has
@@ -182,9 +190,14 @@ public partial class ObserverRoot : Control
 
         _fusionGate = new FusionGatePanel();
         _aideLog = new AideLogPanel();
+        _eventFeed = new EventFeedPanel();
         _rightRail = Ui.Col(10);
         _rightRail.AddChild(Wire(_fusionGate, 0, 0, 1.15f));
         _rightRail.AddChild(Wire(_aideLog, 0, 0, 1.0f));
+        // GRAPH-002 / GP-3: the dashboard's Recent Events. Given the largest share of the right rail
+        // because it is the only one of the three that changes minute to minute — the other two hold
+        // a state that stays put while an operator reads it.
+        _rightRail.AddChild(Wire(_eventFeed, 0, 0, 1.4f));
 
         // The world shows through the middle of this, so the camera still works. Click-through.
         var spacer = new Control { SizeFlagsHorizontal = ControlSizeFlags.ExpandFill, MouseFilter = ControlMouseFilter.Ignore };
@@ -219,8 +232,10 @@ public partial class ObserverRoot : Control
         _root.AddChild(BuildHud());
         _root.AddChild(BuildSettings());
         _root.AddChild(BuildDiagnostics());
+        _root.AddChild(BuildDashboardChrome());
 
         ApplyDensity();
+        RequestSplits();
     }
 
     /// <summary>
@@ -510,6 +525,138 @@ public partial class ObserverRoot : Control
         return hud;
     }
 
+    /// <summary>
+    /// The dashboard's floating chrome: the environment header (top-right) and the minimap
+    /// (bottom-right).
+    ///
+    /// <para>
+    /// Both are full-rect overlays rather than laid-out panels, for the same reason
+    /// <see cref="WorldViewHud"/> is: they belong to the 3D view, not to the rails, so they must not
+    /// claim space from the panels. They are added after the HUD and after the popups so they draw on
+    /// top of the world but under the settings and diagnostics panels, which stay reachable.
+    /// </para>
+    ///
+    /// <para>
+    /// The header's placement is fixed (top-right, under the top bar). The minimap's is not: it
+    /// anchors to the bottom-right of the viewport, which means it has to be re-placed whenever the
+    /// window resizes or the rails are dragged, or it drifts off the corner. Both are re-placed from
+    /// <see cref="OnResized"/>, and the minimap also from the same place the splits settle.
+    /// </para>
+    /// </summary>
+    private Control BuildDashboardChrome()
+    {
+        var host = new Control
+        {
+            Name = "DashboardChrome",
+            MouseFilter = ControlMouseFilter.Ignore,
+        };
+        // Full rect, and explicitly sized from this control rather than left to the anchors alone:
+        // the overlays are positioned as offsets against this host, so a host that has not been laid
+        // out is a host with nothing to position them against.
+        host.SetAnchorsAndOffsetsPreset(ControlLayoutPreset.FullRect);
+        _chromeHost = host;
+
+        _environmentHeader = new EnvironmentHeader();
+        _environmentHeader.Attach(_feed, _a11y);
+        host.AddChild(_environmentHeader);
+
+        _minimap = new Minimap();
+        _minimap.Attach(_feed, _a11y);
+        host.AddChild(_minimap);
+
+        // Deferred, and this is not tidiness. Both children set their own Size in _Ready, which runs
+        // when AddChild puts them in the tree — after this method returns. Placing them now would
+        // read Size as zero and compute a position from it, leaving both anchored to a size they no
+        // longer have. They would sit off the bottom-right corner, invisible, with no error to
+        // explain why. ApplySplits re-places them once the rails have settled.
+        CallDeferred(nameof(PlaceDashboardChrome));
+        return host;
+    }
+
+    /// <summary>
+    /// Anchor the header under the top bar and the minimap into the bottom-right corner of the
+    /// viewport, both clear of the right rail.
+    ///
+    /// <para>
+    /// The right rail's width is only known once the split containers have been laid out, so this
+    /// runs again from <see cref="ApplySplits"/>. Offsetting the minimap by the rail width is what
+    /// stops it from sitting underneath the panels — an overlay that the observer covers is not an
+    /// overlay. The result is clamped so a rail dragged very wide pushes the minimap left rather than
+    /// off the top of the window.
+    /// </para>
+    /// </summary>
+    private void PlaceDashboardChrome()
+    {
+        if (_environmentHeader == null || _minimap == null || _chromeHost == null)
+            return;
+
+        // Sizes first, captured as constants rather than read back from the live controls. A Control's
+        // rect is derived from its anchors and offsets *together*, so moving the anchors rewrites the
+        // size: reading Size after the move returns the new, wrong box, and the placement then
+        // compounds itself every time the window resizes. The header measured (12, 0) and the minimap
+        // (291, 12) for exactly this reason — both collapsed to the gap between their own anchors and
+        // sat off the edge of the screen while still reporting Visible.
+        var headerSize = HeaderSize();
+        var mapSize = MinimapSize();
+
+        // The right rail's width is read from the split rather than from _railTarget: the divider is
+        // where it actually is after any drag.
+        // Where the right rail's left edge sits, in this control's coordinates — the overlays are placed to
+        // its left. Read as Position.X rather than as GetGlobalRect().End.X: the rail is the last
+        // child of a horizontal split, so its rect's far edge is the window edge (1152) whether or not
+        // the rail is visible, and offsetting by that threw both overlays off-screen at Technical.
+        // Its position is the edge that actually moves when the divider is dragged.
+        float railLeft = 0f;
+        // A rail that is hidden reports no width and should not push the overlays in; treat it as
+        // "not in the way" rather than as sitting at x = 0. Checked before the tree test so a rail
+        // that has not been built yet cannot dereference.
+        if (_rightRail != null && _rightRail.IsInsideTree() && _rightRail.Visible)
+            railLeft = _rightRail.GetGlobalRect().Position.X - GetGlobalRect().Position.X;
+        float bottomInset = _timeline?.Size.Y ?? 0f;
+
+        // Top-right, below the top bar, and clear of the right rail. Anchors and offsets are both
+        // set explicitly — setting only the anchors leaves the offsets at 0, so the offset below is
+        // what actually moves the box. Both overlays are offset by the rail for the same reason the
+        // minimap is: an overlay the observer covers is not an overlay, and at Coach the rail is
+        // wide enough for the header to have run underneath it.
+        //
+        // The header's width is whatever its four chips measured, plus a hair. Measured rather than
+        // fixed because the strip carries live text — a longer scenario name makes it wider — and a
+        // fixed width clipped the last chip's label. The hair covers the fractional pixel that
+        // GetStringSize's rounding leaves behind.
+        // The hair is not cosmetic. GetStringSize measures in a float and the chips are laid out from
+        // rounded measurements, so the strip ends up a few pixels narrower than its own content and
+        // the last chip's label clips. The gutter scales with the text: a longer scenario name needs
+        // more, not the same two pixels.
+        float headerWidth = _environmentHeader.ContentWidth > 1f
+            ? _environmentHeader.ContentWidth * 1.03f + 4f
+            : HeaderSize().X;
+        _environmentHeader.Size = new Vector2(headerWidth, HeaderSize().Y);
+        _environmentHeader.SetAnchorsPreset(ControlLayoutPreset.TopRight);
+        // Both overlays are anchored to the right edge, so OffsetLeft is measured from this control's RIGHT
+        // edge, not from the origin. The header should end 12px to the left of the right rail, i.e. at
+        // x = railLeft - 12, which is OffsetLeft = (railLeft - 12) - Size.X. With the rail hidden at
+        // Simple there is nothing to clear, so the strip sits 12px off the right edge instead.
+        float rightEdge = Size.X;
+        float railClear = railLeft > 0f ? railLeft - 12f : rightEdge - 12f;
+        _environmentHeader.OffsetLeft = railClear - headerWidth - rightEdge;
+        _environmentHeader.OffsetTop = 44f + 12f;
+
+        // Bottom-right, clear of the right rail *and* the timeline. The timeline is the full-width
+        // bottom band, so anchoring only against the window edge would drop the map straight through
+        // it and over the transport controls.
+        _minimap.Size = mapSize;
+        _minimap.SetAnchorsPreset(ControlLayoutPreset.BottomRight);
+        _minimap.OffsetLeft = railClear - mapSize.X - rightEdge;
+        _minimap.OffsetTop = -mapSize.Y - bottomInset - 12f;
+    }
+
+    /// <summary>The environment header's fixed strip size.</summary>
+    private static Vector2 HeaderSize() => new(520f, 114f);
+
+    /// <summary>The minimap's fixed size, including its border margin.</summary>
+    private static Vector2 MinimapSize() => new(192f, 214f);
+
     private Control BuildSettings()
     {
         _settingsPanel = Ui.Card(_a11y.Palette.PanelRaised, _a11y.Palette.Accent, 8, 14);
@@ -707,6 +854,8 @@ public partial class ObserverRoot : Control
     /// </summary>
     private void ApplySplits()
     {
+        // Deferred from Build() as well as from a resize: the divider targets are only correct once
+        // the container has a real size, and the corner overlays are placed from the rail's width.
         if (_leftSplit == null || Size.X < 1f || Size.Y < 1f)
             return;
 
@@ -722,6 +871,10 @@ public partial class ObserverRoot : Control
         // The world band is the *first* child of the vertical split, so its offset is the band itself.
         // Asking for "timeline height" here would size the world view to that number instead.
         SetSplit(_vSplit, (int)Size.Y - _timelineTarget, false);
+
+        // The corner overlays are offset by the rail's real width, which is only known now that the
+        // divider has moved (see PlaceDashboardChrome).
+        PlaceDashboardChrome();
 
         // Re-run for a few frames until the children stop moving (see RequestSplits).
         if (_splitsSettle-- > 0)

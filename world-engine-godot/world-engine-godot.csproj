@@ -15,6 +15,12 @@
   <ItemGroup>
     <Compile Remove="AgentHarness/**/*.cs" />
     <Compile Remove="AgentLoopEndpoint/**/*.cs" />
+    <!-- Same reason, and it bit immediately: tools/make_open_world_fixture/ is a standalone
+         authoring tool on the Godot SDK, so building it writes a nested .godot/mono/temp/obj tree
+         inside the project. That tree holds generated AssemblyInfo.cs files, and the **/*.cs glob
+         swept them in, producing CS0579 "duplicate TargetFrameworkAttribute" on the next build of
+         the engine. Excluding tools/** removes both the tool's own sources and its build output. -->
+    <Compile Remove="tools/**/*.cs" />
   </ItemGroup>
 
   <!-- ASFDK-C# governance at intent ingress (AGENT-LOOP-001). Local project reference

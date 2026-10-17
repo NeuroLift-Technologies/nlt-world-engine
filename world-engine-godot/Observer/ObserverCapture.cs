@@ -30,6 +30,33 @@ public partial class ObserverCapture : Node
     private bool _done;
     private bool _selfTest;
 
+    /// <summary>
+    /// The replay bundle to load, from <c>--fixture</c>, or null for the observer's default.
+    ///
+    /// <para>
+    /// <see cref="TryCreate"/> sets this, but <c>TryCreate</c> runs late — <c>Main._Ready</c> has
+    /// already called <c>ObserverRoot.Attach</c>, which is what loads the default bundle. So the
+    /// command line is also read here, directly, because the override has to be known before the
+    /// first document is loaded rather than after. <see cref="TryCreate"/> still sets it, so the two
+    /// cannot disagree: both read the same argument.
+    /// </para>
+    /// </summary>
+    public static string? RequestedFixture { get; private set; } = FixtureFromCommandLine();
+
+    /// <summary>Parse <c>--fixture &lt;res://path.json&gt;</c> from the user args, or null.</summary>
+    private static string? FixtureFromCommandLine()
+    {
+        string? value = ValueAfter(OS.GetCmdlineUserArgs(), "--fixture");
+        if (value == null)
+            return null;
+        // Accept a bare relative name as well as a full res:// path, because typing
+        // --fixture stayalert-day.json is the obvious thing to try and a silent fallback to the
+        // default would look like the flag did nothing.
+        return value.Contains("://", StringComparison.Ordinal)
+            ? value
+            : $"res://fixtures/replay/{value}.json";
+    }
+
     public static ObserverCapture? TryCreate(Node parent)
     {
         var args = OS.GetCmdlineUserArgs();
@@ -38,24 +65,43 @@ public partial class ObserverCapture : Node
             return null;
 
         var capture = new ObserverCapture { Name = "ObserverCapture", _selfTest = selfTest };
-        int at = System.Array.IndexOf(args, "--capture");
-        if (at + 1 < args.Length)
-            capture._path = args[at + 1];
+        capture._path = ValueAfter(args, "--capture") ?? "";
 
-        int levelAt = System.Array.IndexOf(args, "--level");
-        if (levelAt + 1 < args.Length
-            // Case-insensitive: the usage line documents `--level technical` in lower case, and
-            // Enum.TryParse is case-sensitive by default, so the documented example silently
-            // stayed at Simple.
-            && System.Enum.TryParse(args[levelAt + 1], ignoreCase: true, out ReadingLevel parsed))
+        // Case-insensitive: the usage line documents `--level technical` in lower case, and
+        // Enum.TryParse is case-sensitive by default, so the documented example silently stayed at
+        // Simple.
+        if (Enum.TryParse(ValueAfter(args, "--level"), ignoreCase: true, out ReadingLevel parsed))
             capture._level = parsed;
 
-        int framesAt = System.Array.IndexOf(args, "--frames");
-        if (framesAt + 1 < args.Length && int.TryParse(args[framesAt + 1], out int f))
+        if (int.TryParse(ValueAfter(args, "--frames"), out int f))
             capture._frames = Math.Max(1, f);
+
+        // Read into the same static the property initialiser reads, so there is one source of truth for it
+        // however the capture node happens to be created.
+        RequestedFixture = ValueAfter(args, "--fixture") is string f0 ? FixtureFromCommandLine() : null;
 
         parent.AddChild(capture);
         return capture;
+    }
+
+    /// <summary>
+    /// The argument following <paramref name="flag"/>, or null if the flag is absent or has no value.
+    ///
+    /// <para>
+    /// One helper because every hand-written version of this got it subtly wrong the same way.
+    /// <c>Array.IndexOf</c> returns <b>-1</b> for an absent flag, and <c>-1 + 1</c> is <c>0</c>, so
+    /// the natural <c>if (at + 1 &lt; args.Length)</c> guard reads <c>args[0]</c> — some unrelated
+    /// argument — as the flag's value. With <c>--fixture</c> that meant a plain <c>--selftest</c> run
+    /// tried to open <c>res://fixtures/replay/--selftest.json</c>, reported a missing file, and laid
+    /// the transport toolbar out one button wider than the window. The same shape sat in the
+    /// <c>--capture</c>, <c>--level</c> and <c>--frames</c> reads below, where it happened to be
+    /// harmless only because the value failed to parse.
+    /// </para>
+    /// </summary>
+    private static string? ValueAfter(string[] args, string flag)
+    {
+        int at = Array.IndexOf(args, flag);
+        return at >= 0 && at + 1 < args.Length && args[at + 1].Length > 0 ? args[at + 1] : null;
     }
 
     /// <summary>Reading level to show, applied once the observer exists.</summary>

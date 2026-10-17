@@ -254,7 +254,7 @@ func _browse(edit: LineEdit, title_text: String, on_changed: Callable) -> void:
 	dialog.current_path = edit.text if not edit.text.is_empty() else chosen
 	dialog.file_selected.connect(func(path: String) -> void:
 		edit.text = path
-		on_changed.call_func(path))
+		on_changed.call(path))
 	dialog.canceled.connect(dialog.queue_free)
 	dialog.confirmed.connect(dialog.queue_free)
 	dialog.close_requested.connect(dialog.queue_free)
@@ -363,7 +363,13 @@ func _on_start_pressed() -> void:
 	OS.set_environment(PORT_KEY, _port())
 	# Without this the child inherits the editor's CWD (the Godot project) and `-m
 	# src.fusion.agent_loop_http` dies with ModuleNotFoundError before uvicorn ever binds.
-	OS.set_environment(PYTHONPATH_KEY, repo + (previous_pythonpath.is_empty() ? "" : ";" + previous_pythonpath))
+	# GDScript spells a conditional `value_if_true if test else value_if_false` — there is no
+	# `?:`. The list separator is the host's, not Windows-only: joining with the wrong one
+	# hands the inherited path to Python as a single malformed entry, which surfaces as
+	# ModuleNotFoundError rather than as a bad-path error.
+	var path_sep := ";" if OS.get_name() == "Windows" else ":"
+	var pythonpath_value := repo if previous_pythonpath.is_empty() else repo + path_sep + previous_pythonpath
+	OS.set_environment(PYTHONPATH_KEY, pythonpath_value)
 
 	var args := PackedStringArray(["-m", FUSION_MODULE])
 	var proc := OS.execute_with_pipe(python, args, false)

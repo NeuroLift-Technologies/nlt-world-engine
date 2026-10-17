@@ -33,6 +33,7 @@ public partial class Main : NltWorldEngine.WorldView
 
 	private readonly System.Collections.Generic.Dictionary<string, AvatarCharacter> _avatars = new();
 	private AgentLoopDriver? _agentLoopDriver;
+	private System.Collections.Generic.List<TaskAnchor> _worldAnchors = new();
 
 
 	public override void _Ready()
@@ -180,62 +181,43 @@ public partial class Main : NltWorldEngine.WorldView
 
 	private void StartFusionAgentLoop()
 	{
-		if (!EnableLiveAvatars)
-			GD.PushWarning("Fusion agent loop is enabled; spawning only the local test avatar. " +
-				"Feed avatars remain observer-only.");
-
 		var avatar = _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local)
 			&& IsInstanceValid(local)
 				? local
 				: null;
 		if (avatar == null)
 		{
-			GD.PushError("Fusion agent loop requires the local test avatar, but it was not created.");
+			GD.PushError("Fusion agent loop requires the local avatar, but it was not created.");
 			return;
 		}
-		avatar.Attach(new IdleController());
 
-		const string anchorId = "agent_loop_test_target";
-		var anchorPosition = avatar.GlobalPosition + new Vector3(5f, -1f, 0f);
-		var anchor = new TaskAnchor(
-			anchorId,
-			"Agent-loop test target",
-			new AffordanceAxes { Privacy = 0.8f, SocialDensity = 0.1f, NoiseLevel = 0.1f })
-		{
-			Position = anchorPosition,
-		};
+		// Real destinations instead of the old synthetic "agent loop test target" sphere. The loop
+		// needs a choice of places to exist at all; with one anchor five metres away it could only
+		// ever prove the socket connected, never that the avatar traverses the world.
+		_worldAnchors = WorldAnchorBuilder.BuildOpenWorld();
 
-		var marker = new Node3D { Name = anchorId };
-		var markerMesh = new MeshInstance3D
-		{
-			Name = "Marker",
-			Mesh = new SphereMesh { Radius = 0.3f, Height = 0.6f },
-			Position = new Vector3(0f, 0.5f, 0f),
-		};
-		marker.AddChild(markerMesh);
-		var label = new Label3D
-		{
-			Name = "Label",
-			Text = "Fusion test target",
-			Position = new Vector3(0f, 1.1f, 0f),
-		};
-		marker.AddChild(label);
-		AddChild(marker);
-		marker.GlobalPosition = anchorPosition;
+		// Hand the avatar the anchor set so its fallback controller has real destinations. Fusion
+		// picks *which* place to visit; this is what lets it move between decisions rather than
+		// standing still whenever Fusion has nothing to say.
+		avatar.Anchors = _worldAnchors;
 
+		// The avatar already attaches a UtilityAgentController in its own _Ready. Leaving that in
+		// place is deliberate: if Fusion is slow, down, or mid-restart, the avatar keeps moving on
+		// its own instead of freezing on an IdleController. Fusion intents replace it when they
+		// arrive.
 		_agentLoopDriver = new AgentLoopDriver
 		{
 			Name = "AgentLoopDriver",
 			Enabled = true,
 			TargetAgentId = LocalAvatarTargetId,
-			Anchors = new[] { anchor },
+			Anchors = _worldAnchors,
 		};
 		var endpoint = OS.GetEnvironment("NLT_AGENT_LOOP_ENDPOINT");
 		if (!string.IsNullOrWhiteSpace(endpoint))
 			_agentLoopDriver.FusionEndpoint = endpoint;
 		AddChild(_agentLoopDriver);
 		GD.Print($"Fusion agent loop enabled for {LocalAvatarTargetId}; endpoint: " +
-			$"{_agentLoopDriver.FusionEndpoint}; visible target: {anchorId}");
+			$"{_agentLoopDriver.FusionEndpoint}; destinations: {_worldAnchors.Count} anchors");
 	}
 
 	/// <summary>
@@ -267,6 +249,10 @@ public partial class Main : NltWorldEngine.WorldView
 			Vector3 spawn = primary?.Position3() ?? Vector3.Zero;
 			localAvatar.GlobalPosition = spawn + new Vector3(2f, 1f, 0f);
 			localAvatar.Observe(localAvatar.GlobalPosition, new[] { 0.5f, 0.5f, 0.5f, 0.5f }, doc.Scene.Id);
+			// Assigned here as well as in StartFusionAgentLoop: the loop builds the anchor set, but
+			// an avatar can be spawned on a later document, and one created without anchors would
+			// wander blind while its siblings tour properly.
+			localAvatar.Anchors = _worldAnchors;
 			_avatars[localId] = localAvatar;
 		}
 
@@ -288,6 +274,7 @@ public partial class Main : NltWorldEngine.WorldView
 				avatar.GlobalPosition = agent.Position3() + new Vector3(2f, 1f, 0f);
 				avatar.Observe(avatar.GlobalPosition,
 					new[] { 0.5f, 0.5f, 0.5f, 0.5f }, doc.Scene.Id);
+				avatar.Anchors = _worldAnchors;
 				_avatars[agent.Id] = avatar;
 			}
 			else

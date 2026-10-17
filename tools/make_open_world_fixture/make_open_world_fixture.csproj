@@ -1,0 +1,27 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>make_open_world_fixture</AssemblyName>
+    <RootNamespace>NltWorldEngine</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- WorldGeometry.cs returns a Godot Vector2, so the borrowed sources need the Godot SDK.
+         GodotProjectType is set to csproj so the SDK treats this as an ordinary console app rather
+         than an extension project, which would otherwise demand a .gdextension file.
+
+         This project lives at the REPOSITORY-root tools/ alongside make_replay_fixture.py, not under
+         world-engine-godot/tools/ — .gitignore excludes the latter wholesale because it holds Godot's
+         own vendored C++ build scripts, so a tool placed there would never be committed. It is
+         outside the Godot project's compile glob either way, so it cannot reach the shipped assembly. -->
+    <GodotProjectType>csproj</GodotProjectType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <!-- Borrowed by link, not copied: the tool must agree with the renderer about where the ground
+         is, and a private copy of the noise code would be free to drift from it. -->
+    <Compile Include="..\..\world-engine-godot\WorldConstants.cs" Link="WorldConstants.cs" />
+    <Compile Include="..\..\world-engine-godot\WorldGeometry.cs" Link="WorldGeometry.cs" />
+  </ItemGroup>
+</Project>

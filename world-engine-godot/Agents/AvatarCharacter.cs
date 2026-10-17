@@ -1,4 +1,7 @@
 using Godot;
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using NltWorldEngine.Agents;
 
 namespace NltWorldEngine;
@@ -89,31 +92,63 @@ public partial class AvatarCharacter : AgentBrain
             const float ArrivalRadius = 1f;
             if (toTarget.LengthSquared() > ArrivalRadius * ArrivalRadius)
             {
+                // Hand back to the wander controller on arrival rather than freezing. Parking on
+                // IdleController here meant that once an avatar reached its first destination it
+                // never left, because every subsequent intent repeated the same "approach" it had
+                // already satisfied — the tour could only ever make one trip.
                 Attach(new IntentMoveController(
-                    resolvedTargetPosition.Value, verb, ArrivalRadius));
+                    resolvedTargetPosition.Value, verb, ArrivalRadius,
+                    controller => Attach(controller)));
                 return;
             }
         }
 
-        // Non-targeted or already-at-target: hold still.
-        Attach(new IdleController());
+        // Non-targeted, or already standing at the target: return to local autonomy rather than
+        // stopping dead. Fusion decides *which* place to visit; between decisions the avatar keeps
+        // moving under its own controller.
+        Attach(WanderFallback());
     }
+
+    /// <summary>
+    /// The controller this avatar falls back to whenever Fusion has nothing to say: on a
+    /// non-targeted verb, on arrival, or when governance denies an intent.
+    ///
+    /// Given the world's destinations, this tours between them; with none, it degrades to the
+    /// need-driven wander the avatar already shipped with. Built fresh each call so the tour
+    /// re-evaluates where to go next rather than resuming a stale target.
+    /// </summary>
+    private IAgentController WanderFallback() =>
+        new UtilityAgentController(WorldConstants.Seed, AgentId) { Anchors = Anchors };
+
+    /// <summary>
+    /// Places this avatar may walk to. Set by the composition root, which is the only place that
+    /// knows the anchor set. Empty means need-driven wander with no fixed destinations.
+    /// </summary>
+    public IReadOnlyList<TaskAnchor> Anchors { get; set; } = System.Array.Empty<TaskAnchor>();
 }
 
 /// <summary>
-/// Controller that moves toward a resolved target and idles on arrival.
+/// Controller that moves toward a resolved target, then hands control back to the avatar's
+/// fallback so the tour continues instead of parking on arrival.
 /// </summary>
 internal sealed class IntentMoveController : IAgentController
 {
     private readonly Vector3 _targetPosition;
     private readonly string _verb;
     private readonly float _arrivalRadius;
+    private Action<IAgentController>? _onArrival;
+    private int _handedBack;
 
-    public IntentMoveController(Vector3 targetPosition, string verb, float arrivalRadius)
+    public IntentMoveController(
+        Vector3 targetPosition,
+        string verb,
+        float arrivalRadius,
+        Action<IAgentController>? onArrival = null)
     {
         _targetPosition = targetPosition;
         _verb = verb;
         _arrivalRadius = arrivalRadius;
+        _onArrival = onArrival;
     }
 
     public void Attach(string agentId) { }
@@ -123,7 +158,14 @@ internal sealed class IntentMoveController : IAgentController
         var toTarget = _targetPosition - observation.Position;
         toTarget.Y = 0f;
         if (toTarget.LengthSquared() <= _arrivalRadius * _arrivalRadius)
+        {
+            // Hand back exactly once. Act runs every physics tick, and handing back on every frame
+            // would thrash the controller the callback just installed. The exchange is the guard:
+            // _onArrival is nulled atomically before it is invoked.
+            if (Interlocked.Exchange(ref _handedBack, 1) == 0)
+                _onArrival?.Invoke(new IdleController());
             return AgentAction.Idle;
+        }
         return AgentAction.Move(toTarget.Normalized(), 1f);
     }
 

@@ -7,6 +7,130 @@
 ---
 
 ## Active Threads
+
+### 🎨 GRAPH-002 — Dashboard-first graphics execution (GP-1 world fidelity + GP-3 HUD)
+- **Status:** open — claimed, baseline captured, not yet started
+- **Owner:** **OPENCODE** (claimed 2026-10-10) · **Plan:** `world-engine-godot/AGENTS.md` §5
+- **Scope:** the two agent-executable phases of the new dashboard-first graphics plan in
+  `world-engine-godot/AGENTS.md` §5. **GP-0 and GP-2 are explicitly out of scope** — GP-2 is blocked
+  on Joshua's GRAPH-001 G1 decisions and must not be started.
+  - **GP-1** world fidelity from primitives (terrain PBR + shadows, building vocabulary, vegetation
+    LOD, water/shoreline, lighting/grade).
+  - **GP-3** the dashboard HUD (district rail, environment header, POI labels, agent card goals,
+    events feed, right control cluster, minimap, status bar).
+- **Baseline captured 2026-10-10** → `world-engine-godot/Images/Screenshots/_boot_probe.png`
+  (1152x648, `--capture`, reading level Simple). The observer boots **into an interior**, not the
+  aerial open world the dashboard vision shows: every replay fixture under `fixtures/replay/` declares
+  `personal_1`, so `Main.OnDocumentChanged` → `WorldView.ShowScene` selects the personal level on the
+  first document. The dashboard's hero shot — the aerial coastal city — is therefore never on screen
+  at boot, which blocks screenshot comparison for all of GP-1.
+- **Open (needs Joshua's call, not an agent's):**
+  - **`Main.tscn` still carries a `NobodyWhoModel` node bound to a 639 MB local GGUF.** The escalation
+    [`docs/escalations/2026-10-03-addons-external-integration-approval.md`](escalations/2026-10-03-addons-external-integration-approval.md)
+    ruled NobodyWho **must not be installed in `world-engine-godot`** (approved for Fusion-side use
+    only). `addons/nobodywho/` and `ml-MODELS/` are gitignored and untracked, but the tracked
+    `Main.tscn` still references the node type — a fresh clone cannot open the main scene. Reported,
+    not touched: not graphics scope.
+    **✅ RESOLVED 2026-10-16 (Joshua):** NobodyWho was downloaded for evaluation only; the
+    `NobodyWhoModel` node was removed from `Main.tscn`. The untracked addon/model on disk are inert.
+  - **✅ RESOLVED 2026-10-10 — the open world is now reachable and screenshot-able. The diagnosis in
+    this thread was wrong; see below.**
+  - **Verification path is degraded.** `AGENTS.md` §2 requires a captured screenshot for every
+    graphics change, but the Fennara `runtime_session` cannot boot the scene (see below) and
+    `screenshot_scene` returns a black frame. The working path is a direct CLI run.
+
+---
+
+### ✅ Open world reachable — GP-1 unblocked (GRAPH-002, 2026-10-10)
+
+**The correction first, because the entry above recorded the wrong diagnosis.** The open world was
+never blocked by renderer behaviour. `WorldView.ShowScene` already handles `open_world` correctly and
+the contract (`docs/contracts/state-feed-v1.md` §3) already defines it — the renderer was following
+the feed correctly. The actual cause was that **no fixture ever exercised the path**: all four bundles
+under `fixtures/replay/` declare `scene.kind: "interior"`, so the observer could only ever boot into a
+room. A missing-data problem, not a missing-feature one.
+
+| Piece | Where | Notes |
+|---|---|---|
+| Open-world replay bundle | `fixtures/replay/open-world-day.json` | 12 frames, `scene.id` and `kind` both `open_world`, an avatar + aide walking out of the settlement. Agent **y values are read from `WorldGeometry.HeightAt`** — the same function the terrain mesh is built from — so residents stand on the ground, not in it. |
+| Authoring tool | `tools/make_open_world_fixture/` | Standalone csproj outside the Godot compile glob. Borrows `WorldConstants.cs`/`WorldGeometry.cs` by link rather than copying, so it cannot drift from the renderer. |
+| `--fixture <name>` | `Observer/ObserverCapture.cs`, honoured in `ObserverRoot.Attach` | Selects which bundle loads; accepts a bare name or a full `res://` path; inert without it. Names a *fixture* rather than forcing a scene, so it cannot paper over a renderer that ignores the feed. |
+
+**All 12 frames pass `tools/validate_state_feed.py`.** Two schema traps found by reading the loader's
+own errors rather than guessing:
+- A replay **bundle's** top-level `schemaVersion` must be `nlt.state-feed.replay.v1`, not the document
+  schema — `FixtureFeedSource` dispatches on it to decide whether to unwrap `frames[]`. Writing the
+  document schema made the reader treat the bundle as one document and reject it for missing `tick`.
+- `pairs[]` is a **Fusion gate report** (`overallScore`, `blockingDimensions`, six `dimensions`), not a
+  relationship summary. A plausible `{since, focusAgentId, supportLevel}` was rejected for missing
+  `overallScore`.
+
+**Two pre-existing bugs fixed, both in the capture/build path:**
+
+1. **`ObserverCapture` argument parsing read the wrong element when a flag was absent.**
+   `Array.IndexOf` returns `-1` and `-1 + 1 == 0`, so `if (at + 1 < args.Length)` passed and read
+   `args[0]` — an unrelated argument — as the flag's value. A plain `--selftest` run tried to open
+   `res://fixtures/replay/--selftest.json`, reported a missing file, and laid the transport toolbar out
+   one button wider than the window (2 selftest failures). The same shape sat in the `--capture`,
+   `--level` and `--frames` reads, harmless only because those values failed to parse. All four now go
+   through one `ValueAfter(args, flag)` helper.
+2. **`tools/**/*.cs` was missing from the Godot project's `Compile Remove` glob.** A standalone tool on
+   the Godot SDK writes a nested `.godot/mono/temp/obj/` tree *inside* the project; `**/*.cs` swept up
+   its generated `AssemblyInfo.cs` and broke the next engine build with CS0579 "duplicate
+   `TargetFrameworkAttribute`". Added alongside `AgentHarness` and `AgentLoopEndpoint`.
+
+**Verification:** build 0 errors (`--no-incremental` — an incremental build hides warnings, as it did
+here); AgentHarness **40/40**; `--selftest` **LAYOUT OK** on all three bundles (default,
+`open-world-day`, `collapse-only`). Screenshots at all three reading levels:
+`Images/Screenshots/gp1-openworld-{simple,coach,technical}.png`, beside the GP-3 interior captures.
+
+**GP-1 is unblocked.** The next real GP-1 work is raising the world's fidelity itself: terrain PBR and
+the `CastShadow = Off` re-enable, `SettlementBuilder` vocabulary (window insets, rooflines, façade
+materials), vegetation LOD, water/shoreline, and lighting/grade.
+
+**Verification tooling defects found 2026-10-10 (pre-existing, both defeat screenshot evidence):**
+
+| Defect | Evidence | Workaround |
+|---|---|---|
+| **Fennara `runtime_session.start` cannot boot `Main.tscn`** — `startup_timeout`, "Runtime process did not report scene readiness before the startup deadline". Scene start exceeds the daemon's hard 20 s deadline. The process itself is healthy: it logs `StateFeedLoader: loaded …`, writes the capture, and exits 0. | `runtime_session.log`, startup deadline 20062 ms | Direct CLI (below). Not fixed here — daemon timeout policy is not an agent's call. |
+| **`screenshot_scene` on `Main.tscn` returns a solid black frame.** A detached editor-side capture never runs C# `_Ready`, so `WorldView._Ready` never builds terrain/settlement/vegetation and the camera sees nothing. Removing the `NobodyWhoModel` node from the detached graph does not help. | 1600px capture, entirely `#0e1116` | Direct CLI. Do not treat a black Fennara capture as a rendering failure — it is a capture-path failure. |
+| **`Images/Screenshots/` did not exist** although `AGENTS.md` §2 requires screenshots to land there. | directory listing | Created. |
+
+**Working screenshot command** (the one that produced `_boot_probe.png`):
+
+```powershell
+$exe = "$env:LOCALAPPDATA\Godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe"
+& $exe --path "$PWD" -- --capture "res://Images/Screenshots/<name>.png" --frames 120 --level simple
+# exits 0; honours --level {simple|coach|technical} and --selftest
+```
+
+**GP-3 delivered 2026-10-10 — three of the dashboard's HUD elements, all three reading levels:**
+
+| Element | File | Notes |
+|---|---|---|
+| Environment header (top-right) | `Observer/EnvironmentHeader.cs` | Four chips — Persistent World · Multi-Agent · Real-Time Physics · Scenario. **Every chip prints the live fact behind its claim** (seed, agent count from the document, the backend read from `ProjectSettings`, the feed's own scene label). No fabricated data, per AGENTS.md. |
+| Minimap (bottom-right) | `Observer/Minimap.cs` | Land sampled once from `WorldGeometry.HeightAt` — the same field `TerrainBuilder` builds its mesh from — so it is a real map, not a stylised shape. North-up, zoom `[`/`]`, settlement + agent markers, palette-derived height ramp. |
+| Recent events | `Observer/EventFeedPanel.cs` | Rows accumulate rather than replacing per document. Wording/shape/colour all come from the existing `PlainLanguage` vocabulary, so it cannot describe an event the feed has no word for. |
+
+Wiring is additive: three new files under `Observer/`, plus `ObserverRoot` (new fields, `BuildDashboardChrome`, `PlaceDashboardChrome`, one `Wire(...)` line). **`WorldView.cs` and `Main.cs` were not touched** — the hot-hub peer work is untouched.
+
+**Three real bugs found and fixed along the way — all Godot `Control` placement traps, all recorded as comments at the site:**
+
+1. **Anchors without offsets move nothing.** `SetAnchorsPreset(TopRight)` leaves offsets at 0, so a negative `Position` was measured from the *left* edge. Both overlays sat off-screen at global `(-532, 56)` while reporting `Visible = true` and a perfectly reasonable local `Position`.
+2. **Moving a `Control`'s anchors also resizes it.** A `Control`'s rect is derived from anchors *and* offsets together, so re-anchoring collapsed the header to `(12, 0)` and the minimap to `(291, 12)`. Sizes are now set explicitly and captured as constants, never read back after a move.
+3. **`GetGlobalRect().End.X` is the window edge for a split's last child.** Offsetting the overlays by the right rail's *width* threw both off-screen at Technical; the rail's `Position.X` (873) is the edge that actually moves when the divider is dragged.
+
+Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows reading "started a task for about 12 seconds" — which describes the task, not the row. Added `PlainLanguage.Ago` ("12s ago" / "just now").
+
+**Verification:** `dotnet build` 0 errors (the same 2 pre-existing `WorldView.cs` nullable warnings, no new ones); AgentHarness **40/40**; `--selftest` **LAYOUT OK**, and the one remaining no-shortcut warning is the pre-existing follow-target `OptionButton`, not new. Screenshots at all three levels: `Images/Screenshots/gp3-dashboard-{simple,coach,technical}.png`.
+
+**Not done, and why:**
+- **Right control cluster** (Spectator / Follow Agent / Free Camera / Scenario) and **district nav rail** need camera-mode seams in `WorldView.cs` — deliberately deferred under the "keep edits additive and disjoint" decision, since they cannot be done additively.
+- **Agent role pins** are GP-2 and blocked on Joshua's GRAPH-001 G1 decisions.
+- **Agent-card goals list** needs a goals field on the feed; none exists, and inventing values the feed does not carry is forbidden.
+
+**✅ Resolved 2026-10-16:** the `NobodyWhoModel` node in `Main.tscn` (bound to a 639 MB local GGUF) was removed on Joshua's decision — it was an evaluation download, not an integration.
+
 ### 🌐 WEB-001 — Public homepage on GitHub Pages
 
 - **Status:** open — live; content decisions pending with Joshua

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace NltWorldEngine.Agents;
@@ -19,6 +20,15 @@ public sealed class UtilityAgentController : IAgentController
     private float _wanderTimer;
     private AgentAction _held = AgentAction.Idle;
 
+    /// <summary>Places this agent tours between, or empty for need-driven movement only.</summary>
+    public IReadOnlyList<TaskAnchor> Anchors { get; set; } = System.Array.Empty<TaskAnchor>();
+
+    /// <summary>Anchor the agent is currently walking toward, or null when wandering.</summary>
+    private TaskAnchor? _target;
+
+    /// <summary>Distance at which an anchor counts as reached and the agent picks another.</summary>
+    private const float ArrivalRadius = 2.5f;
+
     /// <summary>Needs as <c>FeedVocabulary.Needs</c>: quiet, rest, social, stimulation.</summary>
     public float[] Thresholds { get; } = { 0.3f, 0.3f, 0.6f, 0.5f };
 
@@ -31,6 +41,12 @@ public sealed class UtilityAgentController : IAgentController
 
     public AgentAction Act(AgentObservation observation)
     {
+        // When the world offers real destinations, seek the nearest reachable one instead of
+        // heading off on a fixed bearing. Fixed bearings look like purposeful motion but converge
+        // on the map edge and stay there, which is indistinguishable from a stuck agent.
+        if (Anchors.Count > 0)
+            return Tour(observation);
+
         // Re-decide on a slow cadence so the agent commits to a heading instead of jittering. The
         // underlying locomotion then smooths whatever it picks, which is the division of labour:
         // this decides intent, LocomotionController decides motion.
@@ -48,6 +64,61 @@ public sealed class UtilityAgentController : IAgentController
         }
 
         return _held;
+    }
+
+    /// <summary>
+    /// Walk to the nearest anchor this agent is allowed to claim, then choose another on arrival.
+    /// This is the behaviour that makes an avatar traverse the world between Fusion decisions,
+    /// rather than standing where the last intent left it.
+    /// </summary>
+    private AgentAction Tour(in AgentObservation observation)
+    {
+        if (_target != null)
+        {
+            var toTarget = _target.Position - observation.Position;
+            toTarget.Y = 0f;
+            if (toTarget.Length() > ArrivalRadius)
+                return AgentAction.Move(toTarget.Normalized(), 1f);
+
+            // Reached. Release the claim so the next cycle is free to revisit it, and re-decide.
+            _target.Release(observation.AgentId);
+            _target = null;
+        }
+
+        _target = NearestUnclaimed(observation);
+        if (_target == null)
+            return Wander();
+
+        _target.Reserve(observation.AgentId);
+        var direction = _target.Position - observation.Position;
+        direction.Y = 0f;
+        return direction.LengthSquared() > 0.0001f
+            ? AgentAction.Move(direction.Normalized(), 1f)
+            : Wander();
+    }
+
+    /// <summary>Closest anchor with room for this agent, excluding the one already held.</summary>
+    private TaskAnchor? NearestUnclaimed(in AgentObservation observation)
+    {
+        TaskAnchor? best = null;
+        var bestDistance = float.MaxValue;
+        foreach (var anchor in Anchors)
+        {
+            if (anchor.IsOccupiedBy(observation.AgentId))
+                continue;
+            if (anchor.IsFull)
+                continue;
+
+            var delta = anchor.Position - observation.Position;
+            delta.Y = 0f;
+            var distance = delta.Length();
+            if (distance >= bestDistance)
+                continue;
+
+            bestDistance = distance;
+            best = anchor;
+        }
+        return best;
     }
 
     public void OnActionRejected(in AgentObservation observation, in AgentAction action, string reason)
