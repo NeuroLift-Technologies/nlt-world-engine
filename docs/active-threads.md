@@ -55,6 +55,26 @@
     camera. Evidence: `Images/Screenshots/{settlement-archetypes,terrain-fix-h0,terrain-fix-h12,lake-h0,lake-h12}.png`.
   - **Fennara `runtime_session` still cannot boot on the dev PC** — its fixed 20 s startup deadline
     expires during the mono/UHD 630 boot. Not configurable; the CLI capture path is used instead.
+  - **Personal (Home) interior, 2026-10-17 (CLAUDE, branch `feat/godot-collision-personal`):**
+    `InteriorStyle.cs` dresses `Personal_Level` by object name (the UE export gave every mesh the
+    same `MI_Wall_Light`); one of four colour schemes per house (`personal_<n>`); wood room floor,
+    lawn outside, ceiling fixtures hidden; steeper (~54°) interior camera. Clicking anywhere on a
+    building enters it (ray hit on its collision box → portal index). Reviewed Cline's collision
+    work and corrected: open-world bodies now leave the physics space while an interior shows
+    (they overlapped the room at the origin); home floor collision now from `UCX_Floor` (the
+    hand-placed box was centred on the 80 m slab and missed the north third of the room); removed
+    a duplicate, broken `--focus` from `ObserverCapture`. `AvatarGround` (flat y=0 floor in `Main`)
+    let avatars walk on the lake/sea surface — **Joshua 2026-10-17: off in the open world**; it now
+    stays on only inside interiors as a backstop. An avatar that walks into water now wades down
+    onto the lake/sea bed (terrain body); no swim/shoreline rule exists yet.
+  - **All four interiors dressed, 2026-10-17 (CLAUDE):** `InteriorStyle` now has rule sets for the
+    office (`WF_*`), café (`Cafe_*`/`Social_*`) and classroom (`Academic_*`, desks, bookshelves),
+    3–4 colour schemes per kind; every building's portal is `<kind>_<n>` so each building looks
+    like its own place. Paving/lawn added around levels that floated in the void; UE placeholder
+    character meshes hidden. Collision generalised: `HomePhysicalBoundary` →
+    `InteriorPhysicalBoundary`, attached to all four level scenes (79/49/56 UCX meshes for
+    workplace/social/academic). New capture flag `--scene <id>` pins an interior. Evidence:
+    `Images/Screenshots/interior-{workplace_1,workplace_2,social_1,academic_1}.png`.
   - **Decisions recorded (Joshua, 2026-10-17):** art target is Cities: Skylines + The Sims 4
     (stylised-realistic, start lesser and step up); clicking a building opens its **interior view, not
     a cut-away**; deployment target is a cloud VM viewed in the browser (delivery method undecided).
@@ -191,6 +211,7 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
 - **Survey result:** `world-engine-godot/project.godot` already declares `[physics] 3d/physics_engine="Jolt Physics"` (line ~41). No Jolt addon under `world-engine-godot/addons/` — Joshua confirms Jolt is built into the Godot build in use. Consistent.
 - **Known gap this gates:** `AgentBrain` has no `CharacterBody3D`/physics body (AGENT-SYSTEM.md §8.6), `TerrainBuilderPhysics` is an empty placeholder — so movement still has no collision resolution. Wiring that up should target Jolt via `CharacterBody3D` + `move_and_slide()` and static level collision.
 - **Update 2026-10-08 (Cline):** `AgentBrain` is now `CharacterBody3D` with `MoveAndSlide()` per-physics-tick + `AvatarCharacter : AgentBrain` capsule scene (`Agents/avatar.tscn`) + `Main.SyncLiveAvatars` spawning live Jolt bodies behind `EnableLiveAvatars=false`. `TerrainBuilderPhysics` still an empty placeholder; `EnsureAvatarGround` flat StaticBody3D covers levels without collision. AGENT-SYSTEM.md §8.6 is now stale and needs a refresh pass.
+- **Update 2026-10-17 (Cline, claimed):** open-world collision wired — trimesh terrain body exact-matched to the visual mesh (`TerrainBuilderPhysics.TerrainBody`), one box collider per settlement building + well (`BuildingArchetypes.CollisionInfo`, added in `SettlementBuilder.Build`), four edge walls around the 460 m island (`WorldBounds`), and a kill-plane reset in `AgentBrain` (`KillY = −25 m`) that puts a tunnelled avatar back on the terrain. Door anchors moved from building centres (now inside the boxes) to outside the door (`FrontOffset` + 1.7 m) so the tour target is reachable. Interiors still stand on the flat `AvatarGround` safety plane; vegetation/props have no collision yet; the 0.5 m plaza/road step needs step-up logic. Build green (0 errors), harness 40/40. In-scene verification on the Jolt server still pending before close.
 - **Next action:** when agent embodiment gains collision, verify against the Jolt server (not GodotPhysics) and note any `CharacterBody3D` behavioural differences.
 
 ### 🧭 ENG-002 — Godot replaces UE

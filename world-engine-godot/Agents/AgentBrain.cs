@@ -140,6 +140,19 @@ public partial class AgentBrain : CharacterBody3D
         // 5. Let Jolt resolve collisions.
         MoveAndSlide();
 
+        // 6. Kill-plane: tunnelling past every body (or a level with no collision at all) must
+        //    end standing on the terrain, not falling forever. Same XZ clamped to the island so
+        //    the reset cannot land outside the new edge walls.
+        if (GlobalPosition.Y < TerrainBuilderPhysics.KillY)
+        {
+            float half = WorldConstants.World * 0.5f;
+            float sx = Mathf.Clamp(GlobalPosition.X, -half, half);
+            float sz = Mathf.Clamp(GlobalPosition.Z, -half, half);
+            GlobalPosition = new Vector3(sx, WorldGeometry.HeightAt(sx, sz) + 1.5f, sz);
+            Velocity = Vector3.Zero;
+            _locomotion.Teleport(GlobalPosition);
+        }
+
         Acted?.Invoke(action);
     }
 

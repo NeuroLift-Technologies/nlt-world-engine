@@ -108,6 +108,21 @@ public static class SettlementBuilder
         _ => "personal_1",
     };
 
+    /// <summary>
+    /// Scene id for building <paramref name="index"/>'s doorway: the kind's prefix plus the
+    /// building's own number (<c>personal_3</c>, <c>workplace_7</c>…), so each building opens an
+    /// interior dressed in its own colour scheme (<see cref="InteriorStyle"/>). The prefix still maps
+    /// every building of a kind to that kind's level.
+    /// </summary>
+    public static string SceneIdFor(BuildingKind k, int index)
+    {
+        string id = SceneIdFor(k);
+        return $"{id[..id.LastIndexOf('_')]}_{index + 1}";
+    }
+
+    /// <summary>Meta key on each building's collision body: its index into the portal list.</summary>
+    public const string PortalIndexMeta = "portal_index";
+
     /// <summary>Okabe–Ito hues, one per kind; the label carries the meaning and colour reinforces it.</summary>
     public static Color KindColour(BuildingKind k) => k switch
     {
@@ -195,9 +210,19 @@ public static class SettlementBuilder
 
             g.Position = new Vector3(plan.X, y, plan.Z);
             g.Rotation = new Vector3(0, plan.Rot, 0);
+            // The walls the model cannot walk through. One box per building, sized by the
+            // archetype so the collider and the silhouette never drift apart; a child of g so it
+            // inherits the building's position and rotation for free.
+            BuildingArchetypes.CollisionInfo(kind, plan, out Vector3 bodySize, out Vector3 bodyCentre);
+            var body = new StaticBody3D { Name = $"Collision_{KindLabel(kind)}_{i}" };
+            // The same box is the observer's click target: clicking anywhere on the building
+            // enters it (WorldView.TryActivateBuildingAtScreen). Index into the portals list below.
+            body.SetMeta(PortalIndexMeta, portals.Count);
+            body.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = bodySize }, Position = bodyCentre });
+            g.AddChild(body);
             root.AddChild(g);
 
-            portals.Add(new Portal(KindLabel(kind), KindLabel(kind), SceneIdFor(kind),
+            portals.Add(new Portal(KindLabel(kind), KindLabel(kind), SceneIdFor(kind, i),
                 g.Transform * doorLocal, g.Basis.Z.Normalized()));
             i++;
         }
@@ -233,6 +258,11 @@ public static class SettlementBuilder
         root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { Height = 1.1f, TopRadius = 1.3f, BottomRadius = 1.45f, RadialSegments = 12 }, MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0x8a8078FF), Roughness = 0.95f }, Position = wellPos + new Vector3(0, 0.55f, 0) });
         root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { Height = 0.1f, TopRadius = 1.05f, BottomRadius = 1.05f, RadialSegments = 12 }, MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0x2f6f74FF), Roughness = 0.3f }, Position = wellPos + new Vector3(0, 1.05f, 0) });
         root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { Height = 2.0f, TopRadius = 0f, BottomRadius = 1.7f, RadialSegments = 4 }, MaterialOverride = roofMat, Position = wellPos + new Vector3(0, 2.4f, 0), Rotation = new Vector3(0, Mathf.Pi / 4f, 0) });
+        // The well stands on the plaza walk-line; without a body the avatar tours straight
+        // through its masonry. A box approximation is exact enough at this size.
+        var wellBody = new StaticBody3D { Name = "Collision_Well", Position = wellPos + new Vector3(0, 0.6f, 0) };
+        wellBody.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(2.9f, 1.2f, 2.9f) } });
+        root.AddChild(wellBody);
 
         // benches around plaza
         for (int b = 0; b < 6; b++)

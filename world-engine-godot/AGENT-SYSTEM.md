@@ -312,10 +312,15 @@ Reported rather than absorbed, per the house convention.
 4. **Plan items unmet.** §2.6 (the 6 UE agent fragments + behaviour state machine), §2.6d
    (`ITrainingEnvironment`), and `RLPolicyController` are not here. Only the seam (2.6a), the
    deterministic controller (2.6b), and an out-of-band LLM controller are.
-5. **No world-bounds clamping.** `LocomotionController` will happily walk an agent off the edge of
-   the 460 m world. Nothing in this layer knows the world exists.
-6. **`AgentBrain` has no collision.** It is a bare `Node3D` with no physics body, so agents pass
-   through each other and through geometry. `TerrainBuilderPhysics.cs` is a known empty placeholder.
+5. **World bounds are physical, not logical.** Four edge walls (`TerrainBuilderPhysics.WorldBounds`)
+   ring the 460 m island and a kill-plane (`KillY = −25 m`) in `AgentBrain` resets anything that
+   tunnels past every body back onto the terrain. `LocomotionController` itself still knows
+   nothing of the world — the walls and the reset do the containing.
+6. **`AgentBrain` is a Jolt `CharacterBody3D`.** It moves with `MoveAndSlide()` every physics
+   tick against a trimesh terrain body, one box collider per settlement building plus the well,
+   and the world edge walls. Still open: interiors (FBX levels stand on the flat `AvatarGround`
+   safety plane until their own collision pass lands), vegetation/props collision, and the
+   0.5 m plaza/road step the body cannot climb without step-up logic.
 7. **`AgentAction.TargetId` is always null** from the parser — the grammar emits no such field. It is
    advisory, for labelling only.
 

@@ -51,11 +51,18 @@ public static class WorldAnchorBuilder
 			// and every door perceived as a home while the renderer drew offices, shops and schools.
 			var kind = SettlementBuilder.KindAt(index);
 			var label = SettlementBuilder.KindLabel(kind);
+			// Stand the anchor outside the door, not at the building's centre: the centre sits
+			// inside the new collision box, so a tour target there is unreachable — the avatar
+			// would stall against the wall outside its arrival radius. Front + 1.7 m lands just
+			// past the portal entry point on the door axis, which the archetype keeps clear.
+			float front = BuildingArchetypes.FrontOffset(kind, plan);
+			float fx = MathF.Sin(plan.Rot), fz = MathF.Cos(plan.Rot);
+			float ax = plan.X + fx * (front + 1.7f), az = plan.Z + fz * (front + 1.7f);
 			anchors.Add(At(
 				$"door_{index}_{label.ToLowerInvariant()}",
 				$"{label} door",
 				AxesForBuilding(kind),
-				plan.X, plan.Z));
+				ax, az));
 			index++;
 		}
 
