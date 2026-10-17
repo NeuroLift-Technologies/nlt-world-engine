@@ -65,6 +65,14 @@
     hand-placed box was centred on the 80 m slab and missed the north third of the room); removed
     a duplicate, broken `--focus` from `ObserverCapture`. Open: `AvatarGround` (flat y=0 floor in
     `Main`) lets avatars walk on the lake/sea surface.
+  - **All four interiors dressed, 2026-10-17 (CLAUDE):** `InteriorStyle` now has rule sets for the
+    office (`WF_*`), café (`Cafe_*`/`Social_*`) and classroom (`Academic_*`, desks, bookshelves),
+    3–4 colour schemes per kind; every building's portal is `<kind>_<n>` so each building looks
+    like its own place. Paving/lawn added around levels that floated in the void; UE placeholder
+    character meshes hidden. Collision generalised: `HomePhysicalBoundary` →
+    `InteriorPhysicalBoundary`, attached to all four level scenes (79/49/56 UCX meshes for
+    workplace/social/academic). New capture flag `--scene <id>` pins an interior. Evidence:
+    `Images/Screenshots/interior-{workplace_1,workplace_2,social_1,academic_1}.png`.
   - **Decisions recorded (Joshua, 2026-10-17):** art target is Cities: Skylines + The Sims 4
     (stylised-realistic, start lesser and step up); clicking a building opens its **interior view, not
     a cut-away**; deployment target is a cloud VM viewed in the browser (delivery method undecided).
