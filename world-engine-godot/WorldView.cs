@@ -71,6 +71,7 @@ public partial class WorldView : Node3D
 	private Node3D _openWorld = null!;
 	private Node3D _interior = null!;
 	private string _interiorPath = "";
+	private string _interiorSceneId = "";
 	private Environment? _indoorEnvironment;
 	private float _focusLift = 2f;
 	private float _minDist = 8f;
@@ -88,6 +89,7 @@ public partial class WorldView : Node3D
 
 	private const float OpenWorldDist = 78f;
 	private const float OpenWorldPitch = 0.42f;
+	private const float InteriorPitch = 0.95f;
 
 	// Reduced-motion toggle (RENDERER-PLAN.md D.4)
 	// When true, sky rotation is paused; water/vegetation animation continues.
@@ -194,9 +196,10 @@ public partial class WorldView : Node3D
 
 		if (path == null)
 		{
-			_openWorld.Visible = true;
+			SetOpenWorldActive(true);
 			_interior.Visible = false;
 			_interiorPortal = null;
+			_interiorSceneId = "";
 			if (_interiorPath.Length > 0)
 			{
 				_interiorPath = "";
@@ -212,7 +215,7 @@ public partial class WorldView : Node3D
 			return;
 		}
 
-		_openWorld.Visible = false;
+		SetOpenWorldActive(false);
 		if (_interiorPath != path)
 		{
 			ClearInterior();
@@ -228,6 +231,14 @@ public partial class WorldView : Node3D
 			StripInteriorClutter(instance);
 			DecorateInteriorExit(instance);
 			SetupInteriorLighting(instance);
+			InteriorStyle.Apply(instance, sceneId);
+			_interiorSceneId = sceneId;
+		}
+		else if (_interiorSceneId != sceneId && _interior.GetChildCount() > 0)
+		{
+			// Same level, different building (personal_2 → personal_7): re-dress, don't reload.
+			InteriorStyle.Apply(_interior.GetChild(0), sceneId);
+			_interiorSceneId = sceneId;
 		}
 		_interior.Visible = true;
 
@@ -238,6 +249,18 @@ public partial class WorldView : Node3D
 		_focusLift = 1.1f;
 		_minDist = 3f;
 		FrameInterior(_interior);
+	}
+
+	/// <summary>
+	/// Show or hide the open world, physics included. <c>Visible</c> only stops drawing: the
+	/// terrain, building and edge-wall bodies would stay in the physics space and overlap the
+	/// interior room, which is instanced at the same origin. Disabling processing removes them
+	/// (<c>CollisionObject3D.DisableMode</c> defaults to Remove) until the world is shown again.
+	/// </summary>
+	private void SetOpenWorldActive(bool active)
+	{
+		_openWorld.Visible = active;
+		_openWorld.ProcessMode = active ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
 	}
 
 	/// <summary>Look at an interior instance from above, sized to its own footprint.</summary>
@@ -255,8 +278,10 @@ public partial class WorldView : Node3D
 
 		_target = box.Position + box.Size * 0.5f;
 		float span = MathF.Max(box.Size.X, box.Size.Z);
-		_dist = Math.Clamp(span * 0.55f, 8f, 70f);
-		_pitch = 0.5f;
+		// Steep, Sims-style overview: at the old 0.5 rad (≈29°) the 3.5 m walls hid the furniture
+		// behind them, so the observer saw walls rather than the room. ≈54° looks down into every room.
+		_dist = Math.Clamp(span * 1.05f, 10f, 70f);
+		_pitch = InteriorPitch;
 		UpdateCamera();
 	}
 
@@ -274,7 +299,7 @@ public partial class WorldView : Node3D
 	private static void Accumulate(Node node, Transform3D xf, ref Vector3 min, ref Vector3 max, ref bool any)
 	{
 		Transform3D world = node is Node3D n3 ? xf * n3.Transform : xf;
-		if (node is MeshInstance3D mi && mi.Mesh != null && mi.Visible)
+		if (node is MeshInstance3D mi && mi.Mesh != null && mi.Visible && !mi.IsInGroup(InteriorStyle.FrameSkipGroup))
 		{
 			Aabb a = mi.GetAabb();
 			for (int i = 0; i < 8; i++)
@@ -621,8 +646,28 @@ public partial class WorldView : Node3D
 			}
 		}
 		if (best == null)
-			return false;
+			return _openWorld.Visible && TryActivateBuildingAtScreen(screen);
 		Activate(best);
+		return true;
+	}
+
+	/// <summary>
+	/// Enter the building under the pointer. Each building's collision box carries its portal index
+	/// (<see cref="SettlementBuilder.PortalIndexMeta"/>), so a click anywhere on the walls or roof
+	/// counts — the door arch alone was a small target from the aerial camera.
+	/// </summary>
+	private bool TryActivateBuildingAtScreen(Vector2 screen)
+	{
+		Vector3 from = _cam.ProjectRayOrigin(screen);
+		var query = PhysicsRayQueryParameters3D.Create(from, from + _cam.ProjectRayNormal(screen) * 2000f);
+		var hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		if (hit.Count == 0 || hit["collider"].AsGodotObject() is not Node collider
+			|| !collider.HasMeta(SettlementBuilder.PortalIndexMeta))
+			return false;
+		int index = collider.GetMeta(SettlementBuilder.PortalIndexMeta).AsInt32();
+		if (index < 0 || index >= _worldPortals.Count)
+			return false;
+		Activate(_worldPortals[index]);
 		return true;
 	}
 
@@ -759,7 +804,11 @@ public partial class WorldView : Node3D
 		AddChild(_openWorld);
 
 		// --- Terrain ---
-		_openWorld.AddChild(TerrainBuilder.Build());
+		var terrain = TerrainBuilder.Build();
+		_openWorld.AddChild(terrain);
+		// Jolt ground exact-matched to the mesh above; without it the avatar falls past the
+		// town (y≈7.2) to the flat AvatarGround safety plane at y=0.
+		_openWorld.AddChild(TerrainBuilderPhysics.TerrainBody(terrain));
 
 		// --- Water ---
 		var water = WaterBuilder.Build();
@@ -772,6 +821,8 @@ public partial class WorldView : Node3D
 		var settlement = SettlementBuilder.Build(plans, out List<Portal> portals);
 		_worldPortals.AddRange(portals);
 		_openWorld.AddChild(settlement);
+		// Invisible edge walls so a wandering avatar cannot leave the 460 m island.
+		_openWorld.AddChild(TerrainBuilderPhysics.WorldBounds());
 		_openWorld.AddChild(VegetationBuilder.Build(plans));
 
 		// Interiors are instanced here on demand by ShowScene; hidden until one is asked for.
