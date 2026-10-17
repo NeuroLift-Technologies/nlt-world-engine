@@ -108,14 +108,16 @@
   /* ---------- Hero ---------- */
   .hero{
     --hero-img:none;
+    --hero-overlay:linear-gradient(90deg,rgba(6,18,26,.95) 0%,rgba(6,18,26,.75) 45%,rgba(6,18,26,.25) 100%);
+    --hero-pos:right center;
     position:relative;min-height:560px;display:flex;align-items:center;
     background:
-      linear-gradient(90deg,rgba(6,18,26,.95) 0%,rgba(6,18,26,.75) 45%,rgba(6,18,26,.25) 100%),
+      var(--hero-overlay),
       var(--hero-img),
       radial-gradient(ellipse at 80% 20%,rgba(245,166,35,.35),transparent 55%),
       radial-gradient(ellipse at 70% 80%,rgba(34,211,197,.25),transparent 55%),
       linear-gradient(180deg,#0b2433,#06121a);
-    background-size:cover;background-position:center;
+    background-size:cover;background-position:var(--hero-pos);
     border-bottom:1px solid var(--line);
   }
   .hero .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center;padding-top:56px;padding-bottom:56px}
@@ -139,7 +141,11 @@
   .snapshot dd{margin:0;font-weight:600}
   .caption{font-size:.74rem;color:var(--muted);margin-top:10px;font-style:italic}
   @media (max-width:900px){
+    /* Text stacks over the image here, so darken top-down: near-opaque behind the copy, lighter at the snapshot card */
+    .hero{--hero-overlay:linear-gradient(180deg,rgba(6,18,26,.93) 0%,rgba(6,18,26,.9) 60%,rgba(6,18,26,.6) 100%)}
     .hero .wrap{grid-template-columns:1fr}
+    .hero .eyebrow{flex-wrap:wrap;row-gap:8px;white-space:nowrap}
+    .hero .badge{margin-left:0}
     .snapshot{justify-self:start}
   }
 
@@ -274,7 +280,7 @@
 <main id="main">
 
   <!-- ================= HERO (from version 1) ================= -->
-  <div class="hero" id="top" style="--hero-img:url('hero-coastal-dashboard.webp')">
+  <div class="hero" id="top" style="--hero-img:url('hero-sunset-bridge.webp')">
     <div class="wrap">
       <div>
         <div class="eyebrow">NLT World Engine <span class="badge">In Development · Open Source</span></div>
@@ -285,7 +291,8 @@
           transition between meaningful life scenarios.
         </p>
         <div class="cta-row">
-          <a class="btn primary" href="#architecture">▶ Explore the World</a>
+          <!-- Restore "Explore the World" once a real explorable build ships. -->
+          <a class="btn primary" href="#architecture">See the Architecture</a>
           <a class="btn" href="#how-it-works">How It Works</a>
           <!-- Re-enable when an overview video exists:
           <a class="btn" href="VIDEO_URL">Watch Overview</a> -->
@@ -378,7 +385,7 @@
       <div class="sup-panel">
         <div class="tri"><span>Observe</span><span>Evaluate</span><span>Guide</span></div>
         <p>Supervisors can watch agent behavior, review outcomes, and step in where they are authorized to. This is the part of the system everything else is designed around.</p>
-        <p class="caption" style="margin:0">Supervision tooling is part of the roadmap. See Project Status.</p>
+        <p class="caption" style="margin:0">Supervision tooling is in early prototype: observer panels are built, human testing is pending. See Project Status.</p>
       </div>
     </div>
   </section>
