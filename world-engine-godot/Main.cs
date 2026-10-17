@@ -20,6 +20,7 @@ public partial class Main : NltWorldEngine.WorldView
 	private string _followTargetId = "";
 	private const string LocalAvatarTargetId = "__local_avatar__";
 	private string _sceneId = "";
+	private string _sceneKind = "";
 	/// <summary>
 	/// When true, spawn a live Jolt avatar per feed agent. Off by default so the observer
 	/// fixture path is unchanged until the loop is validated.
@@ -136,6 +137,7 @@ public partial class Main : NltWorldEngine.WorldView
 		if (doc.Scene.Id != _sceneId)
 		{
 			_sceneId = doc.Scene.Id;
+			_sceneKind = doc.Scene.Kind;
 			// The Fusion tour walks the open world (its destinations are WorldAnchorBuilder's
 			// open-world anchors), so that is what the observer sees; a feed that says "Home"
 			// would otherwise show a room while the avatar it follows is outdoors.
@@ -200,7 +202,13 @@ public partial class Main : NltWorldEngine.WorldView
 		// Real destinations instead of the old synthetic "agent loop test target" sphere. The loop
 		// needs a choice of places to exist at all; with one anchor five metres away it could only
 		// ever prove the socket connected, never that the avatar traverses the world.
-		_worldAnchors = WorldAnchorBuilder.BuildOpenWorld();
+		//
+		// Scene-aware: interiors carry no open-world destinations. An avatar inside personal_1
+		// (or any room) must not chase plaza/door/lakeshore anchors that sit outside its walls —
+		// it wanders or idles locally until the feed moves it back to open_world.
+		_worldAnchors = _sceneKind == "open_world"
+			? WorldAnchorBuilder.BuildOpenWorld()
+			: new System.Collections.Generic.List<TaskAnchor>();
 
 		// Hand the avatar the anchor set so its fallback controller has real destinations. Fusion
 		// picks *which* place to visit; this is what lets it move between decisions rather than
@@ -252,12 +260,13 @@ public partial class Main : NltWorldEngine.WorldView
 			localAvatar.ReducedMotion = ReducedMotion;
 			AddChild(localAvatar);
 			AgentState? primary = FeedTransport.PrimaryAvatar(doc);
-			// Feed positions are scene-local: in an interior document they are room coordinates, and
-			// used as open-world coordinates they put the tour's avatar in empty ground far from any
-			// anchor. Start an open-world tour on the plaza unless the feed is itself open-world.
-			Vector3 spawn = doc.Scene.Kind == "open_world" && primary != null
-				? primary.Position3()
-				: WorldGeometry.PlazaSpawn();
+			// Scene-aware spawn: feed positions are scene-local. In an interior they are room
+			// coordinates (valid as-is); in open world they are island coordinates. Clamp XZ to
+			// the island so a feed position outside the world never launches the avatar.
+			Vector3 spawn = primary?.Position3() ?? WorldGeometry.PlazaSpawn();
+			float half = WorldConstants.World * 0.5f;
+			spawn.X = Mathf.Clamp(spawn.X, -half, half);
+			spawn.Z = Mathf.Clamp(spawn.Z, -half, half);
 			localAvatar.GlobalPosition = spawn + new Vector3(2f, 1f, 0f);
 			localAvatar.Observe(localAvatar.GlobalPosition, new[] { 0.5f, 0.5f, 0.5f, 0.5f }, doc.Scene.Id);
 			// Assigned here as well as in StartFusionAgentLoop: the loop builds the anchor set, but
@@ -283,7 +292,11 @@ public partial class Main : NltWorldEngine.WorldView
 				avatar.ReducedMotion = ReducedMotion;
 				AddChild(avatar);
 				// Offset so the live body doesn't z-fight the feed ghost.
-				avatar.GlobalPosition = agent.Position3() + new Vector3(2f, 1f, 0f);
+				var spawn = agent.Position3();
+				float half2 = WorldConstants.World * 0.5f;
+				spawn.X = Mathf.Clamp(spawn.X, -half2, half2);
+				spawn.Z = Mathf.Clamp(spawn.Z, -half2, half2);
+				avatar.GlobalPosition = spawn + new Vector3(2f, 1f, 0f);
 				avatar.Observe(avatar.GlobalPosition,
 					new[] { 0.5f, 0.5f, 0.5f, 0.5f }, doc.Scene.Id);
 				avatar.Anchors = _worldAnchors;
