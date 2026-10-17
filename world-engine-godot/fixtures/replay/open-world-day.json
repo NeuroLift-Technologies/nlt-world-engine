@@ -1,0 +1,832 @@
+{
+  "schemaVersion": "nlt.state-feed.replay.v1",
+  "name": "open-world-day",
+  "title": "Open world — a walk out of the settlement",
+  "provenance": {
+    "authored": true,
+    "authoringTool": "tools/make_open_world_fixture",
+    "generatedUtc": "2026-10-10T20:15:06Z",
+    "note": "Synthetic fixture. Exists so the open_world scene kind is reachable: every other bundle under fixtures/replay/ is an interior, so the observer could only ever boot into a room and GP-1 had no world to screenshot. Agent y values are read from WorldGeometry.HeightAt, the same function the terrain mesh is built from, so residents stand on the ground rather than in it."
+  },
+  "frameCount": 12,
+  "frames": [
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 700,
+      "simTimeIso": "2026-03-11T09:30:00Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -66.4, "y": 7.386, "z": 47 },
+          "velocity": { "x": -0, "y": 0.0, "z": 0.56 },
+          "appearance": { "body": "avatar_01", "walkPhase": 0 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.55, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -62.741, "y": 7.388, "z": 45.487 },
+          "velocity": { "x": -0.346, "y": 0.0, "z": 0.441 },
+          "appearance": { "body": "aide_01", "walkPhase": 0 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.701, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+        { "tick": 700, "agentId": "avatar_01", "kind": "scene_enter", "severity": "low", "text": "Jamie and Focus Aide stepped out into the open world." }
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 701,
+      "simTimeIso": "2026-03-11T09:30:01Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -66.497, "y": 7.39, "z": 47.549 },
+          "velocity": { "x": -0.192, "y": 0.0, "z": 0.526 },
+          "appearance": { "body": "avatar_01", "walkPhase": 1 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.636, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -63.156, "y": 7.391, "z": 45.859 },
+          "velocity": { "x": -0.476, "y": 0.0, "z": 0.295 },
+          "appearance": { "body": "aide_01", "walkPhase": 1 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.73, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 702,
+      "simTimeIso": "2026-03-11T09:30:02Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -66.776, "y": 7.393, "z": 48.031 },
+          "velocity": { "x": -0.361, "y": 0.0, "z": 0.428 },
+          "appearance": { "body": "avatar_01", "walkPhase": 2 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.701, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -63.673, "y": 7.392, "z": 46.066 },
+          "velocity": { "x": -0.548, "y": 0.0, "z": 0.114 },
+          "appearance": { "body": "aide_01", "walkPhase": 2 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.714, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 703,
+      "simTimeIso": "2026-03-11T09:30:03Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -67.204, "y": 7.392, "z": 48.388 },
+          "velocity": { "x": -0.486, "y": 0.0, "z": 0.279 },
+          "appearance": { "body": "avatar_01", "walkPhase": 3 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.73, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -64.23, "y": 7.39, "z": 46.083 },
+          "velocity": { "x": -0.554, "y": 0.0, "z": -0.08 },
+          "appearance": { "body": "aide_01", "walkPhase": 3 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.658, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 704,
+      "simTimeIso": "2026-03-11T09:30:04Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -67.728, "y": 7.387, "z": 48.577 },
+          "velocity": { "x": -0.552, "y": 0.0, "z": 0.095 },
+          "appearance": { "body": "avatar_01", "walkPhase": 4 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.714, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -64.759, "y": 7.386, "z": 45.909 },
+          "velocity": { "x": -0.493, "y": 0.0, "z": -0.266 },
+          "appearance": { "body": "aide_01", "walkPhase": 4 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.575, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 705,
+      "simTimeIso": "2026-03-11T09:30:05Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -68.285, "y": 7.379, "z": 48.574 },
+          "velocity": { "x": -0.551, "y": 0.0, "z": -0.1 },
+          "appearance": { "body": "avatar_01", "walkPhase": 5 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.658, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -65.196, "y": 7.382, "z": 45.563 },
+          "velocity": { "x": -0.372, "y": 0.0, "z": -0.419 },
+          "appearance": { "body": "aide_01", "walkPhase": 5 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.487, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 706,
+      "simTimeIso": "2026-03-11T09:30:06Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -68.808, "y": 7.37, "z": 48.381 },
+          "velocity": { "x": -0.483, "y": 0.0, "z": -0.283 },
+          "appearance": { "body": "avatar_01", "walkPhase": 6 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.575, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -65.488, "y": 7.378, "z": 45.088 },
+          "velocity": { "x": -0.206, "y": 0.0, "z": -0.521 },
+          "appearance": { "body": "aide_01", "walkPhase": 6 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.414, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+        { "tick": 706, "agentId": "aide_01", "kind": "task_start", "severity": "low", "text": "Rowan started walking alongside Jamie." }
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 707,
+      "simTimeIso": "2026-03-11T09:30:07Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -69.232, "y": 7.361, "z": 48.02 },
+          "velocity": { "x": -0.357, "y": 0.0, "z": -0.431 },
+          "appearance": { "body": "avatar_01", "walkPhase": 7 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.487, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -65.599, "y": 7.374, "z": 44.543 },
+          "velocity": { "x": -0.015, "y": 0.0, "z": -0.56 },
+          "appearance": { "body": "aide_01", "walkPhase": 7 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.374, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 708,
+      "simTimeIso": "2026-03-11T09:30:08Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -69.508, "y": 7.355, "z": 47.536 },
+          "velocity": { "x": -0.188, "y": 0.0, "z": -0.528 },
+          "appearance": { "body": "avatar_01", "walkPhase": 8 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.414, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -65.517, "y": 7.371, "z": 43.992 },
+          "velocity": { "x": 0.178, "y": 0.0, "z": -0.531 },
+          "appearance": { "body": "aide_01", "walkPhase": 8 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.377, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 709,
+      "simTimeIso": "2026-03-11T09:30:09Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -69.6, "y": 7.353, "z": 46.987 },
+          "velocity": { "x": 0.005, "y": 0.0, "z": -0.56 },
+          "appearance": { "body": "avatar_01", "walkPhase": 9 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.374, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -65.251, "y": 7.369, "z": 43.502 },
+          "velocity": { "x": 0.349, "y": 0.0, "z": -0.438 },
+          "appearance": { "body": "aide_01", "walkPhase": 9 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.423, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 710,
+      "simTimeIso": "2026-03-11T09:30:10Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -69.498, "y": 7.354, "z": 46.439 },
+          "velocity": { "x": 0.196, "y": 0.0, "z": -0.524 },
+          "appearance": { "body": "avatar_01", "walkPhase": 10 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.377, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -64.833, "y": 7.367, "z": 43.134 },
+          "velocity": { "x": 0.478, "y": 0.0, "z": -0.291 },
+          "appearance": { "body": "aide_01", "walkPhase": 10 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.5, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    },
+    {
+      "schemaVersion": "nlt.state-feed.v1",
+      "tick": 711,
+      "simTimeIso": "2026-03-11T09:30:11Z",
+      "scene": { "id": "open_world", "kind": "open_world" },
+      "agents": [
+        {
+          "id": "avatar_01",
+          "name": "Jamie",
+          "role": "avatar",
+          "scene": "open_world",
+          "position": { "x": -69.215, "y": 7.356, "z": 45.959 },
+          "velocity": { "x": 0.364, "y": 0.0, "z": -0.425 },
+          "appearance": { "body": "avatar_01", "walkPhase": 11 },
+          "levels": { "attentionEnergy": 0.68, "stressLevel": 0.34, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.423, "rest": 0.61, "social": 0.58, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 0
+        },
+        {
+          "id": "aide_01",
+          "name": "Rowan",
+          "role": "aide",
+          "scene": "open_world",
+          "position": { "x": -64.314, "y": 7.365, "z": 42.931 },
+          "velocity": { "x": 0.549, "y": 0.0, "z": -0.11 },
+          "appearance": { "body": "aide_01", "walkPhase": 11 },
+          "levels": { "attentionEnergy": 0.63, "stressLevel": 0.4, "confidence": 0.61, "cognitiveLoad": 0.44, "independenceScore": 0.67, "supportNeedLevel": 0.29 },
+          "needs": { "quiet": 0.589, "rest": 0.57, "social": 0.63, "stimulation": 0.52 },
+          "state": "settled",
+          "stateSince": 660,
+          "currentGoal": "Walk to the waterfront",
+          "currentTask": "Walk to the waterfront",
+          "struggleSignals": [],
+          "learnedStrategies": [],
+          "burnout": false,
+          "supportIndex": 1
+        }
+      ],
+      "pairs": [
+        {
+          "avatarId": "avatar_01",
+          "aideId": "aide_01",
+          "ready": false,
+          "overallScore": 0.34,
+          "blockingDimensions": ["EXPERIENTIAL_DEPTH", "INDEPENDENCE_LEVEL", "STRATEGY_INTERNALISATION"],
+          "dimensions": {
+            "EXPERIENTIAL_DEPTH": { "score": 0.22, "passes": false },
+            "COACHING_EFFECTIVENESS": { "score": 0.41, "passes": false },
+            "INDEPENDENCE_LEVEL": { "score": 0.38, "passes": false },
+            "EMOTIONAL_RESILIENCE": { "score": 0.56, "passes": true },
+            "STRATEGY_INTERNALISATION": { "score": 0.19, "passes": false },
+            "BURNOUT_MANAGEMENT": { "score": 0.61, "passes": true }
+          },
+          "recommendations": ["Need more experiences (current: 22%, target: 60%)"]
+        }
+      ],
+      "burnoutEpisodes": [],
+      "selfRecognitions": [],
+      "events": [
+      ]
+    }
+  ]
+}

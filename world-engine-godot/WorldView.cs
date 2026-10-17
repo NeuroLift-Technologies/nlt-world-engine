@@ -1,3 +1,4 @@
+using Environment = Godot.Environment;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -50,6 +51,7 @@ public partial class WorldView : Node3D
 	private Node3D _openWorld = null!;
 	private Node3D _interior = null!;
 	private string _interiorPath = "";
+	private Environment? _indoorEnvironment;
 	private float _focusLift = 2f;
 	private float _minDist = 8f;
 
@@ -186,6 +188,7 @@ public partial class WorldView : Node3D
 			_pitch = OpenWorldPitch;
 			_target = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 2f, WorldConstants.SettleZ);
 			UpdateCamera();
+			_cam.Environment = null;
 			return;
 		}
 
@@ -204,6 +207,7 @@ public partial class WorldView : Node3D
 			_interior.AddChild(instance);
 			StripInteriorClutter(instance);
 			DecorateInteriorExit(instance);
+			SetupInteriorLighting(instance);
 		}
 		_interior.Visible = true;
 
@@ -278,16 +282,101 @@ public partial class WorldView : Node3D
 
 	/// <summary>
 	/// Hide the import leftovers that do not belong in a room view: the <c>SM_SkySphere</c> (a
-	/// 400×-scaled dome from the UE export, which otherwise encloses the camera) and the <c>UCX_*</c>
-	/// collision hulls, which render as duplicate geometry over the real surfaces.
+	/// 400×-scaled dome from the UE export, which otherwise encloses the camera), the <c>UCX_*</c>
+	/// collision hulls (which render as duplicate geometry), and the UE-exported
+	/// <c>DirectionalLight3D</c> nodes (which have <c>sky_mode=Sky</c> and an outdoor orientation,
+	/// contributing nothing inside a room).
 	/// </summary>
 	private static void StripInteriorClutter(Node node)
 	{
 		string name = node.Name.ToString();
-		if (name.Contains("Sky", StringComparison.Ordinal) || name.StartsWith("UCX_", StringComparison.Ordinal))
+		if (name.Contains("Sky", StringComparison.Ordinal) || name.StartsWith("UCX_", StringComparison.Ordinal)
+			|| node is DirectionalLight3D)
 			(node as Node3D)?.Hide();
 		foreach (var child in node.GetChildren())
 			StripInteriorClutter(child);
+	}
+
+	// --- Interior lighting (Phase C.1) -------------------------------------------------
+
+	/// <summary>
+	/// Adds indoor lighting to the interior instance. The open world's Sky3D sun cannot reach
+	/// enclosed rooms, so this supplements it with warm omni lights positioned from the room's
+	/// bounding box, plus an indoor Environment with ambient fill so shadows are not impenetrable.
+	/// Lights are children of <paramref name="root"/>, so <see cref="ClearInterior"/> disposes of
+	/// them when the room is swapped or hidden.
+	/// </summary>
+	private void SetupInteriorLighting(Node root)
+	{
+		_cam.Environment = GetOrCreateIndoorEnvironment();
+
+		if (!TryBounds(root, out Aabb box) || box.Size == Vector3.Zero)
+		{
+			GD.PushWarning("WorldView: SetupInteriorLighting: no measurable geometry; using fallback light");
+			AddFallbackInteriorLight(root, Vector3.Zero);
+			return;
+		}
+
+		float ceilingY = box.Position.Y + box.Size.Y - 0.3f;
+		float span = MathF.Max(box.Size.X, box.Size.Z);
+		int countX = Math.Clamp((int)(span / 10f), 1, 3);
+		int countZ = Math.Clamp((int)(span / 10f), 1, 3);
+		float lightRange = Math.Clamp(span * 0.55f, 8f, 28f);
+		var lightColor = new Color(1.0f, 0.92f, 0.78f);
+
+		for (int ix = 0; ix < countX; ix++)
+		{
+			float tx = countX == 1 ? 0.5f : (float)ix / (countX - 1);
+			for (int iz = 0; iz < countZ; iz++)
+			{
+				float tz = countZ == 1 ? 0.5f : (float)iz / (countZ - 1);
+				var pos = new Vector3(
+					box.Position.X + box.Size.X * tx,
+					ceilingY,
+					box.Position.Z + box.Size.Z * tz
+				);
+				var light = new OmniLight3D
+				{
+					Name = "IndoorLight",
+					LightColor = lightColor,
+					LightEnergy = 3.5f,
+					OmniRange = lightRange,
+					ShadowEnabled = true,
+				};
+				light.Position = pos;
+				root.AddChild(light);
+			}
+		}
+	}
+
+	/// <summary>Lazily creates the indoor Environment with warm ambient lighting and a solid background.</summary>
+	private Environment GetOrCreateIndoorEnvironment()
+	{
+		if (_indoorEnvironment == null)
+		{
+			_indoorEnvironment = new Environment();
+			_indoorEnvironment.Set("background_mode", 1); // BGMode.BG_COLOR
+			_indoorEnvironment.Set("background_color", new Color(0.05f, 0.05f, 0.07f));
+			_indoorEnvironment.Set("ambient_light_source", 2); // AmbientSource.AMBIENT_SOURCE_COLOR
+			_indoorEnvironment.Set("ambient_light_color", new Color(0.85f, 0.8f, 0.7f));
+			_indoorEnvironment.Set("ambient_light_energy", 0.6f);
+		}
+		return _indoorEnvironment;
+	}
+
+	/// <summary>Adds a single fallback omni light when room bounds can't be computed.</summary>
+	private static void AddFallbackInteriorLight(Node root, Vector3 pos)
+	{
+		var light = new OmniLight3D
+		{
+			Name = "IndoorLight",
+			LightColor = new Color(1.0f, 0.92f, 0.78f),
+			LightEnergy = 5.0f,
+			OmniRange = 20f,
+			ShadowEnabled = true,
+		};
+		light.Position = pos;
+		root.AddChild(light);
 	}
 
 	// --- Doorways (B.3 / C.2) --------------------------------------------------

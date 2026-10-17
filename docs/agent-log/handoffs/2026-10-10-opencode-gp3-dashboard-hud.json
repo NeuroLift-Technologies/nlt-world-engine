@@ -1,0 +1,73 @@
+{
+  "handoff_record": {
+    "session_id": "ses_ed9167731ffe06jMoY1Wf7D1sF",
+    "agent_name": "OPENCODE",
+    "date": "2026-10-10",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "main",
+    "work_completed": [
+      "GRAPH-002 claimed in docs/active-threads.md per AGENTS.md §7 before any work started.",
+      "Read the updated world-engine-godot/AGENTS.md §5 dashboard-first graphics plan and both Images/Vision/ references.",
+      "Captured a baseline render (Images/Screenshots/_boot_probe.png) and established the only working screenshot path (direct CLI --capture); recorded that Fennara runtime_session cannot boot the scene (20s daemon deadline) and screenshot_scene returns black.",
+      "GP-3 element 1 — environment header (Observer/EnvironmentHeader.cs): four status chips, each printing the live fact behind its claim.",
+      "GP-3 element 2 — minimap (Observer/Minimap.cs): land sampled from WorldGeometry.HeightAt, the same field TerrainBuilder meshes, so the map is real rather than decorative. North-up, zoom, agent markers.",
+      "GP-3 element 3 — recent events (Observer/EventFeedPanel.cs): accumulating rows, wording/shape/colour all from the existing PlainLanguage vocabulary so no event can be described that the feed has no word for.",
+      "Added PlainLanguage.Ago so event ages read '12s ago' rather than reusing the elapsed-state Duration phrasing.",
+      "Wired all three into ObserverRoot additively; WorldView.cs and Main.cs deliberately untouched.",
+      "Captured screenshot evidence at all three reading levels into Images/Screenshots/.",
+      "SECOND INCREMENT — made the open world reachable and screenshot-able, which unblocks GP-1. Corrected the earlier diagnosis: the renderer was never broken (WorldView.ShowScene already handles open_world, and the contract already defines it); no fixture ever exercised the path, since all four bundles under fixtures/replay/ declare scene.kind 'interior'.",
+      "Added fixtures/replay/open-world-day.json — 12 frames, scene.id and kind both open_world, an avatar and an aide walking out of the settlement, with agent y values read from WorldGeometry.HeightAt so residents stand on the ground rather than in it.",
+      "Added tools/make_open_world_fixture/ at the repository root (see the gitignore note below) to author that fixture, borrowing WorldConstants.cs and WorldGeometry.cs by link so it cannot drift from the renderer.",
+      "Added --fixture <name> to ObserverCapture, honoured in ObserverRoot.Attach: selects which replay bundle loads, accepts a bare name or a full res:// path, inert without it. It names a fixture rather than forcing a scene, so it cannot mask a renderer that ignores the feed.",
+      "Fixed two pre-existing bugs found along the way: ObserverCapture's argument parsing read args[0] as a flag's value when the flag was absent (Array.IndexOf returns -1 and -1+1==0), and world-engine-godot.csproj was missing 'tools/**/*.cs' from its Compile Remove glob, which let a nested .godot AssemblyInfo break the engine build with CS0579."
+    ],
+    "work_in_progress": [
+      "None. GP-3 (three elements) and the open-world visibility fix are both complete and verified."
+    ],
+    "blockers": [
+      "Fennara runtime_session.start times out on Main.tscn (startup exceeds the daemon's hard 20s deadline) and screenshot_scene returns a solid black frame, because a detached editor-side capture never runs C# _Ready and therefore never builds the world. Both defeat the screenshot evidence AGENTS.md §2 requires. Worked around with a direct CLI run; neither was fixed here.",
+      "RESOLVED — 'the observer boots into an interior' is no longer a blocker. The renderer was correct; the feed simply never asked for the open world."
+    ],
+    "decisions_made": [
+      "Corrected my own earlier diagnosis rather than building on it: the open-world gap was missing fixture data, not missing renderer support. Verified by reading WorldView.ShowScene and the contract before changing anything.",
+      "Made the open world reachable via a selectable fixture rather than by changing what the renderer does on boot. Forcing the open world at boot would have meant the renderer deciding what to show instead of following the feed, which is exactly the boundary AGENTS.md §2 draws.",
+      "Authored the fixture at the repository-root tools/ rather than world-engine-godot/tools/, because .gitignore excludes the latter wholesale (it holds Godot's vendored C++ build scripts) and a tool placed there would never be committed.",
+      "Read agent heights from WorldGeometry.HeightAt instead of hand-authoring them, so the fixture cannot place a resident inside a hill and have that read as a rendering bug.",
+      "Derived fixture velocity as the derivative of the authored position rather than hand-picking it, after FeedReader correctly warned that the implied speed was faster than a person walks."
+    ],
+    "decisions_pending": [
+      "Joshua: Main.tscn still carries a NobodyWhoModel node bound to a 639 MB local GGUF, which the 2026-10-03 escalation (docs/escalations/2026-10-03-addons-external-integration-approval.md) says must NOT be installed in world-engine-godot. addons/nobodywho and ml-MODELS are gitignored, but the tracked Main.tscn references the node type, so a fresh clone cannot open the main scene. Reported, not touched: out of graphics scope.",
+      "Joshua: the remaining GP-3 elements — right control cluster (Spectator / Follow Agent / Free Camera / Scenario) and left district nav rail — need camera-mode seams in WorldView.cs and so conflict with the additive-only constraint agreed for this session.",
+      "Joshua: the agent-card Current Goals list needs a goals field on the state feed. None exists, and inventing values the feed does not carry is forbidden.",
+      "Joshua: agent role pins are GP-2 and remain blocked on the GRAPH-001 G1 decisions (G1.1 asset source and Mixamo redistribution answer, G1.5 budget)."
+    ],
+    "escalations": [
+      "None newly filed. The NobodyWho/GGUF finding and the verification-tooling defects are recorded in docs/active-threads.md under GRAPH-002 rather than as separate escalation files; escalate formally if a decision is needed before the next GP increment."
+    ],
+    "next_agent_notes": "Two Godot Control placement traps are documented as comments at the site in ObserverRoot.PlaceDashboardChrome; read those before touching the overlays. (1) SetAnchorsPreset alone moves nothing — offsets stay 0, so a negative Position is measured from the left edge. (2) Re-anchoring a Control resizes it, because its rect derives from anchors and offsets together; sizes are now constants, never read back after a move. (3) GetGlobalRect().End.X is the window edge for a split's last child, so offset by the rail's Position.X instead. Separately: Array.IndexOf returns -1 for an absent flag and -1+1==0, so every 'value after flag' read must check at < 0 — ObserverCapture now routes all four through ValueAfter. Verify layout with the direct CLI --selftest (expect LAYOUT OK) and pass --fixture open-world-day to see the procedural world. Do not trust a black Fennara screenshot_scene result as a rendering failure, and do not rely on Fennara runtime_session to boot this scene. Always build with --no-incremental: an incremental build reported '0 warnings' while a clean one showed 5.",
+    "files_modified": [
+      "world-engine-godot/Observer/EnvironmentHeader.cs (new)",
+      "world-engine-godot/Observer/Minimap.cs (new)",
+      "world-engine-godot/Observer/EventFeedPanel.cs (new)",
+      "world-engine-godot/Observer/ObserverRoot.cs (additive wiring only)",
+      "world-engine-godot/Observer/PlainLanguage.cs (added Ago)",
+      "world-engine-godot/Observer/ObserverCapture.cs (added --fixture; fixed arg-parsing bug)",
+      "world-engine-godot/world-engine-godot.csproj (excluded tools/**/*.cs from the compile glob)",
+      "world-engine-godot/fixtures/replay/open-world-day.json (new)",
+      "tools/make_open_world_fixture/ (new authoring tool, repository root)",
+      "docs/active-threads.md (GRAPH-002 claim, GP-3 record, open-world record)",
+      "world-engine-godot/Images/Screenshots/*.png (new, evidence)"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj --no-incremental — 0 errors; only the 2 pre-existing WorldView.cs nullable warnings remain in this project (the rest come from the external asfdk-csharp project reference)",
+      "dotnet build AgentHarness/AgentHarness.csproj — clean",
+      "dotnet run --project AgentHarness/AgentHarness.csproj — 40 passed, 0 failed",
+      "Godot --selftest — LAYOUT OK on all three bundles: default (stayalert-day), open-world-day, collapse-only",
+      "tools/validate_state_feed.py against all 12 open-world frames — OK, nlt.state-feed.v1, 2 agents each",
+      "Screenshot captures at --level simple / coach / technical, for both an interior and an open-world fixture"
+    ],
+    "tests_passing": true,
+    "pr_url": "not yet opened"
+  }
+}
