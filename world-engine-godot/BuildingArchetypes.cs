@@ -94,6 +94,66 @@ public static class BuildingArchetypes
         };
     }
 
+    /// <summary>
+    /// Front-face Z of the body each private builder draws, without building any meshes. Door
+    /// anchors (<see cref="WorldAnchorBuilder"/>) and arrival radii need the same front plane the
+    /// renderer draws; an anchor placed at the plan centre would sit inside the collision box and
+    /// the avatar would push against the wall forever, 3–5 m outside its 2.5 m arrival radius.
+    /// Values mirror the return statements of <see cref="Home"/>, <see cref="Office"/>,
+    /// <see cref="Shop"/> and <see cref="School"/> — change the builder, change this.
+    /// </summary>
+    public static float FrontOffset(SettlementBuilder.BuildingKind kind, SettlementBuilder.Plan plan)
+    {
+        float d = plan.Rad * 1.25f;
+        return kind switch
+        {
+            // Office draws a narrower tower: td/2 where td = d*0.85.
+            SettlementBuilder.BuildingKind.Office => d * 0.85f * 0.5f,
+            // Shop draws a shallower body: sd/2 where sd = d*0.8.
+            SettlementBuilder.BuildingKind.Shop => d * 0.8f * 0.5f,
+            // School draws a shallower block: bd/2 where bd = d*0.75.
+            SettlementBuilder.BuildingKind.School => d * 0.75f * 0.5f,
+            // Home draws the full depth: d/2.
+            _ => d * 0.5f,
+        };
+    }
+
+    /// <summary>
+    /// Box-collider footprint for <paramref name="kind"/>: full width and depth of the body the
+    /// private builders draw, tall enough to cover the roofline. The box starts 1 m below ground
+    /// so a building on a slope never leaves a gap under its downhill plinth, and the door axis
+    /// stays open because the front face matches <see cref="FrontOffset"/> — the door, marker and
+    /// portal entry point all sit outside it. Canopies, awnings and café tables overhang above
+    /// head height or off the door axis and deliberately have no collision yet.
+    /// </summary>
+    public static void CollisionInfo(
+        SettlementBuilder.BuildingKind kind, SettlementBuilder.Plan plan,
+        out Vector3 size, out Vector3 centre)
+    {
+        float w = plan.Rad * 1.5f, d = plan.Rad * 1.25f;
+        float sx = w, sz = d, top = 4f;
+        switch (kind)
+        {
+            case SettlementBuilder.BuildingKind.Office:
+                sx = w * 0.8f; sz = d * 0.85f;
+                top = (4 + (int)(plan.R * 4f)) * 3.2f + 0.5f;
+                break;
+            case SettlementBuilder.BuildingKind.Shop:
+                sx = w; sz = d * 0.8f;
+                top = 4.65f;
+                break;
+            case SettlementBuilder.BuildingKind.School:
+                sx = w; sz = d * 0.75f;
+                top = 7.0f;
+                break;
+            default:
+                top = (3.2f + plan.R * 2.6f) + (2.0f + plan.R * 1.2f);
+                break;
+        }
+        size = new Vector3(sx, top + 1f, sz);
+        centre = new Vector3(0f, (top - 1f) / 2f, 0f);
+    }
+
     /// <summary>Home: a one- or two-storey house under a gabled roof, with a chimney and a front step.</summary>
     private static float Home(Node3D g, float w, float d, float r, int i)
     {
