@@ -47,7 +47,9 @@ public static class WorldAnchorBuilder
 		int index = 0;
 		foreach (var plan in plans)
 		{
-			var kind = (SettlementBuilder.BuildingKind)plan.Kind;
+			// Not (BuildingKind)plan.Kind: that field is a [0,1) random draw, so the cast was always 0
+			// and every door perceived as a home while the renderer drew offices, shops and schools.
+			var kind = SettlementBuilder.KindAt(index);
 			var label = SettlementBuilder.KindLabel(kind);
 			anchors.Add(At(
 				$"door_{index}_{label.ToLowerInvariant()}",
