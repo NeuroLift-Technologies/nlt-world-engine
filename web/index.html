@@ -11,7 +11,8 @@
 
 <!--
   EDITING NOTES FOR CODING AGENTS
-  - Single static file, no build step, no JavaScript required.
+  - Single static file, no build step, no JavaScript required (one small inline script
+    only closes the mobile menu after a link is tapped).
   - Update project status ONLY in the <section id="status"> block. Each row uses:
         data-status="concept|prototype|training|ready"   and   style="--p:NN%"
     The label text inside <span class="pill"> must match data-status.
@@ -66,7 +67,7 @@
     background:rgba(6,18,26,.88);backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
   }
-  .bar{display:flex;align-items:center;justify-content:space-between;gap:20px;height:68px}
+  .bar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:20px;height:68px}
   .brand{display:flex;align-items:center;gap:12px;color:var(--text)}
   .brand:hover{text-decoration:none}
   .logo{
@@ -91,7 +92,13 @@
     nav.main{display:none}
     .header-cta{display:none}
     .nav-toggle{display:inline-flex}
-    header.site details nav{display:flex;flex-direction:column;padding:8px 0 16px}
+    header.site details nav{
+      position:absolute;top:100%;left:0;right:0;
+      display:flex;flex-direction:column;padding:8px 20px 16px;
+      background:var(--bg);border-bottom:1px solid var(--line);
+    }
+    header.site details nav a{color:var(--text);padding:12px 4px;border-bottom:1px solid var(--line)}
+    header.site details nav a:last-child{border-bottom:0}
   }
   header.site details{display:none}
   @media (max-width:900px){header.site details{display:block}}
@@ -438,7 +445,7 @@
 
         <article class="status-row" data-status="prototype" style="--p:40%">
           <h3>Agent loop (nlt.agent-loop.v1)</h3>
-          <p>Contract, validation, async HTTP transport, and an opt-in one-avatar scene delivered; visible in-scene arrival still unverified.</p>
+          <p>Contract, validation, async HTTP transport, and an opt-in one-avatar scene delivered; a model-chosen intent has been human-verified moving the avatar to its target.</p>
           <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">40%</div></div>
         </article>
 
@@ -467,7 +474,7 @@
         <a class="btn primary" href="https://neurolift-ai-fusion-org.vercel.app" target="_blank" rel="noopener">AI-Fusion status ↗</a>
       </div>
 
-      <p class="updated">Last updated: October 10, 2026</p>
+      <p class="updated">Last updated: October 17, 2026</p>
     </div>
   </section>
 
@@ -518,6 +525,13 @@
     </ul>
   </div>
 </footer>
+
+<script>
+  // Close the mobile menu once a destination is chosen; the menu works without this.
+  document.querySelectorAll('header.site details nav a').forEach(function(a){
+    a.addEventListener('click', function(){ a.closest('details').removeAttribute('open'); });
+  });
+</script>
 
 </body>
 </html>

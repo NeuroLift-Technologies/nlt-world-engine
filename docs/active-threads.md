@@ -7,6 +7,15 @@
 ---
 
 ## Active Threads
+### 🌐 WEB-001 — Public homepage on GitHub Pages
+
+- **Status:** open — live; content decisions pending with Joshua
+- **Owner:** Joshua (content decisions) · Claude Code (session `claude/zealous-newton-9g28lz`)
+- **Started / Last updated:** 2026-10-17
+- **Summary:** `web/index.html` is the public homepage. Joshua added `.github/workflows/static.yml` (GitHub Pages via Actions) on 2026-10-17 and approved deploying it. The workflow now publishes only `web/` as the site root, so the homepage is served at `https://neurolift-technologies.github.io/nlt-world-engine/`, and it runs only when `web/**` or the workflow changes. Its first run had uploaded the whole repository (~1.49 GB, mostly the frozen UE tree), which left the site root at 404 and served `_archive/` drafts as live pages. The mobile menu was fixed: it opened upward over the hero with no background and stayed open after a tap. The Agent loop status row now reflects the 2026-10-17 human verification.
+- **Pending (Joshua):** the Agent loop status percentage (still 40%); a hero image without baked-in dashboard UI (the current art's panels show through the overlay, contradict the snapshot card, and at tablet width reveal an "AI-Fusion Simulation Environment" header); whether "▶ Explore the World" should keep pointing at `#architecture`.
+- **Note for agents:** the Project Status rows in `web/index.html` summarise threads in this file, so a status change here can leave the public page stale (as happened with AGENT-LOOP-001 on 2026-10-17).
+
 ### 🔁 AGENT-LOOP-001 — Fusion semantic / Godot physical closed loop
 
 - **Status:** protocol, governance gate, intent ingress, perception builder, async loopback HTTP transport, and an opt-in one-avatar Godot scene path delivered. **The closed loop is human-verified in an interactive Godot runtime:** a model-chosen intent moved the local avatar to the target and Joshua watched it walk there (see *Human verification*). Fusion `SessionOrchestrator` integration remains separate.
