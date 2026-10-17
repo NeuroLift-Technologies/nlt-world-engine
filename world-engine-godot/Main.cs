@@ -296,19 +296,21 @@ public partial class Main : NltWorldEngine.WorldView
 	}
 
 	/// <summary>
-	/// Flat Jolt ground so <c>IsOnFloor()</c> has something to stand on. Levels like
-	/// workplace (FBX instance, no collision) otherwise leave avatars falling forever.
+	/// Flat Jolt ground so <c>IsOnFloor()</c> has something to stand on: a backstop under the
+	/// interiors' own UCX floors. Disabled while the open world shows (<see cref="SyncAvatarGround"/>).
 	/// </summary>
 	private void EnsureAvatarGround()
 	{
-		if (GetNodeOrNull<StaticBody3D>("AvatarGround") != null)
+		if (GetNodeOrNull<StaticBody3D>(AvatarGroundName) != null)
 			return;
-		var ground = new StaticBody3D { Name = "AvatarGround" };
+		var ground = new StaticBody3D { Name = AvatarGroundName };
 		var shape = new CollisionShape3D();
 		var box = new BoxShape3D { Size = new Vector3(500f, 1f, 500f) };
 		shape.Shape = box;
 		ground.AddChild(shape);
 		ground.Position = new Vector3(0f, -0.5f, 0f);
 		AddChild(ground);
+		// Off in the open world (it made the lake walkable), on inside interiors.
+		SyncAvatarGround();
 	}
 }

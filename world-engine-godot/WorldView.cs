@@ -269,6 +269,22 @@ public partial class WorldView : Node3D
 	{
 		_openWorld.Visible = active;
 		_openWorld.ProcessMode = active ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
+		SyncAvatarGround();
+	}
+
+	/// <summary>Name of the flat y = 0 safety floor <c>Main</c> adds for live avatars.</summary>
+	protected const string AvatarGroundName = "AvatarGround";
+
+	/// <summary>
+	/// The safety floor is a 500 m sheet at sea level. In the open world it laid a solid surface
+	/// across the lake and the sea, so avatars walked on water; the terrain body is the ground there
+	/// now, and <see cref="TerrainBuilderPhysics.KillY"/> catches anything that falls through. Inside
+	/// an interior it stays on as a backstop under the level's own UCX floor.
+	/// </summary>
+	protected void SyncAvatarGround()
+	{
+		if (GetNodeOrNull<StaticBody3D>(AvatarGroundName) is { } ground && _openWorld != null)
+			ground.ProcessMode = _openWorld.Visible ? ProcessModeEnum.Disabled : ProcessModeEnum.Inherit;
 	}
 
 	/// <summary>Look at an interior instance from above, sized to its own footprint.</summary>

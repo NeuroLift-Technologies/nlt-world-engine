@@ -63,8 +63,10 @@
     work and corrected: open-world bodies now leave the physics space while an interior shows
     (they overlapped the room at the origin); home floor collision now from `UCX_Floor` (the
     hand-placed box was centred on the 80 m slab and missed the north third of the room); removed
-    a duplicate, broken `--focus` from `ObserverCapture`. Open: `AvatarGround` (flat y=0 floor in
-    `Main`) lets avatars walk on the lake/sea surface.
+    a duplicate, broken `--focus` from `ObserverCapture`. `AvatarGround` (flat y=0 floor in `Main`)
+    let avatars walk on the lake/sea surface — **Joshua 2026-10-17: off in the open world**; it now
+    stays on only inside interiors as a backstop. An avatar that walks into water now wades down
+    onto the lake/sea bed (terrain body); no swim/shoreline rule exists yet.
   - **All four interiors dressed, 2026-10-17 (CLAUDE):** `InteriorStyle` now has rule sets for the
     office (`WF_*`), café (`Cafe_*`/`Social_*`) and classroom (`Academic_*`, desks, bookshelves),
     3–4 colour schemes per kind; every building's portal is `<kind>_<n>` so each building looks
