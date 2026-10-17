@@ -205,14 +205,24 @@
   .build{display:grid;grid-template-columns:1.5fr 1fr;gap:32px;align-items:center;margin-top:28px}
   @media (max-width:900px){.build{grid-template-columns:1fr}}
   .feature,.shot{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  .feature a,.shot a{display:block}
+  .feature a,.shot a{display:block;position:relative}
+  .open-full{
+    position:absolute;right:10px;bottom:10px;padding:5px 12px;border-radius:999px;
+    background:rgba(6,18,26,.88);border:1px solid var(--cyan);color:var(--text);font-size:.8rem;font-weight:700;
+  }
+  .feature a:hover .open-full{background:var(--panel-2)}
   .feature img,.shot img{display:block;width:100%;height:auto}
   .feature a:hover img,.shot a:hover img{filter:brightness(1.1)}
   .feature figcaption,.shot figcaption{padding:12px 16px;color:var(--muted);font-size:.88rem}
   .feature figcaption strong,.shot figcaption strong{display:block;color:var(--text);font-size:.98rem;margin-bottom:2px}
   .shots{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
   @media (max-width:900px){.shots{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.shots{grid-template-columns:1fr}}
+  @media (max-width:560px){
+    .open-full{right:8px;bottom:8px;padding:3px 9px;font-size:.72rem}
+    .shots{gap:12px}
+    .shot figcaption{padding:10px 12px;font-size:.8rem}
+    .shot figcaption strong{font-size:.88rem}
+  }
 
   /* Status */
   .legend{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 26px}
@@ -316,8 +326,8 @@
         <p class="caption">Hero art is a concept visualization of the target experience, not engine output. <a href="#progress">See what the engine renders today.</a></p>
       </div>
 
-      <aside class="snapshot" aria-label="Concept visualization of a live world snapshot">
-        <h2>Live World Snapshot</h2>
+      <aside class="snapshot" aria-label="Concept visualization of a world snapshot">
+        <h2>World Snapshot (concept)</h2>
         <dl>
           <div class="row"><dt>Agents Active</dt><dd>24</dd></div>
           <div class="row"><dt>Scenario</dt><dd>Workplace</dd></div>
@@ -462,6 +472,7 @@
           <a href="progress/observer-open-world.webp" target="_blank" rel="noopener">
             <img src="progress/observer-open-world.webp" width="1152" height="648" loading="lazy"
                  alt="The World Engine observer replaying an open-world day: avatar state panel, 3D view of a settlement on green terrain with two avatars, a minimap, a learning timeline and replay controls.">
+            <span class="open-full">Open full size ↗</span>
           </a>
           <figcaption><strong>The observer</strong>Avatar state, the 3D world view with a minimap, a learning timeline and replay controls. Shown at the Simple reading level; Coach and Technical add the Fusion gate, the aide's intervention log and more signal detail.</figcaption>
         </figure>
@@ -479,27 +490,27 @@
 
       <div class="shots">
         <figure class="shot">
-          <a href="progress/openworld-day-full.webp" target="_blank" rel="noopener"><img src="progress/openworld-day.webp" width="560" height="206" loading="lazy" alt="Aerial view at midday of a small settlement on green terrain, with an office tower, a brick school, a shop with an awning and houses among pine trees."></a>
-          <figcaption><strong>Open world, midday</strong>Procedural terrain and forest around the settlement.</figcaption>
+          <a href="progress/openworld-day-full.webp" target="_blank" rel="noopener"><img src="progress/openworld-day.webp" width="550" height="412" loading="lazy" alt="Midday view of the settlement: a brick school, a shop with an awning, an office tower and a house around a plaza, with pine trees and an avatar on the path."></a>
+          <figcaption><strong>Open world, midday</strong>School, shop and office tower, each with its own shape.</figcaption>
         </figure>
         <figure class="shot">
-          <a href="progress/openworld-night-full.webp" target="_blank" rel="noopener"><img src="progress/openworld-night.webp" width="560" height="206" loading="lazy" alt="The same settlement view at night, darker but still readable."></a>
+          <a href="progress/openworld-night-full.webp" target="_blank" rel="noopener"><img src="progress/openworld-night.webp" width="550" height="412" loading="lazy" alt="The same settlement view at night, darker but still readable."></a>
           <figcaption><strong>Open world, midnight</strong>Night lighting keeps the town readable after dark.</figcaption>
         </figure>
         <figure class="shot">
-          <a href="progress/personal-full.webp" target="_blank" rel="noopener"><img src="progress/personal.webp" width="560" height="206" loading="lazy" alt="Top-down view into a furnished home with wooden floors, a bed, a desk and two avatars."></a>
+          <a href="progress/personal-full.webp" target="_blank" rel="noopener"><img src="progress/personal.webp" width="550" height="412" loading="lazy" alt="Top-down view into a furnished home with wooden floors, interior walls, a doorway, a desk and two avatars."></a>
           <figcaption><strong>Personal · home</strong>A furnished home interior.</figcaption>
         </figure>
         <figure class="shot">
-          <a href="progress/workplace-full.webp" target="_blank" rel="noopener"><img src="progress/workplace.webp" width="560" height="206" loading="lazy" alt="Top-down view of an office floor with rows of desks, chairs and two avatars."></a>
+          <a href="progress/workplace-full.webp" target="_blank" rel="noopener"><img src="progress/workplace.webp" width="550" height="412" loading="lazy" alt="Top-down view of an office floor with desks, monitors, chairs and two avatars at a desk."></a>
           <figcaption><strong>Workplace · office</strong>An office floor with desks.</figcaption>
         </figure>
         <figure class="shot">
-          <a href="progress/social-full.webp" target="_blank" rel="noopener"><img src="progress/social.webp" width="560" height="206" loading="lazy" alt="Top-down view of a café with tables, red chairs and two avatars."></a>
+          <a href="progress/social-full.webp" target="_blank" rel="noopener"><img src="progress/social.webp" width="550" height="412" loading="lazy" alt="Close top-down view of a café table with red chairs and two avatars."></a>
           <figcaption><strong>Social · café</strong>A café with tables.</figcaption>
         </figure>
         <figure class="shot">
-          <a href="progress/academic-full.webp" target="_blank" rel="noopener"><img src="progress/academic.webp" width="560" height="206" loading="lazy" alt="Top-down view of a classroom with scattered desks and two avatars."></a>
+          <a href="progress/academic-full.webp" target="_blank" rel="noopener"><img src="progress/academic.webp" width="550" height="412" loading="lazy" alt="Top-down view of a classroom with desks and two avatars."></a>
           <figcaption><strong>Academic · classroom</strong>A classroom with desks.</figcaption>
         </figure>
       </div>
@@ -551,7 +562,7 @@
 
         <article class="status-row" data-status="prototype" style="--p:15%">
           <h3>Scenario library</h3>
-          <p>Four interior FBX imports plus the procedural open world; building-to-interior wiring still open.</p>
+          <p>Four interiors (home, office, café, classroom) furnished with collision and entered by clicking a building; open-world buildings have a distinct shape per kind. Visual fidelity is still early.</p>
           <div class="meter"><span class="pill">Prototype</span><div class="track"><div class="fill"></div></div><div class="pct">15%</div></div>
         </article>
       </div>
