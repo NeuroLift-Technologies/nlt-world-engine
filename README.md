@@ -1,6 +1,6 @@
 # NLT World Engine — AI Habitat & Physical Simulation Layer
 
-[![Website: view the live homepage](https://img.shields.io/badge/Website-View%20the%20live%20homepage-0f766e?style=for-the-badge&labelColor=06121a)](https://neurolift-technologies.github.io/nlt-world-engine/)
+[![Website: view the live homepage](docs/assets/website-button.svg)](https://neurolift-technologies.github.io/nlt-world-engine/)
 
 > **Engine: Godot 4.7.2 (C#) is authoritative (thread `ENG-002`).** Decided by Joshua on 2026-10-07: Godot replaces UE 5.8 in its entirety as this repo's simulation runtime. The UE 5.8 tree in `WorldEngine/` is a **frozen, non-authoritative reference implementation** retained for its documented semantics — it is not the simulation and not a conformance oracle. Pinned toolchain: [`docs/engine-reference/godot/VERSION.md`](docs/engine-reference/godot/VERSION.md).
 

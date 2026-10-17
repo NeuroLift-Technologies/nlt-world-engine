@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="284" height="28" viewBox="0 0 284 28" role="img" aria-label="Website: view the live homepage">
+  <title>Website: view the live homepage</title>
+  <rect width="79" height="28" fill="#06121a"/>
+  <rect x="79" width="205" height="28" fill="#0f766e"/>
+  <g fill="#fff" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="10" text-anchor="middle">
+    <text x="39.5" y="17.5" textLength="55">WEBSITE</text>
+    <text x="181.5" y="17.5" textLength="180" font-weight="bold">VIEW THE LIVE HOMEPAGE</text>
+  </g>
+</svg>
