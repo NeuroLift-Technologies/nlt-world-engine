@@ -80,6 +80,14 @@ public static class SettlementBuilder
         return true;
     }
 
+    /// <summary>
+    /// The kind of the building at <paramref name="index"/> in <see cref="BuildPlans"/> order. The one
+    /// source of truth for "what is this building": the renderer (<see cref="Build"/>) and the agents'
+    /// perception anchors (<c>WorldAnchors</c>) must both read it, or agents perceive a different town
+    /// from the one observers see.
+    /// </summary>
+    public static BuildingKind KindAt(int index) => KindPattern[index % KindPattern.Length];
+
     /// <summary>Plain word for the doorway label.</summary>
     public static string KindLabel(BuildingKind k) => k switch
     {
@@ -156,51 +164,23 @@ public static class SettlementBuilder
     {
         portals = new List<Portal>();
         var root = new Node3D();
-        var wallMat = new StandardMaterial3D { Roughness = 0.85f };
-        var roofMat = new StandardMaterial3D { Roughness = 0.78f };
+        var roofMat = new StandardMaterial3D { AlbedoColor = new Color(0x6b5340FF), Roughness = 0.78f };
         var glassMat = new StandardMaterial3D { AlbedoColor = new Color(0xffe0b0FF), EmissionEnabled = true, Emission = new Color(0xffc478FF), EmissionEnergyMultiplier = 0.85f, Roughness = 0.3f };
         var pathMat = new StandardMaterial3D { AlbedoColor = new Color(0x8a8377FF), Roughness = 0.98f };
         var doorMat = new StandardMaterial3D { AlbedoColor = new Color(0x54402fFF), Roughness = 0.8f };
 
-        Color[] wallCols = { new(0xd9cdb8FF), new(0xc9bfa9FF), new(0xe0d4c0FF), new(0xbfae96FF), new(0xcfc4aeFF), new(0xc4b49cFF) };
-        Color[] roofCols = { new(0x7a4a3cFF), new(0x6b5340FF), new(0x8a5a44FF), new(0x5f4a3eFF), new(0x74503fFF) };
-
         int i = 0;
         foreach (var plan in plans)
         {
-            BuildingKind kind = KindPattern[i % KindPattern.Length];
+            BuildingKind kind = KindAt(i);
             float y = WorldGeometry.HeightAt(plan.X, plan.Z);
             var g = new Node3D();
-            float w = plan.Rad * 1.5f, d = plan.Rad * 1.25f;
-            float wallH = 4.2f + plan.R * 3.4f, roofH = 2.4f + plan.R * 1.4f;
 
-            var wm = (StandardMaterial3D)wallMat.Duplicate(); wm.AlbedoColor = wallCols[i % wallCols.Length];
-            var wall = new MeshInstance3D
-            {
-                Mesh = new BoxMesh { Size = new Vector3(w, wallH, d) },
-                MaterialOverride = wm,
-                Position = new Vector3(0, wallH / 2f, 0),
-            };
-            g.AddChild(wall);
+            // Each kind has its own silhouette; the door and portal marker are shared and sit on
+            // whichever front face the archetype reports.
+            float front = BuildingArchetypes.Build(g, kind, plan, i);
 
-            var rm = (StandardMaterial3D)roofMat.Duplicate(); rm.AlbedoColor = roofCols[i % roofCols.Length];
-            var roof = new MeshInstance3D
-            {
-                Mesh = new CylinderMesh { Height = roofH, TopRadius = 0f, BottomRadius = MathF.Max(w, d) * 0.78f, RadialSegments = 4 },
-                MaterialOverride = rm,
-                Position = new Vector3(0, wallH + roofH / 2f - 0.15f, 0),
-                Rotation = new Vector3(0, Mathf.Pi / 4f, 0),
-            };
-            g.AddChild(roof);
-
-            g.AddChild(new MeshInstance3D
-            {
-                Mesh = new BoxMesh { Size = new Vector3(0.7f, 1.9f, 0.7f) },
-                MaterialOverride = wm,
-                Position = new Vector3(w * 0.22f, wallH + roofH * 0.55f, -d * 0.2f),
-            });
-
-            var doorLocal = new Vector3(0, 1.05f, d / 2f + 0.02f);
+            var doorLocal = new Vector3(0, 1.05f, front + 0.02f);
             g.AddChild(new MeshInstance3D
             {
                 Mesh = new BoxMesh { Size = new Vector3(1.15f, 2.1f, 0.14f) },
@@ -210,17 +190,8 @@ public static class SettlementBuilder
 
             // The doorway affordance: the observer clicks this arch (or presses E) to enter the level.
             var marker = PortalMarker.Build(KindLabel(kind), KindColour(kind));
-            marker.Position = new Vector3(0, 0, d / 2f + 0.09f);
+            marker.Position = new Vector3(0, 0, front + 0.09f);
             g.AddChild(marker);
-
-            for (int s = 0; s < 2; s++)
-            for (int f = 0; f < 2; f++)
-                g.AddChild(new MeshInstance3D
-                {
-                    Mesh = new BoxMesh { Size = new Vector3(0.95f, 0.8f, 0.1f) },
-                    MaterialOverride = glassMat,
-                    Position = new Vector3((s == 0 ? -1 : 1) * w * 0.29f, 1.9f + f * 1.5f, d / 2f + 0.02f),
-                });
 
             g.Position = new Vector3(plan.X, y, plan.Z);
             g.Rotation = new Vector3(0, plan.Rot, 0);

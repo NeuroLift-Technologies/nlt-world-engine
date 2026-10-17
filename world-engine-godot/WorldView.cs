@@ -30,6 +30,26 @@ public partial class WorldView : Node3D
 	// Sun light — child of _sky3d, created automatically by Sky3D._initialize()
 	private DirectionalLight3D _sun = null!;
 
+	// Night readability. Sky3D's REALISTIC moon follows the real calendar, so on most nights it is
+	// below the horizon or a thin crescent and its light sits at ~0; with the sky itself near black,
+	// the open world rendered as unlit silhouettes for half of every day. Observers must be able to
+	// read the town at any hour, so the renderer adds its own soft, shadowless moonlight fill that
+	// fades in as the sun's energy fades out. It changes only how the world looks, never the clock.
+	private DirectionalLight3D _nightFill = null!;
+	private float _sunFullEnergy = 1f;
+	private const float NightFillEnergy = 0.45f;
+	private const float NightSkyContribution = 0.3f;
+
+	// `-- --hour <0-24>` holds the sky at one hour, so a capture can show the world at night
+	// (AGENTS.md §2 screenshot evidence) instead of only at the noon the clock opens on.
+	private float? _fixedHour;
+
+	// `-- --focus <x>,<z>[,<distance>]` pins the open-world camera on a world point, so a capture can
+	// frame something other than the settlement (the lake, a shoreline). Re-applied every frame
+	// because the feed's scene changes and follow mode both re-aim the camera.
+	private Vector3? _fixedFocus;
+	private float? _fixedDist;
+
 	// Water and vegetation shader materials — still need sun uniforms each frame
 	private ShaderMaterial _waterMat = null!;
 
@@ -692,6 +712,48 @@ public partial class WorldView : Node3D
 			AddChild(_sun);
 		}
 
+		// Daytime peak of the sun, so _Process can tell how far into the night it is.
+		Variant sunEnergy = _sky3d.Get("sun_energy");
+		_sunFullEnergy = sunEnergy.VariantType == Variant.Type.Float ? Mathf.Max((float)sunEnergy, 0.01f) : Mathf.Max(_sun.LightEnergy, 0.01f);
+
+		// At night draw more ambient from Sky3D's night tint colour (which it keeps at value >= 0.35)
+		// instead of the near-black night sky.
+		_sky3d.Set("night_sky_contribution", NightSkyContribution);
+
+		if (float.TryParse(Observer.ObserverCapture.ValueAfter(OS.GetCmdlineUserArgs(), "--hour"),
+				System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float hour))
+			_fixedHour = Mathf.PosMod(hour, 24f);
+
+		string? focus = Observer.ObserverCapture.ValueAfter(OS.GetCmdlineUserArgs(), "--focus");
+		if (focus != null)
+		{
+			var inv = System.Globalization.CultureInfo.InvariantCulture;
+			string[] parts = focus.Split(',');
+			if (parts.Length >= 2
+				&& float.TryParse(parts[0], System.Globalization.NumberStyles.Float, inv, out float fx)
+				&& float.TryParse(parts[1], System.Globalization.NumberStyles.Float, inv, out float fz))
+			{
+				_fixedFocus = new Vector3(fx, Mathf.Max(WorldGeometry.HeightAt(fx, fz), WorldConstants.Water), fz);
+				if (parts.Length >= 3 && float.TryParse(parts[2], System.Globalization.NumberStyles.Float, inv, out float fd))
+					_fixedDist = fd;
+			}
+			else
+				GD.PushWarning($"WorldView: --focus expects <x>,<z>[,<distance>], got '{focus}'");
+		}
+
+		// LightOnly so the fill never draws a second disc in the sky; no shadows, so it is cheap on
+		// the integrated-GPU quality tier.
+		_nightFill = new DirectionalLight3D
+		{
+			Name = "NightFill",
+			LightColor = new Color(0.62f, 0.70f, 0.92f),
+			LightEnergy = 0f,
+			ShadowEnabled = false,
+			SkyMode = DirectionalLight3D.SkyModeEnum.LightOnly,
+			RotationDegrees = new Vector3(-55f, 35f, 0f),
+		};
+		AddChild(_nightFill);
+
 		// --- Open world (procedural), held under one node so the view can swap to an interior (B.3) ---
 		_openWorld = new Node3D { Name = "OpenWorld" };
 		AddChild(_openWorld);
@@ -752,10 +814,21 @@ public partial class WorldView : Node3D
 			UpdateCamera();
 		}
 
+		if (_fixedFocus.HasValue && _openWorld.Visible)
+		{
+			if (_fixedDist.HasValue)
+				_dist = _fixedDist.Value;
+			FocusOn(_fixedFocus.Value);
+		}
+
 		// Drive Sky3D's clock from sim elapsed time.
 		// DayLen = 260 s → one full 24-hour cycle = 260 s real time.
 		// current_time is hours [0, 24).
-		if (!_skyPaused)
+		if (_fixedHour.HasValue)
+		{
+			_sky3d.Set("current_time", _fixedHour.Value);
+		}
+		else if (!_skyPaused)
 		{
 			// +12h offset: sim time 0 opens at noon, matching the current_time set in _Ready.
 			// Without it the first _Process frame reset the clock to hour 0, so the world
@@ -772,18 +845,29 @@ public partial class WorldView : Node3D
 		Color sunColor = _sun.LightColor;
 		float sunEnergy = _sun.LightEnergy;
 
+		// Fill rises as the sun sets. Interiors have their own lighting, so it only shows outdoors.
+		float daylight = Mathf.Clamp(sunEnergy / _sunFullEnergy, 0f, 1f);
+		_nightFill.LightEnergy = NightFillEnergy * (1f - daylight);
+		_nightFill.Visible = _openWorld.Visible;
+
 		// Derive a simple fog/horizon colour from sun elevation (sky contribution absent here;
 		// Sky3D manages the Environment directly, so we only update the water shader uniforms).
 		float elevation = sunDir.Dot(Vector3.Up);                   // -1 (nadir) to 1 (zenith)
 		float t = Mathx.Clamp01(elevation * 0.5f + 0.5f);          // 0 = midnight, 1 = noon
 		Color fog = new Color(0x9fb6c4FF).Lerp(new Color(0xffd0a0FF), t * 0.35f);
 
+		// The water is unshaded, so dim it with the same daylight measure as the night fill; at
+		// night it settles toward the fill's moonlit blue rather than staying at noon brightness.
+		float waterLight = Mathf.Lerp(0.32f, 1f, daylight);
+		fog = fog.Lerp(_nightFill.LightColor * 0.5f, 1f - daylight) * Mathf.Lerp(0.45f, 1f, daylight);
+
 		_waterMat.SetShaderParameter("u_time", (float)_simT);
+		_waterMat.SetShaderParameter("u_light", waterLight);
 		_waterMat.SetShaderParameter("u_sky", fog);
-		_waterMat.SetShaderParameter("u_sun_color", sunColor);
+		_waterMat.SetShaderParameter("u_sun_color", sunColor * daylight);
 		_waterMat.SetShaderParameter("u_sun_dir", sunDir);
 		_waterMat.SetShaderParameter("u_fog_color", fog);
-		_waterMat.SetShaderParameter("u_fog_density", 0.0016f);
+		_waterMat.SetShaderParameter("u_fog_density", WaterBuilder.FogDensity);
 
 		foreach (var m in VegetationBuilder.WindMats)
 			m.SetShaderParameter("u_time", (float)_simT);

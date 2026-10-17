@@ -4,6 +4,12 @@ namespace NltWorldEngine;
 
 public static class WaterBuilder
 {
+    /// <summary>
+    /// Distance haze on the water. At 0.0016 the sea 300 m out was ~94% fog colour and read as sky,
+    /// not water; 0.0011 keeps aerial perspective (~73% there) while the far coast still reads as sea.
+    /// </summary>
+    public const float FogDensity = 0.0011f;
+
     public static MeshInstance3D Build()
     {
         var shader = new Shader
@@ -20,6 +26,9 @@ uniform vec3 u_sun_color : source_color;
 uniform vec3 u_sun_dir;
 uniform vec3 u_fog_color : source_color;
 uniform float u_fog_density;
+// The shader is unshaded, so it cannot see scene lighting; WorldView passes the day/night level
+// here (1 = full day) so the lake darkens with the land instead of glowing at night.
+uniform float u_light = 1.0;
 
 float wave(vec2 p, vec2 dir, float freq, float speed) {
     return sin(dot(p, dir) * freq + u_time * speed);
@@ -50,7 +59,7 @@ void fragment() {
     float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.2);
     float spec = pow(max(dot(reflect(-L, N), V), 0.0), 180.0);
     float glitter = pow(max(dot(reflect(-L, N), V), 0.0), 28.0) * 0.14;
-    vec3 col = mix(u_deep, u_shallow, clamp(h * 0.35 + 0.5, 0.0, 1.0));
+    vec3 col = mix(u_deep, u_shallow, clamp(h * 0.35 + 0.5, 0.0, 1.0)) * u_light;
     col = mix(col, u_sky, clamp(fres * 0.85, 0.0, 1.0));
     col += u_sun_color * (spec * 1.3 + glitter);
     float dist = length(CAMERA_POSITION_WORLD - v_world);
@@ -69,7 +78,7 @@ void fragment() {
         mat.SetShaderParameter("u_sun_color", new Color(0xfff2d6FF));
         mat.SetShaderParameter("u_sun_dir", new Vector3(0.5f, 0.7f, 0.4f));
         mat.SetShaderParameter("u_fog_color", new Color(0x9fb6c4FF));
-        mat.SetShaderParameter("u_fog_density", 0.0016f);
+        mat.SetShaderParameter("u_fog_density", FogDensity);
 
         var mesh = new MeshInstance3D
         {

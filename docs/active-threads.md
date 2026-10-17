@@ -38,6 +38,26 @@
   - **Verification path is degraded.** `AGENTS.md` §2 requires a captured screenshot for every
     graphics change, but the Fennara `runtime_session` cannot boot the scene (see below) and
     `screenshot_scene` returns a black frame. The working path is a direct CLI run.
+- **GP-1 progress 2026-10-17 (CLAUDE, branch `feat/godot-building-archetypes-terrain`):**
+  - **Terrain was never rendered.** `TerrainBuilder` wound every triangle counter-clockwise seen from
+    above, so all faces pointed down and were back-face culled; the "ground" observers saw was the
+    water plane ~7 m below the town. Winding fixed; vertex colours now flagged sRGB.
+  - **One silhouette per building kind** (`BuildingArchetypes.cs`): Home (gabled house), Office
+    (glass-banded tower), Shop (storefront + awning + café tables), School (brick block, portico,
+    cupola, flag).
+  - **Agent perception bug:** `WorldAnchors` cast the `[0,1)` random `plan.Kind` to `BuildingKind`,
+    so every door was perceived as a Home. Both renderer and anchors now read
+    `SettlementBuilder.KindAt(index)` — agents now perceive offices/shops/schools as busier.
+  - **Night readability:** Sky3D's REALISTIC moon is usually down or dim, so nights rendered black. A
+    renderer-owned shadowless `NightFill` light fades in with sun energy; night ambient draws more
+    from Sky3D's tint (`night_sky_contribution` 0.3); the unshaded water dims with it.
+  - **Capture flags:** `--hour <0-24>` pins the sky clock; `--focus <x>,<z>[,<dist>]` pins the
+    camera. Evidence: `Images/Screenshots/{settlement-archetypes,terrain-fix-h0,terrain-fix-h12,lake-h0,lake-h12}.png`.
+  - **Fennara `runtime_session` still cannot boot on the dev PC** — its fixed 20 s startup deadline
+    expires during the mono/UHD 630 boot. Not configurable; the CLI capture path is used instead.
+  - **Decisions recorded (Joshua, 2026-10-17):** art target is Cities: Skylines + The Sims 4
+    (stylised-realistic, start lesser and step up); clicking a building opens its **interior view, not
+    a cut-away**; deployment target is a cloud VM viewed in the browser (delivery method undecided).
 
 ---
 
@@ -102,6 +122,7 @@ materials), vegetation LOD, water/shoreline, and lighting/grade.
 $exe = "$env:LOCALAPPDATA\Godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe"
 & $exe --path "$PWD" -- --capture "res://Images/Screenshots/<name>.png" --frames 120 --level simple
 # exits 0; honours --level {simple|coach|technical} and --selftest
+# also: --fixture <replay-name> (e.g. open-world-day), --hour <0-24>, --focus <x>,<z>[,<dist>]
 ```
 
 **GP-3 delivered 2026-10-10 — three of the dashboard's HUD elements, all three reading levels:**

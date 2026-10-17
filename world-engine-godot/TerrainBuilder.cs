@@ -46,9 +46,13 @@ public static class TerrainBuilder
         for (int i = 0; i < seg; i++)
         {
             Vector3 a = Vertex(i, j), b = Vertex(i + 1, j), c = Vertex(i + 1, j + 1), d = Vertex(i, j + 1);
-            // two triangles: a, d, c  /  a, c, b  (winding for upward faces)
-            AddTri(st, a, d, c);
-            AddTri(st, a, c, b);
+            // two triangles: a, c, d  /  a, b, c. Godot's front face is clockwise as seen by the
+            // camera; seen from above (+X right, +Z toward the screen bottom) these run clockwise, so
+            // the faces point up. The earlier a, d, c / a, c, b order ran counter-clockwise: every
+            // terrain face pointed down and was back-face culled, so from the observer's camera the
+            // ground was invisible and the water plane below it showed through as "ground".
+            AddTri(st, a, c, d);
+            AddTri(st, a, b, c);
         }
 
         void AddTri(SurfaceTool s, Vector3 p0, Vector3 p1, Vector3 p2)
@@ -63,6 +67,10 @@ public static class TerrainBuilder
         var mat = new StandardMaterial3D
         {
             VertexColorUseAsAlbedo = true,
+            // ColorAt's palette is authored as sRGB hex. Without this flag Godot reads vertex
+            // colours as linear, which lifts and greys them: grass rendered a pale blue-grey that
+            // matched the water's fog colour, and observers could not tell land from lake.
+            VertexColorIsSrgb = true,
             Roughness = 0.97f,
             Metallic = 0f,
         };
