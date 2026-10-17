@@ -40,6 +40,13 @@ public static class WorldGeometry
         return MathF.Sqrt(hx * hx + hz * hz) / (2f * e);
     }
 
+    /// <summary>
+    /// A safe place to stand: the settlement plaza's centre on the terrain. Used to start an
+    /// open-world tour and to land an avatar the kill-plane caught over water.
+    /// </summary>
+    public static Vector3 PlazaSpawn()
+        => new(WorldConstants.SettleX, HeightAt(WorldConstants.SettleX, WorldConstants.SettleZ), WorldConstants.SettleZ);
+
     public static bool Walkable(float x, float z)
         => HeightAt(x, z) > WorldConstants.Water + 0.55f && SlopeAt(x, z) < 0.62f;
 
