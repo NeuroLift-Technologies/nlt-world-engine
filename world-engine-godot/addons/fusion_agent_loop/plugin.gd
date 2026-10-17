@@ -68,15 +68,11 @@ var _log_view: TextEdit
 ## port but never answered. A file never fills, and the dock tails it instead.
 const SERVER_LOG := "user://fusion_agent_loop_server.log"
 
-## Runs the Fusion module exactly as `-m` would, after pointing stdout/stderr (including native
-## writes on fds 1 and 2, e.g. from llama.cpp) at the log file named in argv[1]. Passing the path
-## as an argument avoids building a shell command line, so no quoting is involved. Single quotes
-## only: Godot's Windows argument quoting does not escape embedded double quotes.
-const LAUNCH_CODE := "import os, sys, runpy; " \
-	+ "f = open(sys.argv[1], 'a', buffering=1, encoding='utf-8', errors='replace'); " \
-	+ "os.dup2(f.fileno(), 1); os.dup2(f.fileno(), 2); sys.stdout = sys.stderr = f; " \
-	+ "sys.argv = sys.argv[:1]; " \
-	+ "runpy.run_module('%s', run_name='__main__', alter_sys=True)"
+## Runs the Fusion module exactly as `-m` would, with stdout/stderr (including native writes on
+## fds 1 and 2, e.g. from llama.cpp) appended to the log named in argv[1]. The log is opened per
+## write, never held: in the editor Godot reads files with _SH_DENYWR, which fails outright while
+## another process holds the file open for writing — the dock then never saw a single line.
+const LAUNCHER := "res://addons/fusion_agent_loop/launch_server.py"
 
 const TAIL_INTERVAL := 0.5
 
@@ -84,6 +80,7 @@ var _server_pid := -1
 var _log_path := ""
 var _log_offset := 0
 var _tail_timer := 0.0
+var _server_bound := false
 
 
 func _enter_tree() -> void:
@@ -179,12 +176,19 @@ func _process(delta: float) -> void:
 	if _tail_timer < TAIL_INTERVAL:
 		return
 	_tail_timer = 0.0
-	_append_log(_tail_log())
+	var fresh := _tail_log()
+	_append_log(fresh)
+	# uvicorn prints this once the socket is bound. Until then the server is only a process; after
+	# it, Play will get answers. The status line is the one place that has to say which.
+	if not _server_bound and fresh.contains("Uvicorn running on"):
+		_server_bound = true
+		_refresh_status()
 
 	# The editor would otherwise keep showing "running" for a server that died on its own —
 	# which is what a wrong interpreter or a port clash looks like from in here.
 	if not OS.is_process_running(_server_pid):
 		_server_pid = -1
+		_server_bound = false
 		_append_log(_tail_log())
 		_append_log("\n[server exited — check the repo path above and whether port %s is already taken]" % _port())
 		_refresh_status()
@@ -216,6 +220,10 @@ func _append_log(text: String) -> void:
 	if combined.length() > 20000:
 		combined = combined.right(20000)
 	_log_view.text = combined
+	# Assigning .text leaves the view at the top, where the wrapped "Waiting for uvicorn to bind..."
+	# banner fills the box — so new server output landed below the fold and the dock looked stuck.
+	_log_view.set_caret_line(_log_view.get_line_count() - 1)
+	_log_view.adjust_viewport_to_caret()
 
 
 func _exit_tree() -> void:
@@ -368,7 +376,7 @@ func _on_start_pressed() -> void:
 	# working directory, pass environment, or redirect output. The child's environment is the
 	# editor's, so the Fusion variables are set on the editor process first and inherited by the
 	# child, then restored so the editor itself is not left mutated. Output redirection is done
-	# inside the child by LAUNCH_CODE.
+	# inside the child by LAUNCHER.
 	var previous_model := OS.get_environment(MODEL_KEY)
 	var previous_port := OS.get_environment(PORT_KEY)
 	var previous_pythonpath := OS.get_environment(PYTHONPATH_KEY)
@@ -399,8 +407,9 @@ func _on_start_pressed() -> void:
 		truncate.close()
 	_log_offset = 0
 	_tail_timer = 0.0
+	_server_bound = false
 
-	var args := PackedStringArray(["-u", "-c", LAUNCH_CODE % FUSION_MODULE, _log_path])
+	var args := PackedStringArray(["-u", ProjectSettings.globalize_path(LAUNCHER), _log_path, FUSION_MODULE])
 	var pid := OS.create_process(python, args, false)
 	_restore_server_env(had_model, previous_model, previous_port, previous_pythonpath)
 
@@ -415,7 +424,7 @@ func _on_start_pressed() -> void:
 	# A pid is returned even when the module fails to import, so a wrong repo path shows up as a
 	# fast exit rather than a launch failure. Naming the checkout makes that case self-evident in
 	# the log instead of requiring a guess from a bare process id.
-	_set_log("Started Fusion endpoint (pid %d) from:\n%s\nLog: %s\n\nWaiting for uvicorn to bind..." % [_server_pid, repo, _log_path])
+	_set_log("Started Fusion endpoint (pid %d) from:\n%s\nLog: %s\n\nWaiting for uvicorn to bind...\n" % [_server_pid, repo, _log_path])
 	_refresh_status()
 
 
@@ -446,6 +455,7 @@ func _stop_server() -> void:
 	if _server_pid != -1 and OS.is_process_running(_server_pid):
 		_kill_tree(_server_pid)
 	_server_pid = -1
+	_server_bound = false
 
 
 ## A venv's python.exe on Windows is a launcher that starts the real interpreter as a child, so
@@ -487,7 +497,10 @@ func _refresh_status() -> void:
 	if _toggle.button_pressed:
 		_status.text = "Set for this editor session. Press Play."
 		if _server_pid != -1 and OS.is_process_running(_server_pid):
-			_status.text = "Loop enabled, Fusion running (pid %d)." % _server_pid
+			if _server_bound:
+				_status.text = "Loop enabled, Fusion listening on :%s. Press Play." % _port()
+			else:
+				_status.text = "Loop enabled, Fusion starting (pid %d)..." % _server_pid
 		else:
 			_status.text = "Loop enabled. Start Fusion, or it will stay on the model-free fallback."
 	else:
