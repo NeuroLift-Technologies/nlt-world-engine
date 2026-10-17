@@ -21,6 +21,7 @@
   - REPO_URL placeholders are marked with TODO. Search "TODO" before publishing.
   - Everything shown as simulation (snapshot card, hero imagery) is a concept visualization
     until real engine output exists. Keep the "Concept visualization" captions.
+  - The Current Build section (#progress) is the exception: real engine captures only.
 -->
 
 <style>
@@ -77,7 +78,7 @@
   .brand-name{font-weight:700;font-size:1.05rem;line-height:1.1}
   .brand-tag{display:block;font-size:.68rem;color:var(--muted);font-weight:500}
   nav.main{display:flex;gap:4px;flex-wrap:wrap}
-  nav.main a{color:var(--text);padding:8px 12px;border-radius:8px;font-size:.92rem}
+  nav.main a{color:var(--text);padding:8px;border-radius:8px;font-size:.88rem}
   nav.main a:hover{background:var(--panel);text-decoration:none}
   .btn{
     display:inline-flex;align-items:center;gap:8px;
@@ -88,7 +89,8 @@
   .btn.primary{background:linear-gradient(135deg,var(--cyan),#38bdf8);color:#012;border-color:transparent}
   .btn.primary:hover{filter:brightness(1.08);background:linear-gradient(135deg,var(--cyan),#38bdf8)}
   .nav-toggle{display:none}
-  @media (max-width:900px){
+  /* The inline nav needs ~680px beside the brand and CTA, which the 1180px container only has above this width */
+  @media (max-width:1180px){
     nav.main{display:none}
     .header-cta{display:none}
     .nav-toggle{display:inline-flex}
@@ -101,7 +103,7 @@
     header.site details nav a:last-child{border-bottom:0}
   }
   header.site details{display:none}
-  @media (max-width:900px){header.site details{display:block}}
+  @media (max-width:1180px){header.site details{display:block}}
   header.site summary{list-style:none;cursor:pointer;padding:8px 14px;border:1px solid var(--line);border-radius:8px}
   header.site summary::-webkit-details-marker{display:none}
 
@@ -199,6 +201,19 @@
   .sup-panel .tri{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
   .sup-panel .tri span{padding:6px 14px;border-radius:999px;background:rgba(245,166,35,.14);color:var(--amber);font-weight:700;font-size:.85rem}
 
+  /* Current build */
+  .build{display:grid;grid-template-columns:1.5fr 1fr;gap:32px;align-items:center;margin-top:28px}
+  @media (max-width:900px){.build{grid-template-columns:1fr}}
+  .feature,.shot{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .feature a,.shot a{display:block}
+  .feature img,.shot img{display:block;width:100%;height:auto}
+  .feature a:hover img,.shot a:hover img{filter:brightness(1.1)}
+  .feature figcaption,.shot figcaption{padding:12px 16px;color:var(--muted);font-size:.88rem}
+  .feature figcaption strong,.shot figcaption strong{display:block;color:var(--text);font-size:.98rem;margin-bottom:2px}
+  .shots{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
+  @media (max-width:900px){.shots{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:560px){.shots{grid-template-columns:1fr}}
+
   /* Status */
   .legend{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 26px}
   .pill{
@@ -253,10 +268,10 @@
     </a>
 
     <nav class="main" aria-label="Primary">
-      <a href="#top">Home</a>
       <a href="#how-it-works">How It Works</a>
       <a href="#supervision">Human Supervision</a>
       <a href="#architecture">Architecture</a>
+      <a href="#progress">Current Build</a>
       <a href="#status">Project Status</a>
       <a href="#get-involved">Get Involved</a>
     </nav>
@@ -269,6 +284,7 @@
         <a href="#how-it-works">How It Works</a>
         <a href="#supervision">Human Supervision</a>
         <a href="#architecture">Architecture</a>
+        <a href="#progress">Current Build</a>
         <a href="#status">Project Status</a>
         <a href="#get-involved">Get Involved</a>
         <a href="https://github.com/NeuroLift-Technologies/nlt-world-engine" target="_blank" rel="noopener">GitHub ↗</a> 
@@ -297,7 +313,7 @@
           <!-- Re-enable when an overview video exists:
           <a class="btn" href="VIDEO_URL">Watch Overview</a> -->
         </div>
-        <p class="caption">Hero art is a concept visualization of the target experience, not engine output.</p>
+        <p class="caption">Hero art is a concept visualization of the target experience, not engine output. <a href="#progress">See what the engine renders today.</a></p>
       </div>
 
       <aside class="snapshot" aria-label="Concept visualization of a live world snapshot">
@@ -426,11 +442,76 @@
     </div>
   </section>
 
+  <!-- ================= CURRENT BUILD (real engine captures only) =================
+       Every image here is a real Godot observer capture from world-engine-godot/Images/Screenshots,
+       cropped to the 3D world view; each links to the full, uncropped observer screen in web/progress/.
+       Never put concept art in this section.
+  -->
+  <section id="progress">
+    <div class="wrap">
+      <div class="eyebrow">Current Build</div>
+      <h2>What the engine renders today</h2>
+      <p class="lede">
+        Real captures from the Godot 4.7.2 observer, not concept art. They replay a recorded day, so they show the
+        world and the tooling as built, not a live simulation. The visuals are deliberately simple for now and will
+        be stepped up.
+      </p>
+
+      <div class="build">
+        <figure class="feature">
+          <a href="progress/observer-open-world.webp" target="_blank" rel="noopener">
+            <img src="progress/observer-open-world.webp" width="1152" height="648" loading="lazy"
+                 alt="The World Engine observer replaying an open-world day: avatar state panel, 3D view of a settlement on green terrain with two avatars, a minimap, a learning timeline and replay controls.">
+          </a>
+          <figcaption><strong>The observer</strong>Avatar state, the 3D world view with a minimap, a learning timeline and replay controls. Shown at the Simple reading level; Coach and Technical add the Fusion gate, the aide's intervention log and more signal detail.</figcaption>
+        </figure>
+        <div>
+          <h3>Working today</h3>
+          <ul class="checks">
+            <li>Open world: procedural terrain, forest, a lake and a settlement</li>
+            <li>A distinct building shape for homes, offices, shops and schools</li>
+            <li>Four interiors (home, office, café and classroom), furnished and with collision</li>
+            <li>Day and night lighting</li>
+            <li>Observer with three reading levels, a minimap and replay controls</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="shots">
+        <figure class="shot">
+          <a href="progress/openworld-day-full.webp" target="_blank" rel="noopener"><img src="progress/openworld-day.webp" width="560" height="206" loading="lazy" alt="Aerial view at midday of a small settlement on green terrain, with an office tower, a brick school, a shop with an awning and houses among pine trees."></a>
+          <figcaption><strong>Open world, midday</strong>Procedural terrain and forest around the settlement.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="progress/openworld-night-full.webp" target="_blank" rel="noopener"><img src="progress/openworld-night.webp" width="560" height="206" loading="lazy" alt="The same settlement view at night, darker but still readable."></a>
+          <figcaption><strong>Open world, midnight</strong>Night lighting keeps the town readable after dark.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="progress/personal-full.webp" target="_blank" rel="noopener"><img src="progress/personal.webp" width="560" height="206" loading="lazy" alt="Top-down view into a furnished home with wooden floors, a bed, a desk and two avatars."></a>
+          <figcaption><strong>Personal · home</strong>A furnished home interior.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="progress/workplace-full.webp" target="_blank" rel="noopener"><img src="progress/workplace.webp" width="560" height="206" loading="lazy" alt="Top-down view of an office floor with rows of desks, chairs and two avatars."></a>
+          <figcaption><strong>Workplace · office</strong>An office floor with desks.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="progress/social-full.webp" target="_blank" rel="noopener"><img src="progress/social.webp" width="560" height="206" loading="lazy" alt="Top-down view of a café with tables, red chairs and two avatars."></a>
+          <figcaption><strong>Social · café</strong>A café with tables.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="progress/academic-full.webp" target="_blank" rel="noopener"><img src="progress/academic.webp" width="560" height="206" loading="lazy" alt="Top-down view of a classroom with scattered desks and two avatars."></a>
+          <figcaption><strong>Academic · classroom</strong>A classroom with desks.</figcaption>
+        </figure>
+      </div>
+      <p class="caption">Captured October 2026 from the Godot observer. Select any image to open the full observer screen.</p>
+    </div>
+  </section>
+
   <!-- ================= PROJECT STATUS (engine only) =================
        Agents: update data-status, the pill text, style="--p:NN%" and the pct text per row.
        Allowed statuses: concept | prototype | training | ready
   -->
-  <section id="status">
+  <section class="alt" id="status">
     <div class="wrap">
       <div class="eyebrow">Project Status</div>
       <h2>Where the World Engine stands</h2>
@@ -486,7 +567,7 @@
   </section>
 
   <!-- ================= GET INVOLVED ================= -->
-  <section class="alt" id="get-involved">
+  <section id="get-involved">
     <div class="wrap">
       <div class="eyebrow">Get Involved</div>
       <h2>Built in the open, with the people it's for</h2>
