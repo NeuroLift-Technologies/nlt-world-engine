@@ -109,12 +109,16 @@ public static class SettlementBuilder
     };
 
     /// <summary>
-    /// Scene id for building <paramref name="index"/>'s doorway. Homes get their own id
-    /// (<c>personal_&lt;index+1&gt;</c>) so each house opens a home dressed in its own colour scheme
-    /// (<see cref="InteriorStyle"/>); the prefix still maps every home to the personal level.
+    /// Scene id for building <paramref name="index"/>'s doorway: the kind's prefix plus the
+    /// building's own number (<c>personal_3</c>, <c>workplace_7</c>…), so each building opens an
+    /// interior dressed in its own colour scheme (<see cref="InteriorStyle"/>). The prefix still maps
+    /// every building of a kind to that kind's level.
     /// </summary>
     public static string SceneIdFor(BuildingKind k, int index)
-        => k == BuildingKind.Apartment ? $"personal_{index + 1}" : SceneIdFor(k);
+    {
+        string id = SceneIdFor(k);
+        return $"{id[..id.LastIndexOf('_')]}_{index + 1}";
+    }
 
     /// <summary>Meta key on each building's collision body: its index into the portal list.</summary>
     public const string PortalIndexMeta = "portal_index";

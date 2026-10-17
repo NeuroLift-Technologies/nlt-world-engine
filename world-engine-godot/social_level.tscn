@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://bpskavjmmns14"]
 
 [ext_resource type="PackedScene" uid="uid://ck0tvj5qxe0vy" path="res://assets/levels/Social_Level.fbx" id="1_nq48v"]
+[ext_resource type="Script" path="res://InteriorPhysicalBoundary.cs" id="2_interior_boundary"]
 
 [node name="Social_Level" unique_id=2087548871 instance=ExtResource("1_nq48v")]
 
@@ -10,3 +11,6 @@ sky_mode = 2
 
 [node name="SM_SkySphere" parent="." index="7" unique_id=1899276334]
 visible = false
+
+[node name="InteriorPhysicalBoundary" type="StaticBody3D" parent="."]
+script = ExtResource("2_interior_boundary")

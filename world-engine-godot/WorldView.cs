@@ -50,6 +50,10 @@ public partial class WorldView : Node3D
 	private Vector3? _fixedFocus;
 	private float? _fixedDist;
 
+	// `-- --scene <id>` (e.g. workplace_3) holds the view in that interior, so a capture can show any
+	// of the four levels in any colour scheme; the replay fixtures only ever open personal_1.
+	private string? _fixedScene;
+
 	// Water and vegetation shader materials — still need sun uniforms each frame
 	private ShaderMaterial _waterMat = null!;
 
@@ -190,6 +194,10 @@ public partial class WorldView : Node3D
 	public void ShowScene(string sceneId, string kind)
 	{
 		if (_openWorld == null)
+			return;
+		// A pinned capture scene wins over the feed; loading the feed's level only to swap it back on
+		// the next frame doubled every level load.
+		if (_fixedScene != null && sceneId != _fixedScene)
 			return;
 
 		string? path = kind == "interior" ? InteriorPathFor(sceneId) : null;
@@ -769,6 +777,8 @@ public partial class WorldView : Node3D
 				System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float hour))
 			_fixedHour = Mathf.PosMod(hour, 24f);
 
+		_fixedScene = Observer.ObserverCapture.ValueAfter(OS.GetCmdlineUserArgs(), "--scene");
+
 		string? focus = Observer.ObserverCapture.ValueAfter(OS.GetCmdlineUserArgs(), "--focus");
 		if (focus != null)
 		{
@@ -864,6 +874,10 @@ public partial class WorldView : Node3D
 				Follow(null);
 			UpdateCamera();
 		}
+
+		// Re-pinned every frame because the feed swaps scenes whenever its document's scene changes.
+		if (_fixedScene != null && _interiorSceneId != _fixedScene)
+			ShowScene(_fixedScene, "interior");
 
 		if (_fixedFocus.HasValue && _openWorld.Visible)
 		{
