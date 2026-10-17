@@ -204,6 +204,19 @@ AGENTS.md instruction literally. The blocker is concrete and documented in the f
 0.4.3 is installed and set up, but registered in **no** agent client, and `fennara mcp-setup` has no
 `--kilo` target among its twelve supported clients — so Kilo needs a hand-written MCP entry.
 
+**Update 2026-10-17 — fennara is now registered.** Joshua reports fennara is connected as an MCP
+server in both **Claude Code** and **Claude Desktop** (both are supported `fennara mcp-setup`
+targets). The "registered in no agent client" defect above is resolved for those two clients; Kilo
+is still unwired. Two limits remain worth knowing:
+
+- Fennara is a **local** MCP server bridging to the Godot editor on Joshua's machine. Cloud agent
+  sessions (e.g. Claude Code on the web) cannot reach it and will expose no fennara tools — not a
+  regression, just where it runs.
+- The two capture-path defects recorded in `docs/active-threads.md` still stand:
+  `runtime_session.start` times out on `Main.tscn` (20 s daemon startup deadline) and
+  `screenshot_scene` returns a black frame (detached capture never runs C# `_Ready`). The direct CLI
+  run remains the working screenshot path.
+
 Net: `sky_3d` and `godot_ai` in use; `godotopenxrvendors` encodes a correct instinct ("VR for AI") in the
 wrong instrument and should stay out until a spectator viewer exists; `beehave` is a conditional yes
 scoped to NPCs and gated on an NPC thread; `fennara` is a genuinely distinct interface that is
@@ -274,7 +287,8 @@ camera in the observation**. Consequences:
 
 - Close the Godot editor once to clear the last `~libnobodywho-…dll` temp and the empty
   `addons/nobodywho/` directory shell. Nothing of the addon remains in git terms.
-- `project.godot` / `addons/fennara` must be committed together — see blocking item.
+- ~~`project.godot` / `addons/fennara` must be committed together — see blocking item.~~ **Closed:**
+  both landed together in `ae5424b` (2026-10-07).
 - `godot_ai`'s 26 modified files: the updater writes to tracked files; `.godot_ai_update/` holds
   backups for 3.2.1 and 4.2.3. Confirm that diff is intended before committing.
 - NobodyWho v11.0.0 is built against the **Godot 4.5 API** (`compatibility_minimum = 4.5`,
