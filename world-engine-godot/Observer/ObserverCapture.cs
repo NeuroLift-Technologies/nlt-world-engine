@@ -98,7 +98,7 @@ public partial class ObserverCapture : Node
     /// harmless only because the value failed to parse.
     /// </para>
     /// </summary>
-    private static string? ValueAfter(string[] args, string flag)
+    internal static string? ValueAfter(string[] args, string flag)
     {
         int at = Array.IndexOf(args, flag);
         return at >= 0 && at + 1 < args.Length && args[at + 1].Length > 0 ? args[at + 1] : null;
