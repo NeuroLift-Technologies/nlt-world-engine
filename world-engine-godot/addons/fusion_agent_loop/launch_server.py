@@ -18,6 +18,7 @@ import runpy
 import sys
 import threading
 import time
+import traceback
 
 
 def _append(path: str, data: bytes) -> None:
@@ -32,22 +33,57 @@ def _append(path: str, data: bytes) -> None:
 
 
 def _pump(read_fd: int, path: str) -> None:
-    while True:
-        chunk = os.read(read_fd, 65536)
-        if not chunk:
-            return
-        _append(path, chunk)
+    try:
+        while True:
+            chunk = os.read(read_fd, 65536)
+            if not chunk:
+                return
+            try:
+                _append(path, chunk)
+            except OSError:
+                # Losing the log must not let a full pipe block the server.
+                pass
+    finally:
+        os.close(read_fd)
 
 
 def main() -> None:
     log_path, module = sys.argv[1], sys.argv[2]
+    # Fail visibly before redirecting output or running the server.
+    with open(log_path, "ab"):
+        pass
+    stdout, stderr = sys.stdout, sys.stderr
+    stdout_fd, stderr_fd = os.dup(1), os.dup(2)
     read_fd, write_fd = os.pipe()
-    threading.Thread(target=_pump, args=(read_fd, log_path), daemon=True).start()
+    pump = threading.Thread(target=_pump, args=(read_fd, log_path), daemon=True)
+    pump.start()
     os.dup2(write_fd, 1)
     os.dup2(write_fd, 2)
-    sys.stdout = sys.stderr = os.fdopen(write_fd, "w", buffering=1, encoding="utf-8", errors="replace")
-    sys.argv = sys.argv[:1]
-    runpy.run_module(module, run_name="__main__", alter_sys=True)
+    output = os.fdopen(write_fd, "w", buffering=1, encoding="utf-8", errors="replace")
+    sys.stdout = sys.stderr = output
+    try:
+        sys.argv = sys.argv[:1]
+        try:
+            runpy.run_module(module, run_name="__main__", alter_sys=True)
+        except SystemExit as exc:
+            if exc.code is not None and not isinstance(exc.code, int):
+                print(exc.code, file=sys.stderr)
+            raise
+        except BaseException:
+            # The interpreter reports uncaught exceptions after this cleanup.
+            traceback.print_exc()
+            raise
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        output.close()
+        sys.stdout, sys.stderr = stdout, stderr
+        # Restoring fds 1 and 2 closes the remaining pipe writers, allowing EOF.
+        os.dup2(stdout_fd, 1)
+        os.dup2(stderr_fd, 2)
+        os.close(stdout_fd)
+        os.close(stderr_fd)
+        pump.join()
 
 
 if __name__ == "__main__":
