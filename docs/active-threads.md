@@ -196,7 +196,7 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
 - **Status:** open — briefs written and reviewed, unclaimed · **Owner:** unclaimed · **Started:** 2026-10-17 · **Spec:** `docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md`
 - **Scope:** T1 per-avatar scene authority (including the loop avatar's spawn) → T2 door/exit targets and per-scene anchors → T3 engine-owned transition → T4 camera follow/free → T5 interior anchors → T6 interaction execution. T1–T4 deliver "go inside a building, camera follow or free"; T5–T6 deliver interior interaction. Builds on the verified AGENT-LOOP-001 path.
 - **Decisions (Joshua 2026-10-17):** `use` on a door target (no new verbs, no schema bump); one live scene at a time; "without the camera following" means free look within the avatar's current scene; the engine, not Fusion, places the avatar.
-- **Open (Joshua):** does `use` change world state (T6, default occupy only); perception `kind` for interior furniture (T5, default `object`).
+- **Open (Joshua):** does `use` change world state (T6, default occupy only); perception `kind` for interior furniture (T5, default `object`); should perception report the avatar's pose and facing (T6, default no; v1 has no field for it, so yes means a schema/version change agreed with Fusion).
 - **Coordinate:** `WorldView.cs`/`Main.cs` with GRAPH-002 (OPENCODE; confirm it is active, its status line is out of date); contract wording with Fusion (`neurolift-ai-fusion`) before merging the §3 clarification.
 - **Records:** `docs/agent-log/handoffs/2026-10-17-claude-agent-loop-002-scene-transition-briefs.json` (briefs), `docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-brief-review.json` (review against `3dce1a8`; nothing built or run).
 

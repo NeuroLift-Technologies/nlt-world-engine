@@ -26,6 +26,7 @@
     "decisions_pending": [
       "Joshua: should `use` on an object change world state or only occupy it? (T6; default occupy only)",
       "Joshua: perception `kind` for interior furniture (T5; default `object`, doors and exits stay `place`).",
+      "Joshua: should perception report the avatar's pose and facing (T6; default no)? v1's `self` allows only position and velocity, so yes means a schema/version change agreed with Fusion. Raised by the Codex review on PR #106.",
       "Joshua: confirm Babylon/UE 'fully retired' so CLAUDE.md and the ENG-002 thread can be updated to match.",
       "Joshua: is OPENCODE still active on GRAPH-002? Its status line says 'not yet started' while the last five commits to WorldView.cs and Main.cs are [CLAUDE]."
     ],

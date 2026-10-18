@@ -28,6 +28,7 @@ Order of work: **T1 → T2 → T3 → T4** deliver 1 and 3. **T5 → T6** delive
 Not decided, do not assume:
 - Whether `use` on an object changes world state (T6). Default if unanswered: occupy only.
 - Which perception `kind` interior furniture reports (T5). The schema allows `agent`, `object` and `place`; today every anchor reports `place`. Default if unanswered: `object` for furniture, `place` for doors and exits.
+- Whether perception should report the avatar's pose and facing (T6). v1 has no field for it: `self` allows only `position` and `velocity`, and the schema forbids extra fields, so this would be a schema/version change agreed with Fusion. Default if unanswered: not reported to the model; pose and facing are shown on screen only.
 - Fusion-side prompt/policy changes (they live in `neurolift-ai-fusion`, not this repo).
 
 ---
@@ -198,20 +199,20 @@ Depends on T5. **Needs Joshua's answer first:** should `use` change anything phy
 - Anchors already model reservation/occupancy (`TaskAnchor`). Add an *in use* lifecycle: reserve on accept → pose at the anchor on arrival (reuse T3's arrival hook) → hold for a duration → release → return to autonomy.
 - `sit`/`rest`: snap to a seated/lying pose at the anchor and hold. `use`: stand at the anchor and hold. `look_at`: turn to face the target (cheap, and visibly shows the model "seeing" the object).
 - **`rest` with and without a target.** The contract lets `rest` carry an optional target, but `ApplyIntent` treats `rest` as standing still and ingress does not recheck it. Targeted `rest` goes to the anchor and gets the same affordance and occupancy recheck as `sit`; untargeted `rest` keeps today's behaviour.
-- The next perception shows the object occupied and the avatar's pose/state. A second avatar's `sit` on an occupied anchor is rejected (existing check).
+- The holder's next perception shows its position at the anchor; other avatars' perceptions show the anchor `occupied: true` (the holder's own perception reports `false` by design, `PerceptionBuilder.cs:41`). Perception cannot show pose or facing: v1's `self` has only `position` and `velocity`, and the schema forbids extra fields. Show pose and facing on screen instead. Do not add perception fields; reporting pose to the model is the open decision in §0. A second avatar's `sit` on an occupied anchor is rejected (existing check).
 - Keep placement on `AgentBrain`'s single documented method; any snap to a pose goes through an explicit, documented interaction method (same caution as T3).
 
 **Acceptance**
-1. Avatar sits on a chair: next perception shows the chair occupied by it; a second `sit` on the same chair is rejected "occupied".
+1. Avatar sits on a chair: its next perception places it at the chair; a second avatar's perception lists the chair `occupied: true`, and that avatar's `sit` on the same chair is rejected "occupied".
 2. After the hold, the anchor releases and the avatar resumes.
-3. `look_at` visibly turns the avatar toward the target; facing is reported or screenshot-evidenced.
+3. `look_at` visibly turns the avatar toward the target; facing is screenshot-evidenced (v1 perception has no facing field).
 4. A model-driven run (the opt-in Qwen 0.6B path) chooses and completes at least one `sit` or `use` inside an interior. Prompt/policy tuning for this lives on the **Fusion side** (`neurolift-ai-fusion`, not visible from this repo). If the model never picks valid targets, record that as a finding rather than changing the contract.
 
 ---
 
 ## 3. Contract and docs impact
 
-- `docs/contracts/agent-loop-v1.md` gains **a clarification, not a schema change**: `use` on a portal target causes an engine-owned scene transition, and the next perception's `scene` reports it. The contract is shared with Fusion: **tell Joshua and flag it for the Fusion side** before merging the wording.
+- `docs/contracts/agent-loop-v1.md` gains **a clarification, not a schema change**: `use` on a portal target causes an engine-owned scene transition, and the next perception's `scene` reports it. The contract is shared with Fusion: **tell Joshua and flag it for the Fusion side** before merging the wording. T6 needs no schema change either, unless Joshua decides perception should report pose and facing (§0); that would be a schema/version change, not a clarification.
 - ASFDK: the intent-specific TOI policy mapping is still marked pending. Log scene transitions as a new class of physical effect at ingress. Do not change the gate's policy without escalation.
 - Stale text found while reading, fix opportunistically:
   - `world-engine-godot/AGENTS.md` §3 says character collision is not implemented, and its "only writer" rule should name `AgentBrain`'s placement method once T3 lands.
@@ -237,3 +238,4 @@ Residents/NPC population, role pins, art and asset work (GRAPH-001 G1), the trai
 - §2 corrections: one of four replay fixtures is `open_world`; `ShowScene` runs on scene-id change, not every document; door ids use `home|office|shop|school`; home doors never afford `use`; arrival installs `IdleController`, not wander.
 - §2 additions: no per-scene anchor lookup in `AgentLoopDriver`; node names resolve before anchors; `ShowScene` fails unsafely and the `--scene` pin swallows requests; spectator doors bypass the avatar; the avatar's scene and spawn come from the feed; the kill plane is open-world only; many doors are out of range from the plaza; every anchor reports `kind: place`; `rest` may carry a target.
 - Tasks: T1 owns spawn, display precedence and spectator doors; T2 makes anchors per scene; T3 adds the arrival hook, the safe `ShowScene`, the `DecisionHold` reset, the scene-aware kill plane and a scripted sweep; T4 notes the exit re-target; T5 fixes target resolution and `kind`; T6 defines targeted `rest`.
+- T6 (after PR review): the "pose/state in the next perception" requirement removed, since v1's `self` has only `position` and `velocity` and forbids extra fields; pose and facing are shown on screen, and reporting them is a new open decision in §0. Occupancy checks now use a second avatar's view, because the holder's own perception reports `occupied: false`.
