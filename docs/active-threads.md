@@ -2,7 +2,7 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-18
 
 ---
 
@@ -189,7 +189,16 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
 - **Ownership:** Fusion owns semantic decisions; the world engine owns physical facts, target/affordance validation, movement, collision, and consequences; ASFDK-C# governs intents at engine ingress before physical execution.
 - **Delivered:** `docs/contracts/agent-loop-v1.md` and its JSON Schema; strict Godot DTO parsing/validation; Fusion-side injectable decision/validation seam; `Agents/GovernanceGate.cs` with real `asfdk-csharp` integration; `Agents/IntentIngress.cs` with contract validation, fail-closed gate errors, live-world revalidation, and locomotion dispatch; `Agents/PerceptionBuilder.cs`; and focused harness assertions. **Transport:** `Agents/FusionHttpLink.cs` (async POST, 5 s timeout, one in-flight request per avatar, correlated response validation, fail-closed transport handling) + `Agents/AgentLoopDriver.cs`; Fusion `src/fusion/agent_loop_http.py` (FastAPI endpoint, inference off the event loop, GGUF or deterministic fallback). **Test composition:** set `NLT_AGENT_LOOP_ENABLED=1` to create only the local test avatar, a visible target marker, and a driver filtered to that avatar; `NLT_AGENT_LOOP_ENDPOINT` overrides the loopback endpoint. Default observer runs are unchanged. The explicit `OpenGovernanceGate` test implementation is fail-open with an audit explanation; the live driver uses `AsfdkGovernanceGate`, and ingress rejects gate exceptions. Previously verified: Fusion tests 19 passed/1 skipped and cross-process HTTP smoke test passed. Latest verification: Godot build succeeded with 0 errors (2 existing `WorldView.cs` nullable warnings), AgentHarness passed 38/38, and GDA 0.22.0 validated and booted the main scene. Its opt-in run against the GGUF-backed Fusion endpoint received HTTP 200; a direct model request returned an `approach` intent for `agent_loop_test_target`. GDA also exposed and the implementation corrected startup sequencing and marker attachment errors.
 - **Open:** Fusion's seam is not integrated into `SessionOrchestrator`; the direct HTTP endpoint currently serves the separate world-engine loop. Cross-process smoke automation in CI remains. GDA preflight prints the existing `Capture not registered: 'beehave'` engine error, although its structured result is `started: true` with no recognized diagnostics; this appeared on default and opt-in scene runs.
-- **Next gate:** The interactive gate is passed (2026-10-17). The loop's next direction is Joshua's call — candidates include the remaining semantic verbs in the contract, more than one avatar, Fusion `SessionOrchestrator` integration, and automated cross-process smoke coverage in CI. Retain fail-closed ingress behavior, and keep the loop opt-in.
+- **Next gate:** The interactive gate is passed (2026-10-17). The loop's next direction is Joshua's call — candidates include the remaining semantic verbs in the contract, more than one avatar, Fusion `SessionOrchestrator` integration, and automated cross-process smoke coverage in CI. Retain fail-closed ingress behavior, and keep the loop opt-in. **Chosen (Joshua, 2026-10-17):** scene transitions come next, before RL training — see AGENT-LOOP-002.
+
+### 🚪 AGENT-LOOP-002 — Scene transitions and interior interaction
+
+- **Status:** open — briefs written and reviewed, unclaimed · **Owner:** unclaimed · **Started:** 2026-10-17 · **Spec:** `docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md`
+- **Scope:** T1 per-avatar scene authority (including the loop avatar's spawn) → T2 door/exit targets and per-scene anchors → T3 engine-owned transition → T4 camera follow/free → T5 interior anchors → T6 interaction execution. T1–T4 deliver "go inside a building, camera follow or free"; T5–T6 deliver interior interaction. Builds on the verified AGENT-LOOP-001 path.
+- **Decisions (Joshua 2026-10-17):** `use` on a door target (no new verbs, no schema bump); one live scene at a time; "without the camera following" means free look within the avatar's current scene; the engine, not Fusion, places the avatar.
+- **Open (Joshua):** does `use` change world state (T6, default occupy only); perception `kind` for interior furniture (T5, default `object`).
+- **Coordinate:** `WorldView.cs`/`Main.cs` with GRAPH-002 (OPENCODE; confirm it is active, its status line is out of date); contract wording with Fusion (`neurolift-ai-fusion`) before merging the §3 clarification.
+- **Records:** `docs/agent-log/handoffs/2026-10-17-claude-agent-loop-002-scene-transition-briefs.json` (briefs), `docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-brief-review.json` (review against `3dce1a8`; nothing built or run).
 
 ### 🧭 ENG-002 — Godot replaces UE
 
