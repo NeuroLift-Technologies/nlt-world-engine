@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 
 namespace NltWorldEngine.Agents;
@@ -33,6 +34,7 @@ public static class ActionAssertions
         ControlConditionMoves();
         DecisionHeldBetweenPolls();
         SceneKinds();
+        DoorsAndExits();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
@@ -69,6 +71,84 @@ public static class ActionAssertions
         for (var i = 0; i < 40; i++)
             allKnown &= KindOrNone(SettlementBuilder.SceneIdFor(SettlementBuilder.KindAt(i), i)) == "interior";
         Check(allKnown, "every settlement building's scene id is a known interior");
+    }
+
+    /// <summary>
+    /// Doors and room exits are usable targets (AGENT-LOOP-002 T2): they afford <c>use</c> by flag,
+    /// are never occupied, lead where their link says, and each scene sees only its own anchors.
+    /// </summary>
+    private static void DoorsAndExits()
+    {
+        Console.WriteLine("\n[doors and exits as usable targets]");
+
+        var anchors = WorldAnchorBuilder.BuildOpenWorld();
+        var doors = anchors.FindAll(a => a.Id.StartsWith("door_", StringComparison.Ordinal));
+        Check(doors.Count > 0 && doors.TrueForAll(d => d.IsPortal), $"all {doors.Count} door anchors are doorways");
+        Check(anchors.TrueForAll(a => a.IsPortal == a.Id.StartsWith("door_", StringComparison.Ordinal)),
+            "nothing else in the open world is a doorway");
+        var linksRight = true;
+        foreach (var d in doors)
+        {
+            var i = int.Parse(d.Id.Split('_')[1]);
+            linksRight &= d.Link!.BuildingIndex == i
+                && d.Link.TargetSceneId == SettlementBuilder.SceneIdFor(SettlementBuilder.KindAt(i), i);
+        }
+        Check(linksRight, "each door leads into its own building's room (door_N -> <kind>_N+1, building N)");
+
+        // Acceptance 1: within perception range, every door is listed with 'use' — home doors too,
+        // whose quiet, private axes alone would offer 'sit' and never 'use'.
+        var everyDoorUsable = true;
+        var homeDoorUsable = false;
+        foreach (var d in doors)
+        {
+            var seen = PerceptionBuilder.VisiblePlaces("avatar_1", d.Position + new Vector3(5f, 0f, 0f), anchors)
+                .Find(e => e.Id == d.Id);
+            var usable = seen != null && seen.Affordances.Contains("use") && !seen.Affordances.Contains("sit");
+            everyDoorUsable &= usable;
+            homeDoorUsable |= usable && d.Id.EndsWith("_home", StringComparison.Ordinal);
+        }
+        Check(everyDoorUsable, "from 5 m away every door is listed with 'use' and without 'sit'");
+        Check(homeDoorUsable, "home doors are among them");
+
+        // Acceptance 2: ingress accepts 'use' on a door; the old rejections still hold elsewhere.
+        var door = doors[0];
+        door.Reserve("wanderer");
+        Check(AnchorAffordances.Recheck(anchors, door.Id, "use", "avatar_1") == null,
+            "ingress accepts 'use' on a door, even one another agent has reserved");
+        Check(!PerceptionBuilder.VisiblePlaces("avatar_1", door.Position, anchors).Find(e => e.Id == door.Id)!.Occupied,
+            "a reserved door is not reported occupied");
+        Check(AnchorAffordances.Recheck(anchors, door.Id, "sit", "avatar_1") != null, "ingress rejects 'sit' on a door");
+        door.Release("wanderer");
+        Check(AnchorAffordances.Recheck(anchors, "shore_0", "use", "avatar_1") == "target 'shore_0' does not afford 'use'",
+            "ingress still rejects 'use' on a non-doorway lacking the affordance");
+        var plaza = anchors.Find(a => a.Id == "plaza")!;
+        plaza.Reserve("someone_else");
+        Check(AnchorAffordances.Recheck(anchors, "plaza", "use", "avatar_1") == "target 'plaza' is occupied",
+            "ingress still rejects 'use' on an occupied non-doorway");
+        plaza.Release("someone_else");
+
+        // Acceptance 3: inside a room, the scene's set is its exit and nothing from outside.
+        var exitPortal = new Portal("Exit", "Exit", "", new Vector3(0f, 0f, 10f), Vector3.Back);
+        var sets = new SceneAnchorSets(anchors, id => id == "personal_4" ? exitPortal : null);
+        Check(ReferenceEquals(sets.For("open_world"), anchors), "the open world's set is its anchors");
+        var inside = sets.For("personal_4");
+        Check(inside.Count == 1 && inside[0].Id == "exit_personal_4", "a loaded room's set is its exit alone");
+        var exit = inside[0];
+        Check(exit.Link!.TargetSceneId == "open_world" && exit.Link.BuildingIndex == 3,
+            "the exit leads back out through building 3, the one personal_4 belongs to");
+        Check(exit.Position.DistanceTo(new Vector3(0f, 0f, 10f - SceneAnchorSets.ExitApproachDepth)) < 0.001f,
+            "its approach point is 1.6 m inside the doorway, not in the wall");
+        var seenInside = PerceptionBuilder.VisiblePlaces("avatar_1", new Vector3(0f, 0f, 5f), inside);
+        Check(seenInside.Count == 1 && seenInside[0].Id == exit.Id && seenInside[0].Affordances.Contains("use"),
+            "perception inside lists the exit with 'use' and no open-world anchor");
+        Check(AnchorAffordances.Recheck(inside, exit.Id, "use", "avatar_1") == null, "ingress accepts 'use' on the exit");
+        Check(AnchorAffordances.Recheck(inside, door.Id, "use", "avatar_1") != null,
+            "and rejects an open-world door from inside the room");
+        Check(sets.For("personal_2").Count == 0, "a room that is not loaded has no anchors yet (nothing guessed)");
+        Check(sets.For("lobby_1").Count == 0, "an unknown scene has no anchors");
+        Check(SceneCatalog.TryBuildingIndexFor("personal_4", out var building) && building == 3
+            && !SceneCatalog.TryBuildingIndexFor("open_world", out _),
+            "a room's id names its building; the open world has none");
     }
 
     private static void Check(bool condition, string what)

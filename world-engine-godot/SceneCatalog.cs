@@ -61,6 +61,21 @@ public static class SceneCatalog
 	}
 
 	/// <summary>
+	/// The settlement building an interior belongs to: <c>personal_4</c> is building 3. This is how
+	/// an exit knows which door to return through — the id already records the origin, so nothing
+	/// else has to. False for the open world and for unknown ids.
+	/// </summary>
+	public static bool TryBuildingIndexFor(string? sceneId, out int buildingIndex)
+	{
+		buildingIndex = -1;
+		if (sceneId == null || !TryKindFor(sceneId, out string kind) || kind != InteriorKind)
+			return false;
+		string number = sceneId[(sceneId.LastIndexOf('_') + 1)..];
+		buildingIndex = int.Parse(number, NumberStyles.None, CultureInfo.InvariantCulture) - 1;
+		return true;
+	}
+
+	/// <summary>
 	/// The contract kind for <paramref name="sceneId"/>. Throws for an unknown id; callers that must
 	/// not throw (the loop driver's per-frame path) use <see cref="TryKindFor"/> and fail closed.
 	/// </summary>

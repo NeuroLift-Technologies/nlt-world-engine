@@ -110,6 +110,14 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T2 — Doors (and interior exits) as explicit usable targets
 
+**Status: delivered 2026-10-18.** `TaskAnchor.Link` (`PortalLink`: target scene, building index) marks doors and exits; `AnchorAffordances` is now the single rule set for perception and the ingress re-check (doorways afford `use`, never `sit`, never occupied); `SceneAnchorSets` serves each scene its own anchors (open world: the existing set; a loaded room: its exit, `exit_<sceneId>`, 1.6 m inside the doorway); the loop driver asks by the avatar's scene and resolves anchors before node names. The origin building needs no extra state: the room's id encodes it (`personal_4` is building 3, `SceneCatalog.TryBuildingIndexFor`).
+
+**Found while verifying (for T3):**
+- Each room's exit anchor was probed against the level's real collision: the avatar capsule fits at all four with no hits.
+- **The home level's floor collision is at y = −4.01**, four metres below the visible floor (office floor: 0.00). Only `AvatarGround` (y = 0) would hold an avatar there. T3 must not trust the home level's UCX floor for spawn height until this is fixed.
+- **The café's north wall is still solid.** `WorldView.AddSocialExitDoorway` hides `UCX_Social_Wall_N` after `InteriorPhysicalBoundary` has already built collision from it, so the cut doorway is visual only. The academic doorway is also blocked about 0.1 m before the door plane. Neither matters to T3's design (the avatar stops at the anchor inside the room and the engine places it outside), but an agent walking through a doorway would be stopped.
+- With the loop on, `OpenWorldBodiesLive` keeps the open world's bodies live and makes a shown interior display-only, so an avatar placed in a room today would have no room collision. T3 has to change that split for the avatar's own scene.
+
 **Do**
 - Give `TaskAnchor` an optional **portal link** (target scene id and which side it leads to). Door anchors get it from the building's portal (`door_{i}_{label}` → `SceneIdFor(kind, i)`). Prefer linking to the portal list `WorldView` actually built over re-running `BuildPlans`, so anchor and portal cannot drift apart.
 - Portal anchors **always afford `use`** by explicit flag, not by axis thresholds, in both `PerceptionBuilder.AffordancesFor` and `IntentIngress.NeedsAffordance`. They do not afford `sit`. They are never "occupied". This flag is what fixes home doors, which afford `sit` but not `use` today.

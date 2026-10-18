@@ -161,36 +161,9 @@ public sealed class IntentIngress
         if (dist > ReachRadius)
             return $"target '{intent.TargetId}' out of reach ({dist:F1} m > {ReachRadius} m)";
 
-        // use / sit need a live affordance + a free anchor; approach / look_at /
-        // communicate only need the target to still exist (checked by resolve).
-        if (intent.Verb is "use" or "sit")
-        {
-            TaskAnchor? anchor = null;
-            foreach (var a in _anchorsFor(avatar.SceneId))
-            {
-                if (a.Id == intent.TargetId)
-                {
-                    anchor = a;
-                    break;
-                }
-            }
-            if (anchor == null)
-                return $"target '{intent.TargetId}' offers no '{intent.Verb}' affordance here";
-            if (!NeedsAffordance(anchor, intent.Verb))
-                return $"target '{intent.TargetId}' does not afford '{intent.Verb}'";
-            if (anchor.IsFull && !anchor.IsOccupiedBy(avatar.AgentId))
-                return $"target '{intent.TargetId}' is occupied";
-        }
-
-        return null;
+        // use / sit need a live affordance + a free anchor in the agent's scene; approach /
+        // look_at / communicate only need the target to still exist (checked by resolve). The
+        // rules are AnchorAffordances', the same ones perception lists, so the two agree.
+        return AnchorAffordances.Recheck(_anchorsFor(avatar.SceneId), intent.TargetId!, intent.Verb, avatar.AgentId);
     }
-
-    private static bool NeedsAffordance(TaskAnchor anchor, string verb) => verb switch
-    {
-        // Quiet/rest anchors afford sit; social/stimulation anchors afford use.
-        // Mirrors TaskAnchor NeedMatching axes without importing need state.
-        "sit" => anchor.Axes.Privacy > 0.5f,
-        "use" => anchor.Axes.SocialDensity > 0.5f || anchor.Axes.NoiseLevel > 0.5f,
-        _ => true,
-    };
 }

@@ -123,6 +123,15 @@ public partial class WorldView : Node3D
 	/// <summary>True while the camera is tracking a moving point (the agent the observer follows).</summary>
 	public bool Following => _following;
 
+	/// <summary>Scene id of the interior on show, or empty while the open world shows.</summary>
+	protected string ShownInteriorSceneId => _interiorSceneId;
+
+	/// <summary>
+	/// The exit of the interior on show, found in the level's own geometry when it loads
+	/// (<see cref="DecorateInteriorExit"/>); null while the open world shows. Read-only for subclasses.
+	/// </summary>
+	protected Portal? ShownInteriorExit => _interiorPortal;
+
 	/// <summary>The rendered residents — one character per agent in the document on show (B.2).</summary>
 	public ResidentLayer Residents => _residents;
 

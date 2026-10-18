@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NltWorldEngine;
 
@@ -109,6 +110,16 @@ public sealed class TaskAnchor
     /// <summary>How many agents can use this anchor at once.</summary>
     public int MaxOccupants { get; init; } = 1;
 
+    /// <summary>
+    /// Set when this anchor is a doorway: a building's door in the open world, or a room's exit.
+    /// Doorways afford <c>use</c> by this flag rather than by their axes, and are never occupied
+    /// (see <see cref="AnchorAffordances"/>). Null for every other anchor.
+    /// </summary>
+    public PortalLink? Link { get; init; }
+
+    /// <summary>True when this anchor is a doorway (<see cref="Link"/> is set).</summary>
+    public bool IsPortal => Link != null;
+
     private readonly List<string> _occupants = new();
 
     public IReadOnlyList<string> CurrentOccupants => _occupants;
@@ -147,6 +158,73 @@ public sealed class TaskAnchor
 
     public override string ToString()
         => $"{Id} ({DisplayName}) noise={Axes.NoiseLevel:0.00} social={Axes.SocialDensity:0.00} privacy={Axes.Privacy:0.00}";
+}
+
+/// <summary>
+/// Where a doorway anchor leads (AGENT-LOOP-002 T2). <paramref name="TargetSceneId"/> is the scene
+/// on the other side: the building's interior for a door, <see cref="SceneCatalog.OpenWorldId"/> for
+/// a room's exit. <paramref name="BuildingIndex"/> is the settlement building the doorway belongs to,
+/// which is also its index into the world portal list — the building entered through a door, or the
+/// one an exit returns to.
+/// </summary>
+public sealed record PortalLink(string TargetSceneId, int BuildingIndex);
+
+/// <summary>
+/// What an anchor affords and whether it is free, for perception and for the execution re-check
+/// alike, so the two cannot disagree. Ordinary anchors derive <c>sit</c> and <c>use</c> from their
+/// axes (quiet/screened places afford sit; busy ones afford use). Doorways afford <c>use</c> by flag
+/// — a home door is private and quiet, so the axes would offer <c>sit</c> and never <c>use</c> — and
+/// are never occupied: anyone may walk through a door someone else is heading for.
+/// </summary>
+public static class AnchorAffordances
+{
+    private static readonly string[] PortalAffordances = { "use", "approach", "look_at" };
+
+    /// <summary>The verbs perception lists for <paramref name="anchor"/>, in a stable order.</summary>
+    public static IReadOnlyList<string> For(TaskAnchor anchor)
+    {
+        if (anchor.IsPortal)
+            return PortalAffordances;
+        var list = new List<string>();
+        if (anchor.Axes.Privacy > 0.5f)
+            list.Add("sit");
+        if (anchor.Axes.SocialDensity > 0.5f || anchor.Axes.NoiseLevel > 0.5f)
+            list.Add("use");
+        list.Add("approach");
+        list.Add("look_at");
+        return list;
+    }
+
+    /// <summary>True when <paramref name="anchor"/> is held by someone other than <paramref name="agentId"/>.</summary>
+    public static bool IsOccupiedFor(TaskAnchor anchor, string agentId)
+        => !anchor.IsPortal && anchor.IsFull && !anchor.IsOccupiedBy(agentId);
+
+    /// <summary>
+    /// Execution-time check for <c>use</c> and <c>sit</c>: the target must be an anchor in the
+    /// agent's scene, afford the verb, and be free. Returns null when execution may proceed, else the
+    /// rejection reason. Other verbs only need the target to exist, which the caller checks.
+    /// </summary>
+    public static string? Recheck(IReadOnlyList<TaskAnchor> sceneAnchors, string targetId, string verb, string agentId)
+    {
+        if (verb is not ("use" or "sit"))
+            return null;
+        TaskAnchor? anchor = null;
+        foreach (var a in sceneAnchors)
+        {
+            if (a.Id == targetId)
+            {
+                anchor = a;
+                break;
+            }
+        }
+        if (anchor == null)
+            return $"target '{targetId}' offers no '{verb}' affordance here";
+        if (!For(anchor).Contains(verb))
+            return $"target '{targetId}' does not afford '{verb}'";
+        if (IsOccupiedFor(anchor, agentId))
+            return $"target '{targetId}' is occupied";
+        return null;
+    }
 }
 
 /// <summary>

@@ -42,6 +42,7 @@ public partial class Main : NltWorldEngine.WorldView
 	private readonly System.Collections.Generic.Dictionary<string, AvatarCharacter> _avatars = new();
 	private AgentLoopDriver? _agentLoopDriver;
 	private System.Collections.Generic.List<TaskAnchor> _worldAnchors = new();
+	private SceneAnchorSets _sceneAnchors = null!;
 
 
 	public override void _Ready()
@@ -256,6 +257,11 @@ public partial class Main : NltWorldEngine.WorldView
 		// standing still whenever Fusion has nothing to say.
 		avatar.Anchors = _worldAnchors;
 
+		// Perception and ingress ask per scene (AGENT-LOOP-002 T2): the open world's anchors outside,
+		// a room's exit inside, built from the exit WorldView finds when it loads the level.
+		_sceneAnchors = new SceneAnchorSets(_worldAnchors,
+			sceneId => sceneId == ShownInteriorSceneId ? ShownInteriorExit : null);
+
 		// The avatar already attaches a UtilityAgentController in its own _Ready. Leaving that in
 		// place is deliberate: if Fusion is slow, down, or mid-restart, the avatar keeps moving on
 		// its own instead of freezing on an IdleController. Fusion intents replace it when they
@@ -265,7 +271,7 @@ public partial class Main : NltWorldEngine.WorldView
 			Name = "AgentLoopDriver",
 			Enabled = true,
 			TargetAgentId = LocalAvatarTargetId,
-			Anchors = _worldAnchors,
+			AnchorsFor = _sceneAnchors.For,
 		};
 		var endpoint = OS.GetEnvironment("NLT_AGENT_LOOP_ENDPOINT");
 		if (!string.IsNullOrWhiteSpace(endpoint))
