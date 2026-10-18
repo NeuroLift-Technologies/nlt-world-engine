@@ -136,6 +136,14 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T3 — Engine-owned scene transition
 
+**Status: delivered 2026-10-18.**
+- `use` on a doorway is checked at ingress (`SceneTransitRules.Check`: busy, `--scene` pin, unknown scene or building, missing level), then the avatar walks to it.
+- On arrival, or at once if it is already there, `Main.Transit` holds the avatar and shows the destination. `ShowScene` now returns success and loads before it switches anything.
+- With the loop on, physics follows the avatar's destination: one live scene at a time.
+- The transition waits two physics frames, ray-casts the floor, and places the avatar through `AgentBrain.TransitionTo`. That method shares the single `PlaceAt` with the kill plane, which now recovers indoors to the room's arrival point.
+- Entering lands the avatar on the room's exit anchor, facing in. Leaving lands it at its building's `Portal.EntryPoint`, facing out.
+- Verified end to end against a scripted Fusion stand-in for all four kinds; results and the reachability sweep are in the T3 handoff. The contract clarification (§3) has **not** been written into `agent-loop-v1.md`: it still needs Joshua and the Fusion side.
+
 **Do**
 - **Arrival hook.** Add a verb-aware arrival hook: when a `use` on a portal anchor arrives, run one transition. `IntentMoveController` today only installs an `IdleController` on arrival. Cover the case where the avatar is **already within `ArrivalRadius`** when the intent comes in (transition immediately; today that path goes straight to wander).
 - **Make `ShowScene` safe first.** It must return success or failure, load the level *before* switching the open world off, and report when the `--scene` pin blocks the request. On failure the open world stays active.

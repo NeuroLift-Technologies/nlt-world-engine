@@ -35,6 +35,7 @@ public static class ActionAssertions
         DecisionHeldBetweenPolls();
         SceneKinds();
         DoorsAndExits();
+        SceneTransitions();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
@@ -149,6 +150,52 @@ public static class ActionAssertions
         Check(SceneCatalog.TryBuildingIndexFor("personal_4", out var building) && building == 3
             && !SceneCatalog.TryBuildingIndexFor("open_world", out _),
             "a room's id names its building; the open world has none");
+    }
+
+    /// <summary>
+    /// The engine-owned transition's rules (AGENT-LOOP-002 T3): when a doorway may be used, where the
+    /// avatar lands, and that arrival fires exactly once. The in-engine round trip is checked by
+    /// running the scene; these are the parts that need no scene tree.
+    /// </summary>
+    private static void SceneTransitions()
+    {
+        Console.WriteLine("\n[engine-owned scene transition]");
+
+        static bool AllLevels(string _) => true;
+        var intoHome = new PortalLink("personal_4", 3);
+        var outOfHome = new PortalLink("open_world", 3);
+
+        Check(SceneTransitRules.Check(intoHome, AllLevels, 10, null, false) == null, "a door into a known room may be used");
+        Check(SceneTransitRules.Check(outOfHome, AllLevels, 10, null, false) == null, "a room's exit may be used");
+        Check(SceneTransitRules.Check(intoHome, _ => false, 10, null, false) == "no interior level for 'personal_4'",
+            "a door whose room has no level is rejected before the avatar walks (test hook: no levels)");
+        Check(SceneTransitRules.Check(outOfHome, _ => false, 10, null, false) == null,
+            "leaving to the open world needs no interior level");
+        Check(SceneTransitRules.Check(intoHome, AllLevels, 10, null, true) == "already moving between scenes",
+            "a second doorway is rejected while a transition runs");
+        Check(SceneTransitRules.Check(intoHome, AllLevels, 10, "workplace_3", false)?.Contains("capture pin") == true,
+            "a --scene capture pin turns transitions off");
+        Check(SceneTransitRules.Check(new PortalLink("lobby_1", 3), AllLevels, 10, null, false)?.Contains("unknown scene") == true,
+            "a doorway to an unknown scene is rejected");
+        Check(SceneTransitRules.Check(new PortalLink("open_world", 12), AllLevels, 10, null, false)?.Contains("unknown building") == true,
+            "an exit back to a building that does not exist is rejected");
+
+        var roomExit = new Portal("Exit", "Exit", "", new Vector3(0f, 0f, -9f), Vector3.Forward);
+        var (inside, inFacing) = SceneTransitRules.IndoorArrival(roomExit);
+        Check(inside.DistanceTo(new Vector3(0f, 0f, -9f + SceneAnchorSets.ExitApproachDepth)) < 0.001f && inFacing == Vector3.Back,
+            "entering, the avatar lands 1.6 m inside the doorway, facing into the room");
+        Check(SceneAnchorSets.ExitAnchor("personal_4", 3, roomExit).Position == inside,
+            "which is exactly the room's exit anchor, so 'use' on the exit right away needs no walk");
+        var buildingDoor = new Portal("Home", "Home", "personal_4", new Vector3(10f, 7f, 5f), Vector3.Right);
+        var (outside, outFacing) = SceneTransitRules.OutdoorArrival(buildingDoor);
+        Check(outside == buildingDoor.EntryPoint && outFacing == Vector3.Right,
+            "leaving, the avatar lands at its building's entry point, facing away from the door");
+
+        var arrivals = 0;
+        var controller = new IntentMoveController(new Vector3(0.5f, 0f, 0f), "use", 1f, _ => arrivals++);
+        for (var i = 0; i < 5; i++)
+            controller.Act(new AgentObservation("avatar_1", Vector3.Zero, Vector3.Zero, new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", i));
+        Check(arrivals == 1, "arriving at a doorway hands over exactly once, however many ticks follow");
     }
 
     private static void Check(bool condition, string what)

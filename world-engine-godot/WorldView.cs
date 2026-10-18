@@ -199,17 +199,27 @@ public partial class WorldView : Node3D
 	/// open-world distance of 78 m: the camera would sit outside the walls and frame the building, not
 	/// the room. Idempotent — showing the same interior again is a no-op — so it is safe to call on
 	/// every document; the caller only needs to guard the change.
+	///
+	/// Returns false, and changes nothing, when the scene cannot be shown: a <c>--scene</c> capture pin
+	/// holds the view, the id names no interior level, or the level fails to load. The level is loaded
+	/// before the open world is switched off, so a failure can never leave the view (and its physics)
+	/// with neither scene (AGENT-LOOP-002 T3: the engine-owned transition depends on this).
 	/// </summary>
-	public void ShowScene(string sceneId, string kind)
+	public bool ShowScene(string sceneId, string kind)
 	{
 		if (_openWorld == null)
-			return;
+			return false;
 		// A pinned capture scene wins over the feed; loading the feed's level only to swap it back on
 		// the next frame doubled every level load.
 		if (_fixedScene != null && sceneId != _fixedScene)
-			return;
+			return false;
 
-		string? path = kind == "interior" ? InteriorPathFor(sceneId) : null;
+		string? path = kind == SceneCatalog.InteriorKind ? InteriorPathFor(sceneId) : null;
+		if (kind == SceneCatalog.InteriorKind && path == null)
+		{
+			GD.PushWarning($"WorldView: '{sceneId}' names no interior level; the view is unchanged.");
+			return false;
+		}
 
 		if (path == null)
 		{
@@ -229,19 +239,25 @@ public partial class WorldView : Node3D
 			_target = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 2f, WorldConstants.SettleZ);
 			UpdateCamera();
 			_cam.Environment = null;
-			return;
+			return true;
+		}
+
+		// Load first: only once the level is in hand is anything switched off.
+		PackedScene? packed = null;
+		if (_interiorPath != path)
+		{
+			packed = ResourceLoader.Exists(path) ? GD.Load<PackedScene>(path) : null;
+			if (packed == null)
+			{
+				GD.PushWarning($"WorldView: no interior scene at {path} for '{sceneId}'; the view is unchanged.");
+				return false;
+			}
 		}
 
 		SetOpenWorldActive(false);
-		if (_interiorPath != path)
+		if (packed != null)
 		{
 			ClearInterior();
-			var packed = GD.Load<PackedScene>(path);
-			if (packed == null)
-			{
-				GD.PushWarning($"WorldView: no interior scene at {path} for '{sceneId}'");
-				return;
-			}
 			_interiorPath = path;
 			var instance = packed.Instantiate();
 			_interior.AddChild(instance);
@@ -266,7 +282,18 @@ public partial class WorldView : Node3D
 		_focusLift = 1.1f;
 		_minDist = 3f;
 		FrameInterior(_interior);
+		return true;
 	}
+
+	/// <summary>True when an interior level exists for <paramref name="sceneId"/> (its prefix maps to a level file).</summary>
+	protected static bool InteriorLevelExists(string sceneId)
+		=> InteriorPathFor(sceneId) is { } path && ResourceLoader.Exists(path);
+
+	/// <summary>The building doorways, in settlement order: index <c>i</c> is building <c>i</c>.</summary>
+	protected IReadOnlyList<Portal> WorldPortals => _worldPortals;
+
+	/// <summary>The <c>--scene</c> capture pin, or null. While set it holds the view.</summary>
+	protected string? PinnedSceneId => _fixedScene;
 
 	/// <summary>
 	/// Show or hide the open world, physics included. <c>Visible</c> only stops drawing: the

@@ -74,7 +74,9 @@ public partial class AvatarCharacter : AgentBrain
     /// from the engine's perception snapshot. Pass <paramref name="resolvedTargetPosition"/> when
     /// the target was found in the scene; leave it null for non-targeted verbs.
     /// </summary>
-    public void ApplyIntent(string verb, Vector3? resolvedTargetPosition = null)
+    /// <param name="onArrival">Run once when the avatar reaches the target — or at once if it is
+    /// already standing there (AGENT-LOOP-002 T3: <c>use</c> on a doorway transitions on arrival).</param>
+    public void ApplyIntent(string verb, Vector3? resolvedTargetPosition = null, Action? onArrival = null)
     {
         // Map semantic verbs to locomotion directions.
         // "approach" → move toward the resolved target.
@@ -98,14 +100,31 @@ public partial class AvatarCharacter : AgentBrain
                 // already satisfied — the tour could only ever make one trip.
                 Attach(new IntentMoveController(
                     resolvedTargetPosition.Value, verb, ArrivalRadius,
-                    controller => Attach(controller)));
+                    controller =>
+                    {
+                        Attach(controller);
+                        onArrival?.Invoke();
+                    }));
                 return;
             }
         }
 
         // Non-targeted, or already standing at the target: return to local autonomy rather than
         // stopping dead. Fusion decides *which* place to visit; between decisions the avatar keeps
-        // moving under its own controller.
+        // moving under its own controller. Already at the target counts as arriving.
+        Attach(WanderFallback());
+        if (resolvedTargetPosition.HasValue)
+            onArrival?.Invoke();
+    }
+
+    /// <summary>
+    /// After the engine places this avatar in a new scene: face <paramref name="facing"/> (away from
+    /// the door it came through) and go back to local autonomy, as on any arrival.
+    /// </summary>
+    protected override void OnPlaced(Vector3 facing)
+    {
+        if (new Vector2(facing.X, facing.Z).LengthSquared() > 0.0001f)
+            _resident.Rotation = new Vector3(0f, Mathf.Atan2(facing.X, facing.Z), 0f);
         Attach(WanderFallback());
     }
 

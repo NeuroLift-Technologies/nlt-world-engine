@@ -66,7 +66,9 @@ public sealed class SceneAnchorSets
 	public static TaskAnchor ExitAnchor(string sceneId, int buildingIndex, Portal exitPortal) =>
 		new(ExitIdFor(sceneId), "Exit", AffordanceAxes.Neutral)
 		{
-			Position = exitPortal.Position - exitPortal.Facing * ExitApproachDepth,
+			// The same spot an entering avatar is placed at, so an avatar that has just come in is
+			// already standing at the exit.
+			Position = SceneTransitRules.IndoorArrival(exitPortal).Position,
 			Link = new PortalLink(SceneCatalog.OpenWorldId, buildingIndex),
 		};
 }

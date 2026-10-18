@@ -50,6 +50,12 @@ public partial class AgentLoopDriver : Node
     /// </summary>
     public Func<string, IReadOnlyList<TaskAnchor>> AnchorsFor { get; set; } = _ => System.Array.Empty<TaskAnchor>();
 
+    /// <summary>
+    /// The engine's scene transition, for <c>use</c> on a doorway (AGENT-LOOP-002 T3). Null means
+    /// doorways are rejected at ingress.
+    /// </summary>
+    public IPortalTransit? Transit { get; set; }
+
     public override void _Ready()
     {
         _link = new FusionHttpLink { Name = "FusionHttpLink" };
@@ -59,7 +65,8 @@ public partial class AgentLoopDriver : Node
             new AsfdkGovernanceGate(),
             ResolveTarget,
             sceneId => AnchorsFor(sceneId),
-            RunOnMainThreadAsync);
+            RunOnMainThreadAsync,
+            Transit);
     }
 
     private static Task<IntentExecutionResult> RunOnMainThreadAsync(

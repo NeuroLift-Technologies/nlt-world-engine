@@ -84,8 +84,72 @@ public partial class AgentBrain : CharacterBody3D
         FloorMaxAngle = Mathf.DegToRad(46f);
     }
 
+    // --- Engine-owned placement (AGENT-LOOP-002 T3) ------------------------------
+    // "Models clamp, never teleport" (world-engine-godot/AGENTS.md §3): no intent can place this
+    // body. The engine itself has exactly two reasons to, both routed through PlaceAt so there is one
+    // placement path: the kill-plane recovery below, and the scene transition when an avatar uses a
+    // door or a room's exit (TransitionTo) — the one engine-owned discontinuity Joshua approved on
+    // 2026-10-17. Neither is reachable from an intent payload: ingress only ever names a target.
+
+    private bool _held;
+
+    /// <summary>
+    /// Where a fall inside a room recovers to: the spot the avatar entered the room at. Set by the
+    /// transition; null in the open world, where recovery uses the terrain.
+    /// </summary>
+    public Vector3? InteriorRecoveryPoint { get; set; }
+
+    /// <summary>True between <see cref="HoldForTransition"/> and the placement (or release) that ends it.</summary>
+    public bool InTransition => _held;
+
+    /// <summary>
+    /// Freeze the body while the engine swaps scenes: no decisions, no gravity, no movement, no
+    /// kill-plane. The scene it stood in may have its collision switched off under it.
+    /// </summary>
+    public void HoldForTransition()
+    {
+        _held = true;
+        Velocity = Vector3.Zero;
+        _decision = default;
+    }
+
+    /// <summary>Let a held body go where it stands, for a transition that failed before placing it.</summary>
+    public void ReleaseHold() => _held = false;
+
+    /// <summary>
+    /// Put this body in <paramref name="sceneId"/> at <paramref name="position"/>, facing
+    /// <paramref name="facing"/> (AGENT-LOOP-002 T3). Only the engine's scene transition calls this.
+    /// </summary>
+    public void TransitionTo(Vector3 position, string sceneId, Vector3 facing)
+    {
+        PlaceAt(position);
+        _observation = new AgentObservation(AgentId, position, Vector3.Zero, _observation.Needs, sceneId, _tick);
+        _held = false;
+        OnPlaced(facing);
+    }
+
+    /// <summary>
+    /// After a placement: subclasses turn their visual and hand control back to local autonomy.
+    /// </summary>
+    protected virtual void OnPlaced(Vector3 facing) { }
+
+    /// <summary>
+    /// The single placement path: position, zero velocity, locomotion reset, and the held decision
+    /// cleared so the last move does not keep playing from the new spot.
+    /// </summary>
+    private void PlaceAt(Vector3 position)
+    {
+        GlobalPosition = position;
+        Velocity = Vector3.Zero;
+        _locomotion.Teleport(position);
+        _decision = default;
+        _sinceDecision = 0f;
+    }
+
     public override void _PhysicsProcess(double delta)
     {
+        if (_held)
+            return;
         var dt = (float)delta;
         _tick++;
 
@@ -152,21 +216,19 @@ public partial class AgentBrain : CharacterBody3D
             float sx = Mathf.Clamp(GlobalPosition.X, -half, half);
             float sz = Mathf.Clamp(GlobalPosition.Z, -half, half);
             // Scene-aware: WorldGeometry.HeightAt only knows the procedural island, not UCX
-            // interior floors. An interior avatar that falls through respawns at room entry
-            // height instead of being teleported onto open-world terrain.
+            // interior floors. An interior avatar that falls through recovers to where it entered
+            // the room, instead of being teleported onto open-world terrain.
             if (SceneCatalog.IsOpenWorld(SceneId))
             {
                 Vector3 landing = WorldGeometry.HeightAt(sx, sz) > WorldConstants.Water + 0.5f
                     ? new Vector3(sx, WorldGeometry.HeightAt(sx, sz), sz)
                     : WorldGeometry.PlazaSpawn();
-                GlobalPosition = landing + new Vector3(0f, 1.5f, 0f);
+                PlaceAt(landing + new Vector3(0f, 1.5f, 0f));
             }
             else
             {
-                GlobalPosition = new Vector3(sx, 1f, sz);
+                PlaceAt(InteriorRecoveryPoint ?? new Vector3(sx, 1f, sz));
             }
-            Velocity = Vector3.Zero;
-            _locomotion.Teleport(GlobalPosition);
         }
 
         Acted?.Invoke(action);

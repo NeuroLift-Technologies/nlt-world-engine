@@ -12,7 +12,7 @@ using NltWorldEngine.Observer;
 /// reads documents that already exist; it never writes to the world, never advances a clock Fusion
 /// owns, and never derives a value it was not given.
 /// </summary>
-public partial class Main : NltWorldEngine.WorldView
+public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 {
 	private FeedTransport _feed = null!;
 	private ObserverRoot _observer = null!;
@@ -179,6 +179,10 @@ public partial class Main : NltWorldEngine.WorldView
 	/// </summary>
 	private void ShowLoopAvatarScene()
 	{
+		// Mid-transition the view already shows the destination while the avatar's own scene is
+		// still the old one; the transition settles both.
+		if (_transiting)
+			return;
 		string sceneId = _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local)
 			&& IsInstanceValid(local) && !string.IsNullOrEmpty(local.SceneId)
 				? local.SceneId
@@ -193,6 +197,119 @@ public partial class Main : NltWorldEngine.WorldView
 		_shownSceneId = sceneId;
 		_shownSceneKind = kind;
 		ShowScene(SceneCatalog.IsOpenWorld(sceneId) ? "" : sceneId, kind);
+	}
+
+	// --- Engine-owned scene transition (AGENT-LOOP-002 T3) --------------------------------------
+
+	private string? _transitScene;
+	private bool _transiting;
+
+	/// <inheritdoc />
+	public string? CanTransit(AvatarCharacter avatar, PortalLink link)
+		=> SceneTransitRules.Check(link, InteriorLevelExists, WorldPortals.Count, PinnedSceneId, _transiting);
+
+	/// <inheritdoc />
+	/// <remarks>Called from the avatar's arrival (inside its physics step), so the work is deferred.</remarks>
+	public void Transit(AvatarCharacter avatar, PortalLink link)
+	{
+		if (_transiting)
+			return;
+		_transiting = true;
+		avatar.HoldForTransition();
+		Callable.From(() => RunTransit(avatar, link)).CallDeferred();
+	}
+
+	/// <summary>
+	/// Take <paramref name="avatar"/> through a doorway: show the destination (which switches the
+	/// physics to it), wait for its collision to be in the physics space, find the floor under the
+	/// arrival point, and place the avatar there. If the destination cannot be shown the avatar is
+	/// released where it stood and nothing else changes.
+	/// </summary>
+	private async void RunTransit(AvatarCharacter avatar, PortalLink link)
+	{
+		string from = avatar.SceneId;
+		string target = link.TargetSceneId;
+		try
+		{
+			if (!SceneCatalog.TryKindFor(target, out string kind))
+				throw new System.InvalidOperationException($"unknown destination '{target}'");
+			bool indoor = kind == SceneCatalog.InteriorKind;
+
+			_transitScene = target;
+			if (!ShowScene(indoor ? target : "", kind))
+				throw new System.InvalidOperationException($"'{target}' could not be shown");
+			_shownSceneId = target;
+			_shownSceneKind = kind;
+
+			Portal? doorway = indoor ? ShownInteriorExit : WorldPortals[link.BuildingIndex];
+			if (doorway == null)
+				throw new System.InvalidOperationException($"'{target}' has no exit to arrive at");
+			var (arrival, facing) = indoor
+				? SceneTransitRules.IndoorArrival(doorway)
+				: SceneTransitRules.OutdoorArrival(doorway);
+
+			// Two physics frames: one for the destination's bodies to enter the space, one for
+			// queries to see them. Placing the body earlier drops it through the floor.
+			await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+			await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+			if (!IsInstanceValid(avatar))
+				return;
+
+			var landing = new Vector3(arrival.X, FloorBelow(avatar, arrival, indoor) + 0.05f, arrival.Z);
+			avatar.TransitionTo(landing, target, facing);
+			avatar.InteriorRecoveryPoint = indoor ? landing : null;
+			// Inside, the wander fallback roams the room rather than heading for the exit.
+			avatar.Anchors = indoor ? System.Array.Empty<TaskAnchor>() : _worldAnchors;
+			GD.Print($"[SceneTransit] {avatar.AgentId}: {from} -> {target}, placed at {landing}");
+			WarnStrandedAvatars(avatar, target);
+		}
+		catch (System.InvalidOperationException e)
+		{
+			GD.PushWarning($"[SceneTransit] {avatar.AgentId} stays in {from}: {e.Message}");
+			_transitScene = null;
+			if (_shownSceneId != from && SceneCatalog.TryKindFor(from, out string fromKind)
+				&& ShowScene(SceneCatalog.IsOpenWorld(from) ? "" : from, fromKind))
+			{
+				_shownSceneId = from;
+				_shownSceneKind = fromKind;
+			}
+			avatar.ReleaseHold();
+		}
+		finally
+		{
+			_transitScene = null;
+			_transiting = false;
+			RefreshWorldPhysics();
+		}
+	}
+
+	/// <summary>
+	/// Height of the floor under <paramref name="at"/>: a ray cast down onto the destination's own
+	/// collision, never a hard-coded Y. Indoors it starts below the 3.5 m ceilings; where it finds
+	/// nothing, the backstop is <c>AvatarGround</c> (y = 0) indoors and the terrain outside.
+	/// </summary>
+	private float FloorBelow(AvatarCharacter avatar, Vector3 at, bool indoor)
+	{
+		float top = indoor ? 2.5f : WorldGeometry.HeightAt(at.X, at.Z) + 3f;
+		float bottom = indoor ? -6f : WorldGeometry.HeightAt(at.X, at.Z) - 3f;
+		var query = PhysicsRayQueryParameters3D.Create(new Vector3(at.X, top, at.Z), new Vector3(at.X, bottom, at.Z));
+		query.Exclude = new Godot.Collections.Array<Rid> { avatar.GetRid() };
+		var hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+		if (hit.Count > 0)
+			return ((Vector3)hit["position"]).Y;
+		return indoor ? 0f : WorldGeometry.HeightAt(at.X, at.Z);
+	}
+
+	/// <summary>
+	/// One live scene at a time: any other physical avatar left in the scene being switched off will
+	/// fall. Accepted for a single avatar (AGENT-LOOP-002 decisions); said out loud when it happens.
+	/// </summary>
+	private void WarnStrandedAvatars(AvatarCharacter mover, string target)
+	{
+		foreach (var other in _avatars.Values)
+			if (other != mover && IsInstanceValid(other) && other.SceneId != target)
+				GD.PushWarning($"[SceneTransit] {other.AgentId} is still in {other.SceneId}, whose physics " +
+					$"is now off while {mover.AgentId} is in {target}.");
 	}
 
 	/// <summary>
@@ -272,6 +389,7 @@ public partial class Main : NltWorldEngine.WorldView
 			Enabled = true,
 			TargetAgentId = LocalAvatarTargetId,
 			AnchorsFor = _sceneAnchors.For,
+			Transit = this,
 		};
 		var endpoint = OS.GetEnvironment("NLT_AGENT_LOOP_ENDPOINT");
 		if (!string.IsNullOrWhiteSpace(endpoint))
@@ -361,7 +479,20 @@ public partial class Main : NltWorldEngine.WorldView
 	/// interiors' own UCX floors. Disabled while the open world shows (<see cref="SyncAvatarGround"/>).
 	/// </summary>
 	/// <summary>Live avatars walk the open world, so its physics must stay on while they exist.</summary>
-	protected override bool OpenWorldBodiesLive => _avatars.Count > 0;
+	/// <remarks>
+	/// With the loop on, physics follows the loop avatar's scene (AGENT-LOOP-002 T3) — or, while a
+	/// transition is running, its destination, so the room's collision is live before the avatar is
+	/// placed in it. One live scene at a time (Joshua, 2026-10-17): inside a room the open world's
+	/// bodies are switched off.
+	/// </remarks>
+	protected override bool OpenWorldBodiesLive => _avatars.Count > 0
+		&& (!EnableFusionAgentLoop || SceneCatalog.IsOpenWorld(LoopAvatarPhysicsScene));
+
+	private string LoopAvatarPhysicsScene => _transitScene
+		?? (_avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local) && IsInstanceValid(local)
+			&& !string.IsNullOrEmpty(local.SceneId)
+				? local.SceneId
+				: SceneCatalog.OpenWorldId);
 
 	/// <summary>
 	/// Where a live avatar starts, in the scene actually shown. In the open world that is always the
