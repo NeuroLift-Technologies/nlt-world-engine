@@ -138,6 +138,24 @@ public partial class AvatarCharacter : AgentBrain
         _activity = "active";
     }
 
+    /// <summary>
+    /// End any interaction and hold still, freeing what it held. Ingress calls this when
+    /// governance denies an intent; without the release, a chair reserved by the denied
+    /// interaction would stay occupied for good.
+    /// </summary>
+    public void Halt()
+    {
+        EndInteraction();
+        Attach(new IdleController());
+    }
+
+    /// <summary>A removed avatar frees what it holds, so nobody else is turned away from it.</summary>
+    public override void _ExitTree()
+    {
+        EndInteraction();
+        base._ExitTree();
+    }
+
     private void FaceToward(Vector3 point)
     {
         var to = point - GlobalPosition;

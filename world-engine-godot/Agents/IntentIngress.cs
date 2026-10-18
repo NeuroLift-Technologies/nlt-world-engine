@@ -122,7 +122,7 @@ public sealed class IntentIngress
 
         if (!decision.Allowed)
         {
-            avatar.Attach(new IdleController());
+            avatar.Halt();
             var reason = string.IsNullOrEmpty(decision.Explanation)
                 ? $"governance denied ({decision.Code})"
                 : $"governance denied ({decision.Code}): {decision.Explanation}";

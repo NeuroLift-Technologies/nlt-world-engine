@@ -285,6 +285,10 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		}
 		finally
 		{
+			// Any failure before placement (not only the expected ones caught above) must not
+			// leave the avatar frozen: ingress rejects every intent while it is held.
+			if (IsInstanceValid(avatar) && avatar.InTransition)
+				avatar.ReleaseHold();
 			_transitScene = null;
 			_transiting = false;
 			RefreshWorldPhysics();
