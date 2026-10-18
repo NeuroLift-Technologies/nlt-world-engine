@@ -173,6 +173,14 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T4 — Camera: follow or free look
 
+**Status: delivered 2026-10-18.** The camera code already behaved across a scene change; two things in `Main` were wrong:
+- With the loop on, follow defaulted to the replay feed's avatar, a ghost whose positions belong to the feed's scene: 8.35 m off the loop avatar after entering a room. It now defaults to the loop avatar; an explicit pick of a feed agent is kept.
+- During a transition's two physics frames, follow would aim at the avatar's old spot while the view already showed the destination. Follow now holds until the avatar is placed.
+
+Verified in-engine (Xvfb). Follow on: 0.00 m one frame after entry and after exit, at most 0.37 m while walking (one frame of movement; stated tolerance 0.5 m). Follow off: entry re-frames on the room, the camera moves 0.000 m while the avatar walks 4.9 m, zoom and orbit still respond. Screenshots: `t4-follow-inside.png`, `t4-free-inside.png`.
+
+**Found (observer HUD, not T4):** the header ("WORLD VIEW / Home") and the replay's ghost residents follow the feed's scene, not the loop avatar's, so inside the office the header still says Home and the ghosts are drawn in the room. Belongs with GRAPH-002's HUD work.
+
 Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observer follow-target picker, orbit/zoom by mouse). This task makes it behave across a scene change. **Do not build the full GP-3 control cluster** (that is GRAPH-002).
 
 **Do**

@@ -112,6 +112,11 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 	{
 		if (_followTargetId == "__none__")
 			return null;
+		// Mid-transition the view already shows the destination while the avatar is still held at
+		// its old spot; following it there would swing the camera away and back (AGENT-LOOP-002 T4).
+		// Null holds the camera until the avatar is placed.
+		if (_transiting && _followTargetId is LocalAvatarTargetId or "")
+			return null;
 		if (_followTargetId == LocalAvatarTargetId)
 		{
 			if (_avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local) && IsInstanceValid(local))
@@ -334,6 +339,14 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 			return;
 		}
 
+		// With the loop on, the subject is the loop avatar: the feed's own avatar is a replay ghost
+		// whose positions belong to the feed's scene, not to the scene on show (AGENT-LOOP-002 T4).
+		if (EnableFusionAgentLoop && _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? loopAvatar)
+			&& IsInstanceValid(loopAvatar))
+		{
+			_followTargetId = LocalAvatarTargetId;
+			return;
+		}
 		_followTargetId = FeedTransport.PrimaryAvatar(doc)?.Id
 			?? FirstAgentId(doc)
 			?? "__none__";
