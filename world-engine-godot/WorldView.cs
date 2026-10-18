@@ -676,6 +676,22 @@ public partial class WorldView : Node3D
 			yield return p;
 	}
 
+	/// <summary>
+	/// True while something other than the spectator owns the displayed scene. <c>Main</c> overrides
+	/// it for the agent loop, where the view follows the avatar (AGENT-LOOP-002 T1). Every spectator
+	/// doorway ends in <see cref="Activate"/> or the exit branch of <see cref="EnterOrExit"/>, and
+	/// both check it, so only a click or key press that would really use a door is refused.
+	/// </summary>
+	protected virtual bool SpectatorDoorsLocked => false;
+
+	private bool RefuseLockedDoor()
+	{
+		if (!SpectatorDoorsLocked)
+			return false;
+		GD.Print("WorldView: doorways are locked while the agent loop runs; the view follows the avatar's scene.");
+		return true;
+	}
+
 	/// <summary>Activate the doorway the pointer clicked, if the click landed on one.</summary>
 	private bool TryActivateAtScreen(Vector2 screen)
 	{
@@ -694,8 +710,7 @@ public partial class WorldView : Node3D
 		}
 		if (best == null)
 			return _openWorld.Visible && TryActivateBuildingAtScreen(screen);
-		Activate(best);
-		return true;
+		return Activate(best);
 	}
 
 	/// <summary>
@@ -714,8 +729,7 @@ public partial class WorldView : Node3D
 		int index = collider.GetMeta(SettlementBuilder.PortalIndexMeta).AsInt32();
 		if (index < 0 || index >= _worldPortals.Count)
 			return false;
-		Activate(_worldPortals[index]);
-		return true;
+		return Activate(_worldPortals[index]);
 	}
 
 	/// <summary>Enter the building doorway nearest the camera's focus, or leave an interior.</summary>
@@ -723,7 +737,9 @@ public partial class WorldView : Node3D
 	{
 		if (_interior.Visible)
 		{
-			ShowScene("", "open_world");
+			if (RefuseLockedDoor())
+				return false;
+			ShowScene("", SceneCatalog.OpenWorldKind);
 			return true;
 		}
 
@@ -740,16 +756,19 @@ public partial class WorldView : Node3D
 		}
 		if (best == null)
 			return false;
-		Activate(best);
-		return true;
+		return Activate(best);
 	}
 
-	private void Activate(Portal portal)
+	/// <summary>Step through <paramref name="portal"/>. False when the doors are locked.</summary>
+	private bool Activate(Portal portal)
 	{
+		if (RefuseLockedDoor())
+			return false;
 		if (portal.SceneId.Length == 0)
-			ShowScene("", "open_world");   // the return door
+			ShowScene("", SceneCatalog.OpenWorldKind);   // the return door
 		else
-			ShowScene(portal.SceneId, "interior");
+			ShowScene(portal.SceneId, SceneCatalog.InteriorKind);
+		return true;
 	}
 
 	/// <summary>Initializes the state feed, camera, Sky3D sky, terrain, water, settlement and vegetation builders.</summary>

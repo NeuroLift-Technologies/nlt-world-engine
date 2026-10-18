@@ -141,24 +141,22 @@ public partial class Main : NltWorldEngine.WorldView
 		if (doc == null)
 			return;
 
-		if (doc.Scene.Id != _sceneId)
+		if (EnableFusionAgentLoop)
+		{
+			// Loop on: the viewer shows the scene the loop avatar is physically in (AGENT-LOOP-002
+			// T1), and the feed's scene never overrides it — a feed that says "Home" would otherwise
+			// show a room while the avatar it follows is outdoors. Checked on every document but
+			// idempotent, so a manual orbit is not fought. A --scene capture pin still wins inside
+			// ShowScene: precedence is pin > loop avatar > feed.
+			_sceneId = doc.Scene.Id;
+			ShowLoopAvatarScene();
+		}
+		else if (doc.Scene.Id != _sceneId)
 		{
 			_sceneId = doc.Scene.Id;
-			// The Fusion tour walks the open world (its destinations are WorldAnchorBuilder's
-			// open-world anchors), so that is what the observer sees; a feed that says "Home"
-			// would otherwise show a room while the avatar it follows is outdoors.
-			if (EnableFusionAgentLoop)
-			{
-				_shownSceneId = "open_world";
-				_shownSceneKind = "open_world";
-				ShowScene("", "open_world");
-			}
-			else
-			{
-				_shownSceneId = doc.Scene.Id;
-				_shownSceneKind = doc.Scene.Kind;
-				ShowScene(doc.Scene.Id, doc.Scene.Kind);
-			}
+			_shownSceneId = doc.Scene.Id;
+			_shownSceneKind = doc.Scene.Kind;
+			ShowScene(doc.Scene.Id, doc.Scene.Kind);
 		}
 
 		Residents.Sync(doc, ReducedMotion);
@@ -172,6 +170,35 @@ public partial class Main : NltWorldEngine.WorldView
 		if (_following)
 			Follow(CurrentFollowTargetPoint);
 	}
+
+	/// <summary>
+	/// Show the loop avatar's own scene. Before the avatar exists that is the open world, where it
+	/// is about to spawn (<see cref="LiveSpawn"/>). An id the catalog cannot name is refused rather
+	/// than shown as a guess.
+	/// </summary>
+	private void ShowLoopAvatarScene()
+	{
+		string sceneId = _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local)
+			&& IsInstanceValid(local) && !string.IsNullOrEmpty(local.SceneId)
+				? local.SceneId
+				: SceneCatalog.OpenWorldId;
+		if (sceneId == _shownSceneId)
+			return;
+		if (!SceneCatalog.TryKindFor(sceneId, out string kind))
+		{
+			GD.PushError($"Main: loop avatar is in unknown scene '{sceneId}'; the view is left as it is.");
+			return;
+		}
+		_shownSceneId = sceneId;
+		_shownSceneKind = kind;
+		ShowScene(SceneCatalog.IsOpenWorld(sceneId) ? "" : sceneId, kind);
+	}
+
+	/// <summary>
+	/// While the loop runs, the displayed scene is the avatar's, so a spectator door must not swap
+	/// it: entering a room would show one scene while the avatar walks in another.
+	/// </summary>
+	protected override bool SpectatorDoorsLocked => EnableFusionAgentLoop;
 
 	private void ReconcileFollowTarget(NltWorldEngine.StateFeed doc)
 	{
@@ -220,7 +247,7 @@ public partial class Main : NltWorldEngine.WorldView
 		// Scene-aware: interiors carry no open-world destinations. An avatar inside personal_1
 		// (or any room) must not chase plaza/door/lakeshore anchors that sit outside its walls —
 		// it wanders or idles locally until the feed moves it back to open_world.
-		_worldAnchors = _shownSceneKind == "open_world"
+		_worldAnchors = _shownSceneKind == SceneCatalog.OpenWorldKind
 			? WorldAnchorBuilder.BuildOpenWorld()
 			: new System.Collections.Generic.List<TaskAnchor>();
 
@@ -337,7 +364,7 @@ public partial class Main : NltWorldEngine.WorldView
 	/// island terrain. Inside a room the feed's room coordinates are valid as-is.
 	/// </summary>
 	private Vector3 LiveSpawn(AgentState? feedAgent)
-		=> _shownSceneKind == "open_world"
+		=> _shownSceneKind == SceneCatalog.OpenWorldKind
 			? WorldGeometry.PlazaSpawn()
 			: feedAgent?.Position3() ?? Vector3.Zero;
 

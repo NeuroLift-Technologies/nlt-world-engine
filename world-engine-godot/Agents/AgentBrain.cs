@@ -154,7 +154,7 @@ public partial class AgentBrain : CharacterBody3D
             // Scene-aware: WorldGeometry.HeightAt only knows the procedural island, not UCX
             // interior floors. An interior avatar that falls through respawns at room entry
             // height instead of being teleported onto open-world terrain.
-            if (SceneId == "open_world")
+            if (SceneCatalog.IsOpenWorld(SceneId))
             {
                 Vector3 landing = WorldGeometry.HeightAt(sx, sz) > WorldConstants.Water + 0.5f
                     ? new Vector3(sx, WorldGeometry.HeightAt(sx, sz), sz)

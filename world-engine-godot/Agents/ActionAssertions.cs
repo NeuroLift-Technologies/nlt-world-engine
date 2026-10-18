@@ -32,9 +32,43 @@ public static class ActionAssertions
         AgentLoopContract();
         ControlConditionMoves();
         DecisionHeldBetweenPolls();
+        SceneKinds();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
+    }
+
+    /// <summary>
+    /// Scene id → kind comes from <see cref="SceneCatalog"/>, not from the id's spelling
+    /// (AGENT-LOOP-002 T1). Unknown ids are rejected rather than guessed.
+    /// </summary>
+    private static void SceneKinds()
+    {
+        Console.WriteLine("\n[scene id -> kind]");
+
+        static string KindOrNone(string id) => SceneCatalog.TryKindFor(id, out var kind) ? kind : "(rejected)";
+
+        Check(KindOrNone("open_world") == "open_world", "open_world is the open world");
+        foreach (var id in new[] { "workplace_3", "personal_1", "social_9", "academic_2" })
+            Check(KindOrNone(id) == "interior", $"{id} is an interior");
+
+        // Each of these fooled the old Contains("open") guess one way or the other.
+        foreach (var id in new[] { "", "open", "open_world_2", "workplace_open", "lobby_1", "personal",
+                     "personal_", "personal_0", "personal_x", "_1", "Personal_1" })
+            Check(!SceneCatalog.TryKindFor(id, out _), $"unknown id '{id}' is rejected");
+        Check(!SceneCatalog.TryKindFor(null, out _), "a null id is rejected");
+
+        var threw = false;
+        try { SceneCatalog.KindFor("lobby_1"); }
+        catch (ArgumentException) { threw = true; }
+        Check(threw, "KindFor throws for an unknown id instead of guessing");
+
+        // Every interior the settlement can generate must be one the catalog accepts; otherwise a
+        // door would lead to a scene perception refuses to name.
+        var allKnown = true;
+        for (var i = 0; i < 40; i++)
+            allKnown &= KindOrNone(SettlementBuilder.SceneIdFor(SettlementBuilder.KindAt(i), i)) == "interior";
+        Check(allKnown, "every settlement building's scene id is a known interior");
     }
 
     private static void Check(bool condition, string what)

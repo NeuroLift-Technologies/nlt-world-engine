@@ -1,0 +1,56 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (from main @ eb1aef5)",
+    "work_completed": [
+      "AGENT-LOOP-002 T1 (per-avatar scene authority), asked for by Joshua 2026-10-18.",
+      "New world-engine-godot/SceneCatalog.cs: the one scene id -> kind mapping. `open_world` is the open world; `<personal|workplace|social|academic>_<n>` with n >= 1 is an interior; anything else is rejected. Replaces PerceptionBuilder's Contains(\"open\") guess; AgentBrain's kill plane and Main/WorldView use its constants.",
+      "AgentLoopDriver fails closed on an unknown scene id: no perception is posted, one error is logged per id. Its perception log line now includes the scene.",
+      "Main: with the loop on, the view shows the loop avatar's own scene (open_world before it spawns) instead of a hard-coded open_world, on every document but idempotently; the feed never overrides it. Precedence is --scene pin > loop avatar > feed. Loop off: unchanged.",
+      "WorldView: SpectatorDoorsLocked (Main overrides it to EnableFusionAgentLoop). Activate and the exit branch of EnterOrExit refuse while locked, so a click or E press that would use a door is refused and logged; other clicks are untouched.",
+      "AgentHarness: 19 new scene-kind assertions, including one that every scene id SettlementBuilder can generate is a known interior."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 T2-T6 are unclaimed."
+    ],
+    "blockers": [],
+    "decisions_made": [
+      "Built on the fusion-tour fix (merged 2026-10-18) instead of redoing it: it already spawns the loop avatar at the plaza in open_world, keeps open-world physics on while avatars exist, and made the kill plane scene-aware.",
+      "Scene ids are matched case-sensitively; feed and settlement ids are lower case.",
+      "A refused spectator door is logged only (GD.Print). No HUD notice was added, because a new HUD indicator must ship colour + shape + text and that belongs with GRAPH-002's HUD work."
+    ],
+    "decisions_pending": [
+      "Joshua: the AGENT-LOOP-002 open decisions are unchanged (T6 world-state effect of `use`; T6 pose/facing in perception; T5 furniture `kind`).",
+      "Joshua: should a refused spectator door show an on-screen notice? Today it only logs."
+    ],
+    "escalations": [
+      "None."
+    ],
+    "next_agent_notes": "T2 is next. The view now follows AgentBrain.SceneId through Main.ShowLoopAvatarScene, so T3's transition should set the avatar's scene and then call that path rather than calling ShowScene directly. SceneCatalog.TryKindFor is the place to validate any scene id. Build environment used here: .NET 8 SDK via dotnet-install.sh, asfdk-csharp cloned as the sibling checkout, Godot 4.7.2 .NET Linux build; headless runs need `--headless --path . --import` once, and the layout selftest needs a real window (xvfb-run -s '-screen 0 1600x900x24' with --rendering-driver opengl3), since the headless window is 64x64 and fails every control on main too. The fennara and godotopenxrvendors addons have no Linux binaries and log load errors on Linux; that is environmental.",
+    "files_modified": [
+      "world-engine-godot/SceneCatalog.cs",
+      "world-engine-godot/SceneCatalog.cs.uid",
+      "world-engine-godot/Agents/PerceptionBuilder.cs",
+      "world-engine-godot/Agents/AgentLoopDriver.cs",
+      "world-engine-godot/Agents/AgentBrain.cs",
+      "world-engine-godot/Agents/ActionAssertions.cs",
+      "world-engine-godot/Main.cs",
+      "world-engine-godot/WorldView.cs",
+      "docs/active-threads.md",
+      "docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-t1-scene-authority.json"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings (same as main).",
+      "AgentHarness: 59 passed, 0 failed (40 on main plus 19 new).",
+      "Godot 4.7.2 headless, temporary check scene (not committed) pressing E: loop on with the default personal_1 replay shows the open world, avatar at the plaza, perception scene open_world/open_world, E refused; on main the same press swapped the view into a room. Loop off: the feed's room shows and E exits as before.",
+      "--selftest under Xvfb with opengl3, levels simple/coach/technical: LAYOUT OK on all three, identical to main."
+    ],
+    "tests_passing": true,
+    "pr_url": null
+  }
+}

@@ -19,6 +19,7 @@ public partial class AgentLoopDriver : Node
     private readonly Dictionary<string, float> _sincePost = new();
     private int _tick;
     private int _messageSeq;
+    private string? _unknownSceneReported;
 
     /// <summary>Seconds between perception posts per avatar. Matches the low-frequency cycle.</summary>
     [Export] public float DecisionCadenceSeconds { get; set; } = 2f;
@@ -96,10 +97,23 @@ public partial class AgentLoopDriver : Node
                 continue;
             }
             _sincePost[avatar.AgentId] = 0f;
+            // Fail closed on a scene the engine cannot name: post nothing rather than tell Fusion a
+            // guessed kind. The avatar keeps its local controller meanwhile.
+            if (!SceneCatalog.TryKindFor(avatar.SceneId, out _))
+            {
+                if (_unknownSceneReported != avatar.SceneId)
+                {
+                    _unknownSceneReported = avatar.SceneId;
+                    GD.PushError($"[AgentLoopDriver] unknown scene id '{avatar.SceneId}' for " +
+                        $"{avatar.AgentId}; no perception posted.");
+                }
+                continue;
+            }
             var perception = PerceptionBuilder.Build(
                 avatar, _tick, $"obs-{_tick}-{avatar.AgentId}-{_messageSeq++}",
                 Anchors, avatars);
             GD.Print($"[AgentLoopDriver] perception tick={_tick}, agent={avatar.AgentId}, " +
+                $"scene={perception.Scene.Id}/{perception.Scene.Kind}, " +
                 $"position={avatar.GlobalPosition}, visible={perception.VisibleEntities.Count}");
             _link.RequestDecision(avatar, perception, _ingress, _tick);
         }

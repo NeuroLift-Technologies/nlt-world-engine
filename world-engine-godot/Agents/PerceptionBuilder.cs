@@ -70,7 +70,8 @@ public static class PerceptionBuilder
             MessageId = messageId,
             AgentId = avatar.AgentId,
             Tick = tick,
-            Scene = new AgentLoopScene { Id = avatar.SceneId, Kind = SceneKindFor(avatar.SceneId) },
+            // Throws for an unknown scene id; AgentLoopDriver checks first and posts nothing.
+            Scene = new AgentLoopScene { Id = avatar.SceneId, Kind = SceneCatalog.KindFor(avatar.SceneId) },
             Self = new AgentPhysicalState
             {
                 Position = new PhysicalVector3 { X = pos.X, Y = pos.Y, Z = pos.Z },
@@ -93,7 +94,4 @@ public static class PerceptionBuilder
         list.Add("look_at");
         return list;
     }
-
-    private static string SceneKindFor(string sceneId) =>
-        sceneId.Contains("open") ? "open_world" : "interior";
 }

@@ -87,6 +87,8 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T1 — Per-avatar scene authority
 
+**Status: delivered 2026-10-18.** The fusion-tour fix merged on 2026-10-18 already made the loop spawn the avatar at the plaza in `open_world` and keep open-world physics on while avatars exist, so §2's "spawn comes from the feed" no longer holds on `main`. T1 added `SceneCatalog` (scene id → kind, unknown ids rejected), the view following the loop avatar's own scene, and spectator doors locked while the loop runs. Verification is in the AGENT-LOOP-002 thread entry.
+
 **Why:** today the feed decides the displayed scene and the avatar's scene; the avatar has no scene of its own that the viewer obeys.
 
 **Do**
