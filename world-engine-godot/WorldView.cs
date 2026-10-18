@@ -132,6 +132,9 @@ public partial class WorldView : Node3D
 	/// </summary>
 	protected Portal? ShownInteriorExit => _interiorPortal;
 
+	/// <summary>The loaded interior level's root, or null while none is loaded. Read-only for subclasses.</summary>
+	protected Node? ShownInteriorLevel => _interior != null && _interior.GetChildCount() > 0 ? _interior.GetChild(0) : null;
+
 	/// <summary>The rendered residents — one character per agent in the document on show (B.2).</summary>
 	public ResidentLayer Residents => _residents;
 

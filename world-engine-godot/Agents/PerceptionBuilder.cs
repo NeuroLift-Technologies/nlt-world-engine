@@ -79,7 +79,7 @@ public static class PerceptionBuilder
             entities.Add(new VisibleEntity
             {
                 Id = anchor.Id,
-                Kind = "place",
+                Kind = anchor.Kind,
                 Position = new PhysicalVector3
                 {
                     X = anchor.Position.X,

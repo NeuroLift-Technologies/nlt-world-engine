@@ -265,6 +265,9 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 			avatar.InteriorRecoveryPoint = indoor ? landing : null;
 			// Inside, the wander fallback roams the room rather than heading for the exit.
 			avatar.Anchors = indoor ? System.Array.Empty<TaskAnchor>() : _worldAnchors;
+			// The room's furniture, built once its collision is live (AGENT-LOOP-002 T5).
+			if (indoor && !_sceneAnchors.HasFurniture(target))
+				BuildRoomFurniture(target, avatar);
 			GD.Print($"[SceneTransit] {avatar.AgentId}: {from} -> {target}, placed at {landing}");
 			WarnStrandedAvatars(avatar, target);
 		}
@@ -303,6 +306,82 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		if (hit.Count > 0)
 			return ((Vector3)hit["position"]).Y;
 		return indoor ? 0f : WorldGeometry.HeightAt(at.X, at.Z);
+	}
+
+	/// <summary>
+	/// Build <paramref name="sceneId"/>'s furniture anchors from the loaded level's meshes
+	/// (<see cref="InteriorAnchors"/>), probing the room's live collision for each approach point.
+	/// </summary>
+	private void BuildRoomFurniture(string sceneId, AvatarCharacter avatar)
+	{
+		if (ShownInteriorLevel is not { } level)
+			return;
+		var meshes = new System.Collections.Generic.List<InteriorAnchors.LevelMesh>();
+		CollectMeshes(level, meshes);
+		var unplaced = new System.Collections.Generic.List<string>();
+		var furniture = InteriorAnchors.Build(meshes, (candidate, centre) => ProbeApproach(avatar, candidate, centre), unplaced);
+		_sceneAnchors.SetFurniture(sceneId, furniture);
+		int sit = 0, use = 0;
+		foreach (var a in furniture)
+		{
+			if (System.Linq.Enumerable.Contains(a.Affords!, "sit")) sit++;
+			if (System.Linq.Enumerable.Contains(a.Affords!, "use")) use++;
+		}
+		GD.Print($"[SceneAnchors] {sceneId}: {furniture.Count} furniture anchors ({sit} to sit on, {use} to use)" +
+			(unplaced.Count > 0 ? $"; no clear approach for {string.Join(", ", unplaced)}" : ""));
+	}
+
+	private static void CollectMeshes(Node node, System.Collections.Generic.List<InteriorAnchors.LevelMesh> into)
+	{
+		foreach (Node child in node.GetChildren())
+		{
+			if (child is MeshInstance3D mesh && mesh.Mesh != null && mesh.IsVisibleInTree())
+			{
+				Aabb box = mesh.GlobalTransform * mesh.GetAabb();
+				into.Add(new InteriorAnchors.LevelMesh(mesh.Name, box.Position + box.Size * 0.5f, box.Size));
+			}
+			CollectMeshes(child, into);
+		}
+	}
+
+	/// <summary>
+	/// Can an agent stand at <paramref name="candidate"/> and reach the object centred at
+	/// <paramref name="objectCentre"/>? Needs standing-height floor under it (not a table top), room for
+	/// the avatar's capsule, and nothing — a wall, say — between it and the object. Returns the point on
+	/// the floor, or null.
+	/// </summary>
+	private Vector3? ProbeApproach(AvatarCharacter avatar, Vector3 candidate, Vector3 objectCentre)
+	{
+		var space = GetWorld3D().DirectSpaceState;
+		var exclude = new Godot.Collections.Array<Rid> { avatar.GetRid() };
+
+		var down = PhysicsRayQueryParameters3D.Create(new Vector3(candidate.X, 2.5f, candidate.Z), new Vector3(candidate.X, -6f, candidate.Z));
+		down.Exclude = exclude;
+		var floorHit = space.IntersectRay(down);
+		if (floorHit.Count == 0)
+			return null;
+		float floorY = ((Vector3)floorHit["position"]).Y;
+		if (floorY > 0.35f)
+			return null;
+
+		var body = new PhysicsShapeQueryParameters3D
+		{
+			Shape = new CapsuleShape3D { Radius = 0.4f, Height = 1.8f },
+			Transform = new Transform3D(Basis.Identity, new Vector3(candidate.X, floorY + 0.95f, candidate.Z)),
+			Exclude = exclude,
+		};
+		if (space.IntersectShape(body, 1).Count > 0)
+			return null;
+
+		var from = new Vector3(candidate.X, floorY + 1f, candidate.Z);
+		var to = new Vector3(objectCentre.X, floorY + 1f, objectCentre.Z);
+		var reach = PhysicsRayQueryParameters3D.Create(from, to);
+		reach.Exclude = exclude;
+		var reachHit = space.IntersectRay(reach);
+		if (reachHit.Count > 0 && from.DistanceTo((Vector3)reachHit["position"]) < InteriorAnchors.ApproachGap - 0.15f)
+			return null;
+
+		return new Vector3(candidate.X, floorY, candidate.Z);
 	}
 
 	/// <summary>

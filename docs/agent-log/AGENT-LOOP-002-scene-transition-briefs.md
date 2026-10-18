@@ -197,6 +197,25 @@ Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observe
 
 ## T5 — Interior anchors (prerequisite for interaction)
 
+**Status: delivered 2026-10-18.**
+- **What becomes an anchor.** `InteriorAnchors` turns a level's meshes into furniture anchors by object name. The rule table uses the prefixes `InteriorStyle` dresses: seats, sofas and beds afford `sit` (sofas and beds also `rest`); desks, counters, appliances, shelves and the whiteboard afford `use`.
+- **Ids and kind.** Ids are readable and stable, the label plus a running number in node-name order (`chair_3`, `desk_chair_7`). Furniture reports `kind: object`, the §0 default, and keeps its centre as `FacePoint` for T6.
+- **Approach points.** `Main` builds a room's set on entry, once its collision is live. Each approach point is the first candidate around the object, facing the room first, that has standing-height floor, room for the avatar's capsule, and nothing between it and the object.
+- **Explicit affordances.** `TaskAnchor.Affords` states an anchor's verbs outright; open-world places still derive theirs from axes.
+
+**Measured in-engine:**
+
+| room | anchors | sit | use | boxed in (no anchor) | straight-line reach from the arrival point |
+|---|---|---|---|---|---|
+| home (`personal_1`) | 12 | 5 | 7 | 2 | 5/12 |
+| office (`workplace_2`) | 19 | 11 | 8 | 0 | 14/19 |
+| café (`social_3`) | 28 | 26 | 2 | 0 | 17/28 |
+| classroom (`academic_4`) | 39 | 19 | 20 | 2 | 29/39 |
+
+- **Stability.** Ids and positions are identical on rebuild.
+- **Perception and ingress.** Perception lists the furniture, and a real `approach` through the loop ends at the approach point (1.03 m off, within the 1 m radius), not the object's centre.
+- **Unreached anchors.** Every approach point itself is clear. The anchors not reached are blocked by walls (the home is a multi-room flat whose exit is in the hall), desks and table clusters on the straight line. Movement has no pathfinding, so this is a measurement to escalate, not a placement fault. Perception lists objects by range only, with no line-of-sight check, so a model can choose a chair it cannot walk to; T6 and the Fusion side should know.
+
 **Why:** inside a building the model currently sees only the exit (after T2). There is nothing to sit on or use.
 
 **Do**

@@ -55,8 +55,24 @@ public sealed class SceneAnchorSets
 			exit = ExitAnchor(sceneId, building, portal);
 			_exits[sceneId] = exit;
 		}
-		return new[] { exit };
+		if (!_furniture.TryGetValue(sceneId, out var furniture) || furniture.Count == 0)
+			return new[] { exit };
+		var all = new List<TaskAnchor>(furniture.Count + 1) { exit };
+		all.AddRange(furniture);
+		return all;
 	}
+
+	private readonly Dictionary<string, IReadOnlyList<TaskAnchor>> _furniture = new();
+
+	/// <summary>True once <see cref="SetFurniture"/> has run for <paramref name="sceneId"/>.</summary>
+	public bool HasFurniture(string sceneId) => _furniture.ContainsKey(sceneId);
+
+	/// <summary>
+	/// Register a room's furniture anchors (AGENT-LOOP-002 T5), built from the loaded level once its
+	/// collision is live. Each building's room keeps its own set, so a chair taken in one home is free
+	/// in the next.
+	/// </summary>
+	public void SetFurniture(string sceneId, IReadOnlyList<TaskAnchor> furniture) => _furniture[sceneId] = furniture;
 
 	/// <summary>
 	/// The exit anchor for a room: <see cref="ExitApproachDepth"/> inside the doorway (the portal's

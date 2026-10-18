@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
@@ -36,6 +37,7 @@ public static class ActionAssertions
         SceneKinds();
         DoorsAndExits();
         SceneTransitions();
+        InteriorFurniture();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
@@ -196,6 +198,68 @@ public static class ActionAssertions
         for (var i = 0; i < 5; i++)
             controller.Act(new AgentObservation("avatar_1", Vector3.Zero, Vector3.Zero, new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", i));
         Check(arrivals == 1, "arriving at a doorway hands over exactly once, however many ticks follow");
+    }
+
+    /// <summary>
+    /// Interior furniture anchors (AGENT-LOOP-002 T5): which level meshes become anchors and with what
+    /// verbs, approach points beside (not inside) the object, stable readable ids. The real levels and
+    /// their collision are checked by running the scene; this drives the rules with a fake probe.
+    /// </summary>
+    private static void InteriorFurniture()
+    {
+        Console.WriteLine("\n[interior furniture anchors]");
+
+        static string Label(string name) => InteriorAnchors.Classify(name)?.Label ?? "(none)";
+        static string Verbs(string name) => string.Join("/", InteriorAnchors.Classify(name)?.Affords ?? Array.Empty<string>());
+        Check(Label("Cafe_Chair_3_N") == "Chair" && Verbs("Cafe_Chair_3_N") == "sit", "a café chair is a chair to sit on");
+        Check(Verbs("Bed_Mattress") == "sit/rest" && Verbs("WF_SofaSeat") == "sit/rest", "beds and sofas afford sit and rest");
+        Check(Verbs("WF_DeskTop_2") == "use" && Verbs("Bookshelf_400") == "use" && Verbs("Kit_Fridge") == "use",
+            "desks, shelves and appliances afford use");
+        Check(Label("DeskChair_0_0") == "Desk chair" && Label("Desk_0_0") == "Desk", "a desk chair is not taken for a desk");
+        Check(Label("UCX_Cafe_Chair_1_N") == "(none)" && Label("BookshelfShelf_1") == "(none)"
+            && Label("Cafe_SofaBack_1") == "(none)" && Label("Social_Wall_N") == "(none)",
+            "collision proxies, shelf boards, sofa backs and walls are not anchors");
+
+        var first = InteriorAnchors.Candidates(new Vector3(5f, 0f, 0f), new Vector3(1f, 1f, 1f), Vector3.Zero).First();
+        Check(first.X < 5f && Mathf.Abs(first.Z) < 0.001f, "the first approach tried faces the room, not the wall behind");
+
+        var meshes = new[]
+        {
+            new InteriorAnchors.LevelMesh("Cafe_Chair_2_S", new Vector3(4f, 0.3f, 0f), new Vector3(0.5f, 0.5f, 0.5f)),
+            new InteriorAnchors.LevelMesh("Cafe_Chair_1_N", new Vector3(-4f, 0.3f, 0f), new Vector3(0.5f, 0.5f, 0.5f)),
+            new InteriorAnchors.LevelMesh("Cafe_Counter_Top", new Vector3(0f, 0.8f, 6f), new Vector3(4f, 0.1f, 0.8f)),
+            new InteriorAnchors.LevelMesh("Cafe_Counter_Top_Dup", new Vector3(0f, 0.8f, 6f), new Vector3(4f, 0.1f, 0.8f)),
+            new InteriorAnchors.LevelMesh("Social_Floor", Vector3.Zero, new Vector3(20f, 0.1f, 20f)),
+        };
+        // Fake probe: the floor is at 0.25 everywhere; nothing is clear north of z = 5.5.
+        Vector3? Probe(Vector3 c, Vector3 _) => c.Z > 5.5f ? null : new Vector3(c.X, 0.25f, c.Z);
+        var built = InteriorAnchors.Build(meshes, Probe);
+        var again = InteriorAnchors.Build(meshes.Reverse(), Probe);
+        Check(built.Select(a => a.Id).SequenceEqual(new[] { "chair_1", "chair_2", "counter_1" }),
+            "ids are the label plus a running number in node-name order; duplicates become one anchor");
+        Check(built.Select(a => $"{a.Id}{a.Position}").SequenceEqual(again.Select(a => $"{a.Id}{a.Position}")),
+            "the same level gives the same anchors whatever order its meshes come in");
+        var chair = built[0];
+        Check(chair.Position.DistanceTo(chair.FacePoint!.Value) > 0.5f && chair.Position.Y == 0.25f,
+            "an anchor stands on the floor beside its object, not at the object's centre");
+        Check(built.TrueForAll(a => a.Kind == "object"), "furniture reports kind 'object'");
+        var counter = built[2];
+        Check(counter.Position.Z < 5.5f, "a blocked side is skipped for one the probe clears");
+        var unplaced = new List<string>();
+        Check(InteriorAnchors.Build(meshes, (_, _) => null, unplaced).Count == 0 && unplaced.Count == 3,
+            "an object with no clear approach gets no anchor and is reported");
+
+        Check(string.Join("/", AnchorAffordances.For(chair)) == "sit/approach/look_at", "perception lists a chair's own verbs");
+        Check(AnchorAffordances.Recheck(built, chair.Id, "sit", "avatar_1") == null
+            && AnchorAffordances.Recheck(built, chair.Id, "use", "avatar_1") == $"target '{chair.Id}' does not afford 'use'",
+            "ingress accepts sit on a chair and rejects use");
+
+        var sets = new SceneAnchorSets(Array.Empty<TaskAnchor>(),
+            id => id == "social_3" ? new Portal("Exit", "Exit", "", new Vector3(0f, 0f, 10f), Vector3.Back) : null);
+        sets.SetFurniture("social_3", built);
+        var room = sets.For("social_3");
+        Check(room.Count == 4 && room[0].IsPortal && room.Skip(1).SequenceEqual(built),
+            "a room's set is its exit followed by its furniture");
     }
 
     private static void Check(bool condition, string what)

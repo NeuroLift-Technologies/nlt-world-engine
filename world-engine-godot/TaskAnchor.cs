@@ -120,6 +120,22 @@ public sealed class TaskAnchor
     /// <summary>True when this anchor is a doorway (<see cref="Link"/> is set).</summary>
     public bool IsPortal => Link != null;
 
+    /// <summary>
+    /// Verbs this anchor affords beyond approach and look_at, stated outright (AGENT-LOOP-002 T5):
+    /// a chair affords <c>sit</c> because it is a chair, not because of its axes. Null means derive
+    /// them from <see cref="Axes"/>, as open-world places do.
+    /// </summary>
+    public IReadOnlyList<string>? Affords { get; init; }
+
+    /// <summary>Perception entity kind: <c>place</c> (the default) or <c>object</c> for furniture.</summary>
+    public string Kind { get; init; } = "place";
+
+    /// <summary>
+    /// Where an agent using this anchor should face — the object's own centre, for furniture whose
+    /// <see cref="Position"/> is the approach point beside it. Null for places.
+    /// </summary>
+    public Vector3? FacePoint { get; init; }
+
     private readonly List<string> _occupants = new();
 
     public IReadOnlyList<string> CurrentOccupants => _occupants;
@@ -186,6 +202,13 @@ public static class AnchorAffordances
         if (anchor.IsPortal)
             return PortalAffordances;
         var list = new List<string>();
+        if (anchor.Affords != null)
+        {
+            list.AddRange(anchor.Affords);
+            list.Add("approach");
+            list.Add("look_at");
+            return list;
+        }
         if (anchor.Axes.Privacy > 0.5f)
             list.Add("sit");
         if (anchor.Axes.SocialDensity > 0.5f || anchor.Axes.NoiseLevel > 0.5f)
