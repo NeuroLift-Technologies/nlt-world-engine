@@ -1,0 +1,65 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (on top of T1 and T2)",
+    "work_completed": [
+      "AGENT-LOOP-002 T3 (engine-owned scene transition), asked for by Joshua 2026-10-18.",
+      "WorldView.ShowScene returns bool: false and nothing changed when a --scene pin holds the view, the id names no interior level, or the level fails to load. The level is loaded before the open world is switched off. Read-only accessors added: WorldPortals, PinnedSceneId, InteriorLevelExists.",
+      "AgentBrain: one placement path, PlaceAt (position, zero velocity, LocomotionController.Teleport, held decision cleared). TransitionTo(position, sceneId, facing) and the kill plane both use it; HoldForTransition/ReleaseHold freeze the body while scenes swap. The kill plane recovers indoors to InteriorRecoveryPoint (the room's arrival point). The comment records the approval (Joshua 2026-10-17) and the AGENTS.md rule it is the exception to.",
+      "AvatarCharacter.ApplyIntent takes an onArrival callback, run on arrival or at once when already at the target; OnPlaced turns the visual to the given facing and returns to the wander fallback.",
+      "SceneTransitRules (new, SceneTransit.cs): the ingress check for a doorway (busy, capture pin, unknown scene, unknown building, missing interior level) and the arrival points (inside: the room's exit anchor facing in; outside: the building's Portal.EntryPoint facing out). SceneAnchorSets uses the same indoor point, so an avatar that has just entered stands on the exit.",
+      "IntentIngress: `use` on a doorway asks IPortalTransit.CanTransit before the avatar walks (refusal = rejection with reason, avatar not moved; no transit available = rejected, fail closed), passes Transit as the arrival callback, and logs each accepted transition as a new class of physical effect. Any intent arriving mid-transition is rejected.",
+      "Main implements IPortalTransit: deferred RunTransit holds the avatar, makes physics follow the destination (OpenWorldBodiesLive follows the loop avatar's scene or its destination), shows it, waits two physics frames, ray-casts the floor (AvatarGround y = 0 backstop indoors, terrain outside), places the avatar, swaps its wander anchors (none indoors), and warns about any other physical avatar left in the switched-off scene. On failure the avatar is released where it stood and the previous scene is shown again.",
+      "AgentHarness: 12 new transition assertions (91/91).",
+      "Screenshots: world-engine-godot/Images/Screenshots/t3-outside-before.png and t3-inside-after.png (Xvfb, opengl3)."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 T4-T6 next, in this session."
+    ],
+    "blockers": [],
+    "decisions_made": [
+      "The transition is checked at ingress, before the avatar walks, so a doorway that cannot be used is a rejected intent with a reason rather than a walk that ends in nothing. A level that fails to load after acceptance is handled by ShowScene's safe failure: the avatar is released where it stood.",
+      "Inside a room the wander fallback gets no anchors, so it roams the room instead of heading for the exit (the only room anchor today).",
+      "Out-of-reach rejection for a door cannot arise on this path: perception range (25 m) is below the reach check (30 m), so a door the model can name is always within reach; a door it cannot see is rejected by protocol validation ('target not in perception')."
+    ],
+    "decisions_pending": [
+      "Joshua and the Fusion side: the agent-loop-v1.md clarification (use on a doorway causes an engine-owned scene transition; the next perception's scene reports it) is still unwritten, per the brief's §3.",
+      "Joshua: no pathfinding. Three doors (door_2_shop, door_3_school, door_8_home) stall on other buildings when walked at in a straight line from the plaza; fixing that needs pathfinding, which the brief says to escalate rather than build.",
+      "Joshua: the home level's floor collision at y = -4.01 (avatars stand on AvatarGround there) and the cafe's still-solid north wall, both found during T2, are unfixed."
+    ],
+    "escalations": [
+      "Pathfinding for straight-line stalls (above). Not filed as a separate escalation record; listed here and in the thread for Joshua's call."
+    ],
+    "next_agent_notes": "Verification method for in-engine loop behaviour: a scripted Fusion stand-in (a ~60-line Python http.server answering the engine's POSTs with intents chosen from the perception) plus a temporary C# check node that sets up trials and measures; neither is committed. Round trip results (headless, time scale 2): home/office/shop/school all entered and left; inside y constant over 2 s (home 0.000 on AvatarGround, office 0.002, shop and school 0.25), room physics Inherit and open world Disabled; back outside 0.00 m from the same building's entry point with open-world physics on; already-at-door use transitions with no walk. With a --scene pin, use door is rejected: \"cannot go through 'door_0_home': a --scene capture pin ('workplace_2') holds the view; scene transitions are off\". Reachability sweep, plaza -> door, straight line (door | distance | result | time | left): door_0_home 25.1 m reached 17.6 s 0.53; door_1_office 25.5 m reached 18.8 s 0.91; door_2_shop 35.0 m STALLED 25.4 s 6.84; door_3_school 34.3 m STALLED 10.8 s 27.94; door_4_home 31.3 m reached 22.6 s 0.38; door_5_home 24.7 m reached 19.1 s 0.93; door_6_office 32.7 m reached 23.7 s 0.90; door_7_shop 23.9 m reached 18.6 s 0.79; door_8_home 35.7 m STALLED 25.1 s 7.96; door_9_school 29.4 m reached 20.6 s 0.40. A shutdown segfault seen once came from the temporary check node quitting from an async task; a plain run pinned or not exits 0 on this build and on the commit before it.",
+    "files_modified": [
+      "world-engine-godot/WorldView.cs",
+      "world-engine-godot/Main.cs",
+      "world-engine-godot/SceneTransit.cs",
+      "world-engine-godot/SceneTransit.cs.uid",
+      "world-engine-godot/SceneAnchors.cs",
+      "world-engine-godot/Agents/AgentBrain.cs",
+      "world-engine-godot/Agents/AvatarCharacter.cs",
+      "world-engine-godot/Agents/IntentIngress.cs",
+      "world-engine-godot/Agents/AgentLoopDriver.cs",
+      "world-engine-godot/Agents/ActionAssertions.cs",
+      "world-engine-godot/Images/Screenshots/t3-outside-before.png",
+      "world-engine-godot/Images/Screenshots/t3-inside-after.png",
+      "docs/active-threads.md",
+      "docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-t3-scene-transition.json"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
+      "AgentHarness: 91 passed, 0 failed.",
+      "In-engine round trip for all four kinds against the scripted Fusion stand-in, headless and again under Xvfb with screenshots: all passed.",
+      "In-engine pinned-view rejection: passed. Reachability sweep: 7 of 10 reached (table in next_agent_notes).",
+      "Loop-off boot: the feed's personal_1 room loads as before."
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/107"
+  }
+}

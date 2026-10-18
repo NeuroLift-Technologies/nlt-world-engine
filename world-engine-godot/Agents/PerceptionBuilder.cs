@@ -19,28 +19,7 @@ public static class PerceptionBuilder
     {
         var pos = avatar.GlobalPosition;
         var vel = avatar.Velocity;
-        var entities = new List<VisibleEntity>();
-
-        foreach (var anchor in anchors)
-        {
-            var toAnchor = anchor.Position - pos;
-            toAnchor.Y = 0f;
-            if (toAnchor.Length() > PerceptionRange)
-                continue;
-            entities.Add(new VisibleEntity
-            {
-                Id = anchor.Id,
-                Kind = "place",
-                Position = new PhysicalVector3
-                {
-                    X = anchor.Position.X,
-                    Y = anchor.Position.Y,
-                    Z = anchor.Position.Z,
-                },
-                Affordances = AffordancesFor(anchor),
-                Occupied = anchor.IsFull && !anchor.IsOccupiedBy(avatar.AgentId),
-            });
-        }
+        var entities = VisiblePlaces(avatar.AgentId, pos, anchors);
 
         foreach (var other in others)
         {
@@ -70,7 +49,8 @@ public static class PerceptionBuilder
             MessageId = messageId,
             AgentId = avatar.AgentId,
             Tick = tick,
-            Scene = new AgentLoopScene { Id = avatar.SceneId, Kind = SceneKindFor(avatar.SceneId) },
+            // Throws for an unknown scene id; AgentLoopDriver checks first and posts nothing.
+            Scene = new AgentLoopScene { Id = avatar.SceneId, Kind = SceneCatalog.KindFor(avatar.SceneId) },
             Self = new AgentPhysicalState
             {
                 Position = new PhysicalVector3 { X = pos.X, Y = pos.Y, Z = pos.Z },
@@ -82,18 +62,34 @@ public static class PerceptionBuilder
 
     public const float PerceptionRange = 25f;
 
-    private static IReadOnlyList<string> AffordancesFor(TaskAnchor anchor)
+    /// <summary>
+    /// The anchors an agent at <paramref name="position"/> can see: those within
+    /// <see cref="PerceptionRange"/> on the ground plane, with affordances and occupancy from
+    /// <see cref="AnchorAffordances"/>. Engine-free, so the harness checks it directly.
+    /// </summary>
+    public static List<VisibleEntity> VisiblePlaces(string agentId, Vector3 position, IReadOnlyList<TaskAnchor> anchors)
     {
-        var list = new List<string>();
-        if (anchor.Axes.Privacy > 0.5f)
-            list.Add("sit");
-        if (anchor.Axes.SocialDensity > 0.5f || anchor.Axes.NoiseLevel > 0.5f)
-            list.Add("use");
-        list.Add("approach");
-        list.Add("look_at");
-        return list;
+        var entities = new List<VisibleEntity>();
+        foreach (var anchor in anchors)
+        {
+            var toAnchor = anchor.Position - position;
+            toAnchor.Y = 0f;
+            if (toAnchor.Length() > PerceptionRange)
+                continue;
+            entities.Add(new VisibleEntity
+            {
+                Id = anchor.Id,
+                Kind = anchor.Kind,
+                Position = new PhysicalVector3
+                {
+                    X = anchor.Position.X,
+                    Y = anchor.Position.Y,
+                    Z = anchor.Position.Z,
+                },
+                Affordances = AnchorAffordances.For(anchor),
+                Occupied = AnchorAffordances.IsOccupiedFor(anchor, agentId),
+            });
+        }
+        return entities;
     }
-
-    private static string SceneKindFor(string sceneId) =>
-        sceneId.Contains("open") ? "open_world" : "interior";
 }

@@ -6,6 +6,21 @@ using Godot;
 namespace NltWorldEngine.Agents;
 
 /// <summary>
+/// The engine's scene transition, as ingress sees it (AGENT-LOOP-002 T3). <c>use</c> on a doorway
+/// anchor is checked with <see cref="CanTransit"/> before the avatar walks, and
+/// <see cref="Transit"/> runs when it arrives. Implemented by the composition root, which owns the
+/// view and the scenes.
+/// </summary>
+public interface IPortalTransit
+{
+    /// <summary>Why the avatar cannot go through this doorway now, or null when it can.</summary>
+    string? CanTransit(AvatarCharacter avatar, PortalLink link);
+
+    /// <summary>Move the avatar through the doorway: show the scene, then place it there.</summary>
+    void Transit(AvatarCharacter avatar, PortalLink link);
+}
+
+/// <summary>
 /// Engine-side intent ingress: the path from a Fusion <see cref="SemanticIntent"/>
 /// to <see cref="AvatarCharacter.ApplyIntent"/>, in contract order:
 /// protocol validation → ASFDK governance (explains denials) → execution re-check → apply.
@@ -19,18 +34,23 @@ public sealed class IntentIngress
     private readonly Func<string, Vector3?> _resolveTarget;
     private readonly Func<string, IReadOnlyList<TaskAnchor>> _anchorsFor;
     private readonly Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>> _runOnMainThread;
+    private readonly IPortalTransit? _transit;
 
     /// <param name="gate">ASFDK-backed governance. Never null — pass
     /// <see cref="OpenGovernanceGate.Instance"/> only where the gate is unavailable.</param>
     /// <param name="resolveTarget">Engine scene lookup: target id → world position now.</param>
     /// <param name="anchorsFor">Task anchors in the agent's scene for affordance checks.</param>
     /// <param name="runOnMainThread">Run scene-tree reads and avatar mutations on Godot's main thread.</param>
+    /// <param name="transit">The engine's scene transition. Without one, <c>use</c> on a doorway is
+    /// rejected (fail closed) rather than walked to with nothing happening on arrival.</param>
     public IntentIngress(
         IGovernanceGate gate,
         Func<string, Vector3?>? resolveTarget = null,
         Func<string, IReadOnlyList<TaskAnchor>>? anchorsFor = null,
-        Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>>? runOnMainThread = null)
+        Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>>? runOnMainThread = null,
+        IPortalTransit? transit = null)
     {
+        _transit = transit;
         _gate = gate;
         _resolveTarget = resolveTarget ?? (_ => null);
         _anchorsFor = anchorsFor ?? (_ => Array.Empty<TaskAnchor>());
@@ -97,10 +117,12 @@ public sealed class IntentIngress
     {
         if (!GodotObject.IsInstanceValid(avatar))
             return reject("avatar is no longer in the scene");
+        if (avatar.InTransition)
+            return reject("avatar is moving between scenes; try again once the next perception arrives");
 
         if (!decision.Allowed)
         {
-            avatar.Attach(new IdleController());
+            avatar.Halt();
             var reason = string.IsNullOrEmpty(decision.Explanation)
                 ? $"governance denied ({decision.Code})"
                 : $"governance denied ({decision.Code}): {decision.Explanation}";
@@ -122,8 +144,39 @@ public sealed class IntentIngress
                 return reject(recheck);
         }
 
-        // 4. Apply: verb → locomotion only. Speed/accel/collision stay engine-owned.
-        avatar.ApplyIntent(intent.Verb, resolved);
+        // 3b. A doorway: the engine must be able to take the avatar through before it walks there.
+        //     Scene transitions are a new class of physical effect, so each one is logged here.
+        Action? onArrival = null;
+        if (intent.Verb == "use" && PortalTarget(avatar, intent.TargetId) is { } link)
+        {
+            var transitProblem = _transit == null
+                ? "scene transitions are not available"
+                : _transit.CanTransit(avatar, link);
+            if (transitProblem != null)
+                return reject($"cannot go through '{intent.TargetId}': {transitProblem}");
+            var transit = _transit!;
+            onArrival = () => transit.Transit(avatar, link);
+            GD.Print($"[IntentIngress] scene transition accepted: {avatar.AgentId} use {intent.TargetId} " +
+                $"({avatar.SceneId} -> {link.TargetSceneId})");
+        }
+
+        // 4. Apply: verb → locomotion only. Speed/accel/collision stay engine-owned; a doorway's
+        //    transition runs on arrival. Sitting on, resting on or using an object reserves it now
+        //    and holds it on arrival (AGENT-LOOP-002 T6); `use` only occupies it (the default while
+        //    Joshua's question on world-state effects is open).
+        if (onArrival == null && intent.Verb is "sit" or "use" or "rest"
+            && SceneAnchor(avatar, intent.TargetId) is { IsPortal: false } held)
+        {
+            if (!avatar.ApplyInteraction(intent.Verb, held))
+                return reject($"target '{intent.TargetId}' is occupied");
+        }
+        else
+        {
+            // look_at faces the object itself: an anchor's position is the approach point beside it.
+            if (intent.Verb == "look_at" && SceneAnchor(avatar, intent.TargetId)?.FacePoint is { } face)
+                resolved = face;
+            avatar.ApplyIntent(intent.Verb, resolved, onArrival);
+        }
 
         var accepted = new IntentExecutionResult
         {
@@ -146,6 +199,19 @@ public sealed class IntentIngress
         return accepted;
     }
 
+    /// <summary>The doorway link of <paramref name="targetId"/> in the avatar's scene, or null.</summary>
+    private PortalLink? PortalTarget(AvatarCharacter avatar, string? targetId)
+        => SceneAnchor(avatar, targetId)?.Link;
+
+    /// <summary>The anchor <paramref name="targetId"/> names in the avatar's scene, or null.</summary>
+    private TaskAnchor? SceneAnchor(AvatarCharacter avatar, string? targetId)
+    {
+        foreach (var anchor in _anchorsFor(avatar.SceneId))
+            if (anchor.Id == targetId)
+                return anchor;
+        return null;
+    }
+
     /// <summary>
     /// Execution-time re-check: range, affordance, occupancy. The perception snapshot
     /// said the target was visible; the live world decides if it is still usable.
@@ -161,36 +227,9 @@ public sealed class IntentIngress
         if (dist > ReachRadius)
             return $"target '{intent.TargetId}' out of reach ({dist:F1} m > {ReachRadius} m)";
 
-        // use / sit need a live affordance + a free anchor; approach / look_at /
-        // communicate only need the target to still exist (checked by resolve).
-        if (intent.Verb is "use" or "sit")
-        {
-            TaskAnchor? anchor = null;
-            foreach (var a in _anchorsFor(avatar.SceneId))
-            {
-                if (a.Id == intent.TargetId)
-                {
-                    anchor = a;
-                    break;
-                }
-            }
-            if (anchor == null)
-                return $"target '{intent.TargetId}' offers no '{intent.Verb}' affordance here";
-            if (!NeedsAffordance(anchor, intent.Verb))
-                return $"target '{intent.TargetId}' does not afford '{intent.Verb}'";
-            if (anchor.IsFull && !anchor.IsOccupiedBy(avatar.AgentId))
-                return $"target '{intent.TargetId}' is occupied";
-        }
-
-        return null;
+        // use / sit need a live affordance + a free anchor in the agent's scene; approach /
+        // look_at / communicate only need the target to still exist (checked by resolve). The
+        // rules are AnchorAffordances', the same ones perception lists, so the two agree.
+        return AnchorAffordances.Recheck(_anchorsFor(avatar.SceneId), intent.TargetId!, intent.Verb, avatar.AgentId);
     }
-
-    private static bool NeedsAffordance(TaskAnchor anchor, string verb) => verb switch
-    {
-        // Quiet/rest anchors afford sit; social/stimulation anchors afford use.
-        // Mirrors TaskAnchor NeedMatching axes without importing need state.
-        "sit" => anchor.Axes.Privacy > 0.5f,
-        "use" => anchor.Axes.SocialDensity > 0.5f || anchor.Axes.NoiseLevel > 0.5f,
-        _ => true,
-    };
 }

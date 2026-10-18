@@ -58,11 +58,14 @@ public static class WorldAnchorBuilder
 			float front = BuildingArchetypes.FrontOffset(kind, plan);
 			float fx = MathF.Sin(plan.Rot), fz = MathF.Cos(plan.Rot);
 			float ax = plan.X + fx * (front + 1.7f), az = plan.Z + fz * (front + 1.7f);
+			// The door leads into this building's own room: the same scene id the settlement gives
+			// its portal (SettlementBuilder.Build), and the same index into the world portal list.
 			anchors.Add(At(
 				$"door_{index}_{label.ToLowerInvariant()}",
 				$"{label} door",
 				AxesForBuilding(kind),
-				ax, az));
+				ax, az,
+				new PortalLink(SettlementBuilder.SceneIdFor(kind, index), index)));
 			index++;
 		}
 
@@ -123,10 +126,12 @@ public static class WorldAnchorBuilder
 	/// <see cref="WorldGeometry"/> the terrain mesh was built from, so an anchor never floats or
 	/// sinks — which would otherwise let the avatar walk into the ground on approach.
 	/// </summary>
-	private static TaskAnchor At(string id, string displayName, AffordanceAxes axes, float x, float z) =>
+	private static TaskAnchor At(string id, string displayName, AffordanceAxes axes, float x, float z,
+		PortalLink? link = null) =>
 		new(id, displayName, axes)
 		{
 			Position = new Vector3(x, WorldGeometry.HeightAt(x, z), z),
+			Link = link,
 		};
 
 	/// <summary>

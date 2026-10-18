@@ -19,6 +19,7 @@ public partial class AgentLoopDriver : Node
     private readonly Dictionary<string, float> _sincePost = new();
     private int _tick;
     private int _messageSeq;
+    private string? _unknownSceneReported;
 
     /// <summary>Seconds between perception posts per avatar. Matches the low-frequency cycle.</summary>
     [Export] public float DecisionCadenceSeconds { get; set; } = 2f;
@@ -43,8 +44,17 @@ public partial class AgentLoopDriver : Node
 
     private string _fusionEndpoint = "http://127.0.0.1:8001/agent-loop/perception";
 
-    /// <summary>Task anchors in the current scene, for perception + affordance checks.</summary>
-    public IReadOnlyList<TaskAnchor> Anchors { get; set; } = System.Array.Empty<TaskAnchor>();
+    /// <summary>
+    /// Task anchors in a given scene, for perception + affordance checks (AGENT-LOOP-002 T2). Asked
+    /// with the avatar's own scene id, so an avatar in a room never sees open-world places.
+    /// </summary>
+    public Func<string, IReadOnlyList<TaskAnchor>> AnchorsFor { get; set; } = _ => System.Array.Empty<TaskAnchor>();
+
+    /// <summary>
+    /// The engine's scene transition, for <c>use</c> on a doorway (AGENT-LOOP-002 T3). Null means
+    /// doorways are rejected at ingress.
+    /// </summary>
+    public IPortalTransit? Transit { get; set; }
 
     public override void _Ready()
     {
@@ -54,8 +64,9 @@ public partial class AgentLoopDriver : Node
         _ingress = new IntentIngress(
             new AsfdkGovernanceGate(),
             ResolveTarget,
-            _ => Anchors,
-            RunOnMainThreadAsync);
+            sceneId => AnchorsFor(sceneId),
+            RunOnMainThreadAsync,
+            Transit);
     }
 
     private static Task<IntentExecutionResult> RunOnMainThreadAsync(
@@ -96,10 +107,23 @@ public partial class AgentLoopDriver : Node
                 continue;
             }
             _sincePost[avatar.AgentId] = 0f;
+            // Fail closed on a scene the engine cannot name: post nothing rather than tell Fusion a
+            // guessed kind. The avatar keeps its local controller meanwhile.
+            if (!SceneCatalog.TryKindFor(avatar.SceneId, out _))
+            {
+                if (_unknownSceneReported != avatar.SceneId)
+                {
+                    _unknownSceneReported = avatar.SceneId;
+                    GD.PushError($"[AgentLoopDriver] unknown scene id '{avatar.SceneId}' for " +
+                        $"{avatar.AgentId}; no perception posted.");
+                }
+                continue;
+            }
             var perception = PerceptionBuilder.Build(
                 avatar, _tick, $"obs-{_tick}-{avatar.AgentId}-{_messageSeq++}",
-                Anchors, avatars);
+                AnchorsFor(avatar.SceneId), avatars);
             GD.Print($"[AgentLoopDriver] perception tick={_tick}, agent={avatar.AgentId}, " +
+                $"scene={perception.Scene.Id}/{perception.Scene.Kind}, " +
                 $"position={avatar.GlobalPosition}, visible={perception.VisibleEntities.Count}");
             _link.RequestDecision(avatar, perception, _ingress, _tick);
         }
@@ -125,14 +149,22 @@ public partial class AgentLoopDriver : Node
 
     private Vector3? ResolveTarget(string targetId)
     {
+        // Anchors first, in the deciding avatar's own scene: an anchor's position is its approach
+        // point, and a scene node that happens to share the id (an interior mesh, say) would
+        // otherwise resolve to that node's centre, inside its collision.
+        var avatars = GetAvatars();
+        foreach (var avatar in avatars)
+        {
+            if (avatar.AgentId != TargetAgentId)
+                continue;
+            foreach (var anchor in AnchorsFor(avatar.SceneId))
+                if (anchor.Id == targetId)
+                    return anchor.Position;
+        }
         var root = GetTree().CurrentScene ?? GetTree().Root;
         var node = FindByName(root, targetId);
         if (node is Node3D n3)
             return n3.GlobalPosition;
-        foreach (var anchor in Anchors)
-            if (anchor.Id == targetId)
-                return anchor.Position;
-        var avatars = GetAvatars();
         foreach (var avatar in avatars)
             if (avatar.AgentId == targetId)
                 return avatar.GlobalPosition;

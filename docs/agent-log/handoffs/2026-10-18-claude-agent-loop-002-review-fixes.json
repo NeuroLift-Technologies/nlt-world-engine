@@ -1,0 +1,41 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (on top of T1-T6)",
+    "work_completed": [
+      "CodeRabbit review of PR 107, three findings fixed. All three left an avatar or an anchor stuck.",
+      "Governance denial now calls AvatarCharacter.Halt(), which ends any interaction before holding still. Before, a chair reserved by the interaction it replaced stayed occupied for good.",
+      "AvatarCharacter._ExitTree ends any interaction, so an avatar removed by SyncLiveAvatars frees the anchor it held.",
+      "Main.RunTransit's finally releases an avatar still held for the transition, so a failure the catch does not expect cannot leave it frozen (ingress rejects every intent while it is held). A successful placement has already cleared the hold, so that path is unchanged."
+    ],
+    "work_in_progress": [],
+    "blockers": [],
+    "decisions_made": [
+      "A governance denial still stops the avatar (IdleController) as before; it now also frees what it held rather than preserving the interaction.",
+      "Joshua, 2026-10-18: furniture-target reachability (CodeRabbit's InteriorAnchors.cs finding; the pathfinding escalation) is left as is for now and revisited after his local run with the real model. No navmesh, clear-path rejection or perception filter in this PR."
+    ],
+    "decisions_pending": [],
+    "escalations": [
+      "Pathfinding / line-of-travel: deferred by Joshua until after the real-ML run."
+    ],
+    "next_agent_notes": "In-engine check (office, temporary node, not committed): sit desk_chair_1, then submit a 'wait' through IntentIngress with a gate that denies. Before the fix the result was rejected and the chair stayed occupied to others, held by the avatar. After the fix it is rejected, the chair is free, nothing is held and activity is 'active'. Then sit again and QueueFree the avatar. Before the fix the chair stayed occupied; after the fix it is free. Launch needs NLT_AGENT_LOOP_ENABLED=1 (any endpoint) for the local avatar to exist.",
+    "files_modified": [
+      "world-engine-godot/Agents/AvatarCharacter.cs",
+      "world-engine-godot/Agents/IntentIngress.cs",
+      "world-engine-godot/Main.cs",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-review-fixes.json",
+      "docs/active-threads.md"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
+      "AgentHarness: 113 passed, 0 failed.",
+      "In-engine check as in next_agent_notes, run on the code before and after the fix."
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/107"
+  }
+}

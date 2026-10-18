@@ -1,0 +1,46 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (on top of T1-T3)",
+    "work_completed": [
+      "AGENT-LOOP-002 T4 (camera follow or free look across a scene change), asked for by Joshua 2026-10-18 ('move on to the next one, do as much as you can').",
+      "Main.ReconcileFollowTarget: with the loop on, the default follow subject is the loop avatar, not the replay feed's avatar (a ghost whose positions belong to the feed's scene). An explicit pick of a feed agent is kept.",
+      "Main.CurrentFollowTargetPoint: returns null for the loop avatar while a transition runs, so the camera holds instead of swinging to the avatar's old spot for two frames.",
+      "Screenshots: world-engine-godot/Images/Screenshots/t4-follow-inside.png and t4-free-inside.png."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 T5-T6 next, in this session."
+    ],
+    "blockers": [],
+    "decisions_made": [
+      "No camera code changed: ShowScene's FrameInterior and WorldView.PollFollow already re-frame and re-target correctly; the defects were in what Main told the camera to follow and when.",
+      "Follow tolerance stated as 0.5 m: the measured 0.37 m is one frame of avatar movement between the physics step and the camera update."
+    ],
+    "decisions_pending": [
+      "GRAPH-002 / Joshua: the observer header (WORLD VIEW / <scene>) and the replay's ghost residents follow the feed's scene, not the loop avatar's; inside the office the header still says Home."
+    ],
+    "escalations": [
+      "None."
+    ],
+    "next_agent_notes": "In-engine check (Xvfb, opengl3, scripted Fusion stand-in, temporary check node not committed): follow on via the observer's ToggleFollow path, into workplace_2 and out: 0.00 m one frame after entry (camera distance 33.9, the room framing) and after exit (78.0, open-world framing); worst 0.37 m while the avatar walked 4.9 m inside and while it wandered outside. Follow off: entry re-framed the camera on the room; the camera target moved 0.000 m while the avatar walked 4.9 m; wheel zoom changed distance 33.9 -> 27.9 and a left-drag orbit changed yaw 0.60 -> 0.30. Same follow check on the T3 commit: 8.35 m off after entry. Testing note: while the loop runs, every accepted 'wait' hands the avatar back to its wander controller, so a scripted walk in a test must pause the AgentLoopDriver.",
+    "files_modified": [
+      "world-engine-godot/Main.cs",
+      "world-engine-godot/Images/Screenshots/t4-follow-inside.png",
+      "world-engine-godot/Images/Screenshots/t4-free-inside.png",
+      "docs/active-threads.md",
+      "docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-t4-camera.json"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
+      "AgentHarness: 91 passed, 0 failed (no harness-testable logic changed).",
+      "In-engine follow-on and follow-off checks as in next_agent_notes; comparison run on the T3 commit."
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/107"
+  }
+}

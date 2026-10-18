@@ -87,6 +87,8 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T1 — Per-avatar scene authority
 
+**Status: delivered 2026-10-18.** The fusion-tour fix merged on 2026-10-18 already made the loop spawn the avatar at the plaza in `open_world` and keep open-world physics on while avatars exist, so §2's "spawn comes from the feed" no longer holds on `main`. T1 added `SceneCatalog` (scene id → kind, unknown ids rejected), the view following the loop avatar's own scene, and spectator doors locked while the loop runs. Verification is in the AGENT-LOOP-002 thread entry.
+
 **Why:** today the feed decides the displayed scene and the avatar's scene; the avatar has no scene of its own that the viewer obeys.
 
 **Do**
@@ -108,6 +110,14 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T2 — Doors (and interior exits) as explicit usable targets
 
+**Status: delivered 2026-10-18.** `TaskAnchor.Link` (`PortalLink`: target scene, building index) marks doors and exits; `AnchorAffordances` is now the single rule set for perception and the ingress re-check (doorways afford `use`, never `sit`, never occupied); `SceneAnchorSets` serves each scene its own anchors (open world: the existing set; a loaded room: its exit, `exit_<sceneId>`, 1.6 m inside the doorway); the loop driver asks by the avatar's scene and resolves anchors before node names. The origin building needs no extra state: the room's id encodes it (`personal_4` is building 3, `SceneCatalog.TryBuildingIndexFor`).
+
+**Found while verifying (for T3):**
+- Each room's exit anchor was probed against the level's real collision: the avatar capsule fits at all four with no hits.
+- **The home level's floor collision is at y = −4.01**, four metres below the visible floor (office floor: 0.00). Only `AvatarGround` (y = 0) would hold an avatar there. T3 must not trust the home level's UCX floor for spawn height until this is fixed.
+- **The café's north wall is still solid.** `WorldView.AddSocialExitDoorway` hides `UCX_Social_Wall_N` after `InteriorPhysicalBoundary` has already built collision from it, so the cut doorway is visual only. The academic doorway is also blocked about 0.1 m before the door plane. Neither matters to T3's design (the avatar stops at the anchor inside the room and the engine places it outside), but an agent walking through a doorway would be stopped.
+- With the loop on, `OpenWorldBodiesLive` keeps the open world's bodies live and makes a shown interior display-only, so an avatar placed in a room today would have no room collision. T3 has to change that split for the avatar's own scene.
+
 **Do**
 - Give `TaskAnchor` an optional **portal link** (target scene id and which side it leads to). Door anchors get it from the building's portal (`door_{i}_{label}` → `SceneIdFor(kind, i)`). Prefer linking to the portal list `WorldView` actually built over re-running `BuildPlans`, so anchor and portal cannot drift apart.
 - Portal anchors **always afford `use`** by explicit flag, not by axis thresholds, in both `PerceptionBuilder.AffordancesFor` and `IntentIngress.NeedsAffordance`. They do not afford `sit`. They are never "occupied". This flag is what fixes home doors, which afford `sit` but not `use` today.
@@ -125,6 +135,14 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 ---
 
 ## T3 — Engine-owned scene transition
+
+**Status: delivered 2026-10-18.**
+- `use` on a doorway is checked at ingress (`SceneTransitRules.Check`: busy, `--scene` pin, unknown scene or building, missing level), then the avatar walks to it.
+- On arrival, or at once if it is already there, `Main.Transit` holds the avatar and shows the destination. `ShowScene` now returns success and loads before it switches anything.
+- With the loop on, physics follows the avatar's destination: one live scene at a time.
+- The transition waits two physics frames, ray-casts the floor, and places the avatar through `AgentBrain.TransitionTo`. That method shares the single `PlaceAt` with the kill plane, which now recovers indoors to the room's arrival point.
+- Entering lands the avatar on the room's exit anchor, facing in. Leaving lands it at its building's `Portal.EntryPoint`, facing out.
+- Verified end to end against a scripted Fusion stand-in for all four kinds; results and the reachability sweep are in the T3 handoff. The contract clarification (§3) has **not** been written into `agent-loop-v1.md`: it still needs Joshua and the Fusion side.
 
 **Do**
 - **Arrival hook.** Add a verb-aware arrival hook: when a `use` on a portal anchor arrives, run one transition. `IntentMoveController` today only installs an `IdleController` on arrival. Cover the case where the avatar is **already within `ArrivalRadius`** when the intent comes in (transition immediately; today that path goes straight to wander).
@@ -155,6 +173,14 @@ Fennara `runtime_session` cannot boot the scene on the dev PC and `screenshot_sc
 
 ## T4 — Camera: follow or free look
 
+**Status: delivered 2026-10-18.** The camera code already behaved across a scene change; two things in `Main` were wrong:
+- With the loop on, follow defaulted to the replay feed's avatar, a ghost whose positions belong to the feed's scene: 8.35 m off the loop avatar after entering a room. It now defaults to the loop avatar; an explicit pick of a feed agent is kept.
+- During a transition's two physics frames, follow would aim at the avatar's old spot while the view already showed the destination. Follow now holds until the avatar is placed.
+
+Verified in-engine (Xvfb). Follow on: 0.00 m one frame after entry and after exit, at most 0.37 m while walking (one frame of movement; stated tolerance 0.5 m). Follow off: entry re-frames on the room, the camera moves 0.000 m while the avatar walks 4.9 m, zoom and orbit still respond. Screenshots: `t4-follow-inside.png`, `t4-free-inside.png`.
+
+**Found (observer HUD, not T4):** the header ("WORLD VIEW / Home") and the replay's ghost residents follow the feed's scene, not the loop avatar's, so inside the office the header still says Home and the ghosts are drawn in the room. Belongs with GRAPH-002's HUD work.
+
 Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observer follow-target picker, orbit/zoom by mouse). This task makes it behave across a scene change. **Do not build the full GP-3 control cluster** (that is GRAPH-002).
 
 **Do**
@@ -170,6 +196,25 @@ Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observe
 ---
 
 ## T5 — Interior anchors (prerequisite for interaction)
+
+**Status: delivered 2026-10-18.**
+- **What becomes an anchor.** `InteriorAnchors` turns a level's meshes into furniture anchors by object name. The rule table uses the prefixes `InteriorStyle` dresses: seats, sofas and beds afford `sit` (sofas and beds also `rest`); desks, counters, appliances, shelves and the whiteboard afford `use`.
+- **Ids and kind.** Ids are readable and stable, the label plus a running number in node-name order (`chair_3`, `desk_chair_7`). Furniture reports `kind: object`, the §0 default, and keeps its centre as `FacePoint` for T6.
+- **Approach points.** `Main` builds a room's set on entry, once its collision is live. Each approach point is the first candidate around the object, facing the room first, that has standing-height floor, room for the avatar's capsule, and nothing between it and the object.
+- **Explicit affordances.** `TaskAnchor.Affords` states an anchor's verbs outright; open-world places still derive theirs from axes.
+
+**Measured in-engine:**
+
+| room | anchors | sit | use | boxed in (no anchor) | straight-line reach from the arrival point |
+|---|---|---|---|---|---|
+| home (`personal_1`) | 12 | 5 | 7 | 2 | 5/12 |
+| office (`workplace_2`) | 19 | 11 | 8 | 0 | 14/19 |
+| café (`social_3`) | 28 | 26 | 2 | 0 | 17/28 |
+| classroom (`academic_4`) | 39 | 19 | 20 | 2 | 29/39 |
+
+- **Stability.** Ids and positions are identical on rebuild.
+- **Perception and ingress.** Perception lists the furniture, and a real `approach` through the loop ends at the approach point (1.03 m off, within the 1 m radius), not the object's centre.
+- **Unreached anchors.** Every approach point itself is clear. The anchors not reached are blocked by walls (the home is a multi-room flat whose exit is in the hall), desks and table clusters on the straight line. Movement has no pathfinding, so this is a measurement to escalate, not a placement fault. Perception lists objects by range only, with no line-of-sight check, so a model can choose a chair it cannot walk to; T6 and the Fusion side should know.
 
 **Why:** inside a building the model currently sees only the exit (after T2). There is nothing to sit on or use.
 
@@ -192,6 +237,23 @@ Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observe
 ---
 
 ## T6 — Interaction execution (`sit`, `use`, `rest`, `look_at`)
+
+**Status: delivered 2026-10-18, except acceptance 4.** `use` only occupies (the default; Joshua's question is still open).
+
+- **Lifecycle.** `sit`/`use`/targeted `rest` on furniture reserve the anchor at ingress (after its affordance and occupancy re-check), walk to its approach point, and on arrival face the object and hold: sit 8 s, rest 12 s, use 5 s of simulation time. Then they release it and return to the wander fallback.
+- **Interruptions.** Any new intent ends the interaction and frees the object. `wait` carries on (Fusion decides every 2 s), and a repeat of the same interaction carries on rather than restarting.
+- **`look_at`.** The avatar turns to face the object's centre (`FacePoint`, not the approach point) and holds 2 s without moving.
+- **Targeted `rest`.** It needs something that affords rest (a bed or a sofa).
+- **No position writes.** The avatar stays where it arrived, beside the object. When a hold starts the held movement is dropped so it decelerates at once.
+- **Pose.** There are no seated or lying animations (GRAPH-001 G1), so the pose shows as facing, holding still, and the avatar's label word (`sitting`, `resting`, `using`, `looking`).
+- **Perception.** The holder sees its own chair `occupied: false`; others see `true`. Pose is not reported (§0 default).
+
+**Measured in-engine (office, through the real loop):**
+- **`sit desk_chair_1`.** Sitting, reserved, facing the chair within 0.0°. A second avatar sees it occupied, and its `sit` through ingress is rejected "target 'desk_chair_1' is occupied". After the hold it is released and the avatar walks off.
+- **`use desk_2`.** Held, then released.
+- **`look_at desk_1`.** Turned from 55° off to 0.0°, moved 0.00 m.
+- **Screenshots.** `t6-sitting.png`, `t6-look-at.png`.
+- **Not done here: acceptance 4**, a model-driven run with the Qwen 0.6B path. It needs `neurolift-ai-fusion` and its model, which are not available in this environment. Run it on the dev PC.
 
 Depends on T5. **Needs Joshua's answer first:** should `use` change anything physical (a door opens, a light turns on) or only occupy the object? Default if unanswered: occupy only.
 

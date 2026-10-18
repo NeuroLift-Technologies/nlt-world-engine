@@ -123,6 +123,18 @@ public partial class WorldView : Node3D
 	/// <summary>True while the camera is tracking a moving point (the agent the observer follows).</summary>
 	public bool Following => _following;
 
+	/// <summary>Scene id of the interior on show, or empty while the open world shows.</summary>
+	protected string ShownInteriorSceneId => _interiorSceneId;
+
+	/// <summary>
+	/// The exit of the interior on show, found in the level's own geometry when it loads
+	/// (<see cref="DecorateInteriorExit"/>); null while the open world shows. Read-only for subclasses.
+	/// </summary>
+	protected Portal? ShownInteriorExit => _interiorPortal;
+
+	/// <summary>The loaded interior level's root, or null while none is loaded. Read-only for subclasses.</summary>
+	protected Node? ShownInteriorLevel => _interior != null && _interior.GetChildCount() > 0 ? _interior.GetChild(0) : null;
+
 	/// <summary>The rendered residents — one character per agent in the document on show (B.2).</summary>
 	public ResidentLayer Residents => _residents;
 
@@ -190,17 +202,27 @@ public partial class WorldView : Node3D
 	/// open-world distance of 78 m: the camera would sit outside the walls and frame the building, not
 	/// the room. Idempotent — showing the same interior again is a no-op — so it is safe to call on
 	/// every document; the caller only needs to guard the change.
+	///
+	/// Returns false, and changes nothing, when the scene cannot be shown: a <c>--scene</c> capture pin
+	/// holds the view, the id names no interior level, or the level fails to load. The level is loaded
+	/// before the open world is switched off, so a failure can never leave the view (and its physics)
+	/// with neither scene (AGENT-LOOP-002 T3: the engine-owned transition depends on this).
 	/// </summary>
-	public void ShowScene(string sceneId, string kind)
+	public bool ShowScene(string sceneId, string kind)
 	{
 		if (_openWorld == null)
-			return;
+			return false;
 		// A pinned capture scene wins over the feed; loading the feed's level only to swap it back on
 		// the next frame doubled every level load.
 		if (_fixedScene != null && sceneId != _fixedScene)
-			return;
+			return false;
 
-		string? path = kind == "interior" ? InteriorPathFor(sceneId) : null;
+		string? path = kind == SceneCatalog.InteriorKind ? InteriorPathFor(sceneId) : null;
+		if (kind == SceneCatalog.InteriorKind && path == null)
+		{
+			GD.PushWarning($"WorldView: '{sceneId}' names no interior level; the view is unchanged.");
+			return false;
+		}
 
 		if (path == null)
 		{
@@ -220,19 +242,25 @@ public partial class WorldView : Node3D
 			_target = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 2f, WorldConstants.SettleZ);
 			UpdateCamera();
 			_cam.Environment = null;
-			return;
+			return true;
+		}
+
+		// Load first: only once the level is in hand is anything switched off.
+		PackedScene? packed = null;
+		if (_interiorPath != path)
+		{
+			packed = ResourceLoader.Exists(path) ? GD.Load<PackedScene>(path) : null;
+			if (packed == null)
+			{
+				GD.PushWarning($"WorldView: no interior scene at {path} for '{sceneId}'; the view is unchanged.");
+				return false;
+			}
 		}
 
 		SetOpenWorldActive(false);
-		if (_interiorPath != path)
+		if (packed != null)
 		{
 			ClearInterior();
-			var packed = GD.Load<PackedScene>(path);
-			if (packed == null)
-			{
-				GD.PushWarning($"WorldView: no interior scene at {path} for '{sceneId}'");
-				return;
-			}
 			_interiorPath = path;
 			var instance = packed.Instantiate();
 			_interior.AddChild(instance);
@@ -257,7 +285,18 @@ public partial class WorldView : Node3D
 		_focusLift = 1.1f;
 		_minDist = 3f;
 		FrameInterior(_interior);
+		return true;
 	}
+
+	/// <summary>True when an interior level exists for <paramref name="sceneId"/> (its prefix maps to a level file).</summary>
+	protected static bool InteriorLevelExists(string sceneId)
+		=> InteriorPathFor(sceneId) is { } path && ResourceLoader.Exists(path);
+
+	/// <summary>The building doorways, in settlement order: index <c>i</c> is building <c>i</c>.</summary>
+	protected IReadOnlyList<Portal> WorldPortals => _worldPortals;
+
+	/// <summary>The <c>--scene</c> capture pin, or null. While set it holds the view.</summary>
+	protected string? PinnedSceneId => _fixedScene;
 
 	/// <summary>
 	/// Show or hide the open world, physics included. <c>Visible</c> only stops drawing: the
@@ -676,6 +715,22 @@ public partial class WorldView : Node3D
 			yield return p;
 	}
 
+	/// <summary>
+	/// True while something other than the spectator owns the displayed scene. <c>Main</c> overrides
+	/// it for the agent loop, where the view follows the avatar (AGENT-LOOP-002 T1). Every spectator
+	/// doorway ends in <see cref="Activate"/> or the exit branch of <see cref="EnterOrExit"/>, and
+	/// both check it, so only a click or key press that would really use a door is refused.
+	/// </summary>
+	protected virtual bool SpectatorDoorsLocked => false;
+
+	private bool RefuseLockedDoor()
+	{
+		if (!SpectatorDoorsLocked)
+			return false;
+		GD.Print("WorldView: doorways are locked while the agent loop runs; the view follows the avatar's scene.");
+		return true;
+	}
+
 	/// <summary>Activate the doorway the pointer clicked, if the click landed on one.</summary>
 	private bool TryActivateAtScreen(Vector2 screen)
 	{
@@ -694,8 +749,7 @@ public partial class WorldView : Node3D
 		}
 		if (best == null)
 			return _openWorld.Visible && TryActivateBuildingAtScreen(screen);
-		Activate(best);
-		return true;
+		return Activate(best);
 	}
 
 	/// <summary>
@@ -714,8 +768,7 @@ public partial class WorldView : Node3D
 		int index = collider.GetMeta(SettlementBuilder.PortalIndexMeta).AsInt32();
 		if (index < 0 || index >= _worldPortals.Count)
 			return false;
-		Activate(_worldPortals[index]);
-		return true;
+		return Activate(_worldPortals[index]);
 	}
 
 	/// <summary>Enter the building doorway nearest the camera's focus, or leave an interior.</summary>
@@ -723,7 +776,9 @@ public partial class WorldView : Node3D
 	{
 		if (_interior.Visible)
 		{
-			ShowScene("", "open_world");
+			if (RefuseLockedDoor())
+				return false;
+			ShowScene("", SceneCatalog.OpenWorldKind);
 			return true;
 		}
 
@@ -740,16 +795,19 @@ public partial class WorldView : Node3D
 		}
 		if (best == null)
 			return false;
-		Activate(best);
-		return true;
+		return Activate(best);
 	}
 
-	private void Activate(Portal portal)
+	/// <summary>Step through <paramref name="portal"/>. False when the doors are locked.</summary>
+	private bool Activate(Portal portal)
 	{
+		if (RefuseLockedDoor())
+			return false;
 		if (portal.SceneId.Length == 0)
-			ShowScene("", "open_world");   // the return door
+			ShowScene("", SceneCatalog.OpenWorldKind);   // the return door
 		else
-			ShowScene(portal.SceneId, "interior");
+			ShowScene(portal.SceneId, SceneCatalog.InteriorKind);
+		return true;
 	}
 
 	/// <summary>Initializes the state feed, camera, Sky3D sky, terrain, water, settlement and vegetation builders.</summary>

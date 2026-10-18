@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace NltWorldEngine.Agents;
@@ -32,9 +34,271 @@ public static class ActionAssertions
         AgentLoopContract();
         ControlConditionMoves();
         DecisionHeldBetweenPolls();
+        SceneKinds();
+        DoorsAndExits();
+        SceneTransitions();
+        InteriorFurniture();
+        Interactions();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
+    }
+
+    /// <summary>
+    /// Scene id → kind comes from <see cref="SceneCatalog"/>, not from the id's spelling
+    /// (AGENT-LOOP-002 T1). Unknown ids are rejected rather than guessed.
+    /// </summary>
+    private static void SceneKinds()
+    {
+        Console.WriteLine("\n[scene id -> kind]");
+
+        static string KindOrNone(string id) => SceneCatalog.TryKindFor(id, out var kind) ? kind : "(rejected)";
+
+        Check(KindOrNone("open_world") == "open_world", "open_world is the open world");
+        foreach (var id in new[] { "workplace_3", "personal_1", "social_9", "academic_2" })
+            Check(KindOrNone(id) == "interior", $"{id} is an interior");
+
+        // Each of these fooled the old Contains("open") guess one way or the other.
+        foreach (var id in new[] { "", "open", "open_world_2", "workplace_open", "lobby_1", "personal",
+                     "personal_", "personal_0", "personal_x", "_1", "Personal_1" })
+            Check(!SceneCatalog.TryKindFor(id, out _), $"unknown id '{id}' is rejected");
+        Check(!SceneCatalog.TryKindFor(null, out _), "a null id is rejected");
+
+        var threw = false;
+        try { SceneCatalog.KindFor("lobby_1"); }
+        catch (ArgumentException) { threw = true; }
+        Check(threw, "KindFor throws for an unknown id instead of guessing");
+
+        // Every interior the settlement can generate must be one the catalog accepts; otherwise a
+        // door would lead to a scene perception refuses to name.
+        var allKnown = true;
+        for (var i = 0; i < 40; i++)
+            allKnown &= KindOrNone(SettlementBuilder.SceneIdFor(SettlementBuilder.KindAt(i), i)) == "interior";
+        Check(allKnown, "every settlement building's scene id is a known interior");
+    }
+
+    /// <summary>
+    /// Doors and room exits are usable targets (AGENT-LOOP-002 T2): they afford <c>use</c> by flag,
+    /// are never occupied, lead where their link says, and each scene sees only its own anchors.
+    /// </summary>
+    private static void DoorsAndExits()
+    {
+        Console.WriteLine("\n[doors and exits as usable targets]");
+
+        var anchors = WorldAnchorBuilder.BuildOpenWorld();
+        var doors = anchors.FindAll(a => a.Id.StartsWith("door_", StringComparison.Ordinal));
+        Check(doors.Count > 0 && doors.TrueForAll(d => d.IsPortal), $"all {doors.Count} door anchors are doorways");
+        Check(anchors.TrueForAll(a => a.IsPortal == a.Id.StartsWith("door_", StringComparison.Ordinal)),
+            "nothing else in the open world is a doorway");
+        var linksRight = true;
+        foreach (var d in doors)
+        {
+            var i = int.Parse(d.Id.Split('_')[1]);
+            linksRight &= d.Link!.BuildingIndex == i
+                && d.Link.TargetSceneId == SettlementBuilder.SceneIdFor(SettlementBuilder.KindAt(i), i);
+        }
+        Check(linksRight, "each door leads into its own building's room (door_N -> <kind>_N+1, building N)");
+
+        // Acceptance 1: within perception range, every door is listed with 'use' — home doors too,
+        // whose quiet, private axes alone would offer 'sit' and never 'use'.
+        var everyDoorUsable = true;
+        var homeDoorUsable = false;
+        foreach (var d in doors)
+        {
+            var seen = PerceptionBuilder.VisiblePlaces("avatar_1", d.Position + new Vector3(5f, 0f, 0f), anchors)
+                .Find(e => e.Id == d.Id);
+            var usable = seen != null && seen.Affordances.Contains("use") && !seen.Affordances.Contains("sit");
+            everyDoorUsable &= usable;
+            homeDoorUsable |= usable && d.Id.EndsWith("_home", StringComparison.Ordinal);
+        }
+        Check(everyDoorUsable, "from 5 m away every door is listed with 'use' and without 'sit'");
+        Check(homeDoorUsable, "home doors are among them");
+
+        // Acceptance 2: ingress accepts 'use' on a door; the old rejections still hold elsewhere.
+        var door = doors[0];
+        door.Reserve("wanderer");
+        Check(AnchorAffordances.Recheck(anchors, door.Id, "use", "avatar_1") == null,
+            "ingress accepts 'use' on a door, even one another agent has reserved");
+        Check(!PerceptionBuilder.VisiblePlaces("avatar_1", door.Position, anchors).Find(e => e.Id == door.Id)!.Occupied,
+            "a reserved door is not reported occupied");
+        Check(AnchorAffordances.Recheck(anchors, door.Id, "sit", "avatar_1") != null, "ingress rejects 'sit' on a door");
+        door.Release("wanderer");
+        Check(AnchorAffordances.Recheck(anchors, "shore_0", "use", "avatar_1") == "target 'shore_0' does not afford 'use'",
+            "ingress still rejects 'use' on a non-doorway lacking the affordance");
+        var plaza = anchors.Find(a => a.Id == "plaza")!;
+        plaza.Reserve("someone_else");
+        Check(AnchorAffordances.Recheck(anchors, "plaza", "use", "avatar_1") == "target 'plaza' is occupied",
+            "ingress still rejects 'use' on an occupied non-doorway");
+        plaza.Release("someone_else");
+
+        // Acceptance 3: inside a room, the scene's set is its exit and nothing from outside.
+        var exitPortal = new Portal("Exit", "Exit", "", new Vector3(0f, 0f, 10f), Vector3.Back);
+        var sets = new SceneAnchorSets(anchors, id => id == "personal_4" ? exitPortal : null);
+        Check(ReferenceEquals(sets.For("open_world"), anchors), "the open world's set is its anchors");
+        var inside = sets.For("personal_4");
+        Check(inside.Count == 1 && inside[0].Id == "exit_personal_4", "a loaded room's set is its exit alone");
+        var exit = inside[0];
+        Check(exit.Link!.TargetSceneId == "open_world" && exit.Link.BuildingIndex == 3,
+            "the exit leads back out through building 3, the one personal_4 belongs to");
+        Check(exit.Position.DistanceTo(new Vector3(0f, 0f, 10f - SceneAnchorSets.ExitApproachDepth)) < 0.001f,
+            "its approach point is 1.6 m inside the doorway, not in the wall");
+        var seenInside = PerceptionBuilder.VisiblePlaces("avatar_1", new Vector3(0f, 0f, 5f), inside);
+        Check(seenInside.Count == 1 && seenInside[0].Id == exit.Id && seenInside[0].Affordances.Contains("use"),
+            "perception inside lists the exit with 'use' and no open-world anchor");
+        Check(AnchorAffordances.Recheck(inside, exit.Id, "use", "avatar_1") == null, "ingress accepts 'use' on the exit");
+        Check(AnchorAffordances.Recheck(inside, door.Id, "use", "avatar_1") != null,
+            "and rejects an open-world door from inside the room");
+        Check(sets.For("personal_2").Count == 0, "a room that is not loaded has no anchors yet (nothing guessed)");
+        Check(sets.For("lobby_1").Count == 0, "an unknown scene has no anchors");
+        Check(SceneCatalog.TryBuildingIndexFor("personal_4", out var building) && building == 3
+            && !SceneCatalog.TryBuildingIndexFor("open_world", out _),
+            "a room's id names its building; the open world has none");
+    }
+
+    /// <summary>
+    /// The engine-owned transition's rules (AGENT-LOOP-002 T3): when a doorway may be used, where the
+    /// avatar lands, and that arrival fires exactly once. The in-engine round trip is checked by
+    /// running the scene; these are the parts that need no scene tree.
+    /// </summary>
+    private static void SceneTransitions()
+    {
+        Console.WriteLine("\n[engine-owned scene transition]");
+
+        static bool AllLevels(string _) => true;
+        var intoHome = new PortalLink("personal_4", 3);
+        var outOfHome = new PortalLink("open_world", 3);
+
+        Check(SceneTransitRules.Check(intoHome, AllLevels, 10, null, false) == null, "a door into a known room may be used");
+        Check(SceneTransitRules.Check(outOfHome, AllLevels, 10, null, false) == null, "a room's exit may be used");
+        Check(SceneTransitRules.Check(intoHome, _ => false, 10, null, false) == "no interior level for 'personal_4'",
+            "a door whose room has no level is rejected before the avatar walks (test hook: no levels)");
+        Check(SceneTransitRules.Check(outOfHome, _ => false, 10, null, false) == null,
+            "leaving to the open world needs no interior level");
+        Check(SceneTransitRules.Check(intoHome, AllLevels, 10, null, true) == "already moving between scenes",
+            "a second doorway is rejected while a transition runs");
+        Check(SceneTransitRules.Check(intoHome, AllLevels, 10, "workplace_3", false)?.Contains("capture pin") == true,
+            "a --scene capture pin turns transitions off");
+        Check(SceneTransitRules.Check(new PortalLink("lobby_1", 3), AllLevels, 10, null, false)?.Contains("unknown scene") == true,
+            "a doorway to an unknown scene is rejected");
+        Check(SceneTransitRules.Check(new PortalLink("open_world", 12), AllLevels, 10, null, false)?.Contains("unknown building") == true,
+            "an exit back to a building that does not exist is rejected");
+
+        var roomExit = new Portal("Exit", "Exit", "", new Vector3(0f, 0f, -9f), Vector3.Forward);
+        var (inside, inFacing) = SceneTransitRules.IndoorArrival(roomExit);
+        Check(inside.DistanceTo(new Vector3(0f, 0f, -9f + SceneAnchorSets.ExitApproachDepth)) < 0.001f && inFacing == Vector3.Back,
+            "entering, the avatar lands 1.6 m inside the doorway, facing into the room");
+        Check(SceneAnchorSets.ExitAnchor("personal_4", 3, roomExit).Position == inside,
+            "which is exactly the room's exit anchor, so 'use' on the exit right away needs no walk");
+        var buildingDoor = new Portal("Home", "Home", "personal_4", new Vector3(10f, 7f, 5f), Vector3.Right);
+        var (outside, outFacing) = SceneTransitRules.OutdoorArrival(buildingDoor);
+        Check(outside == buildingDoor.EntryPoint && outFacing == Vector3.Right,
+            "leaving, the avatar lands at its building's entry point, facing away from the door");
+
+        var arrivals = 0;
+        var controller = new IntentMoveController(new Vector3(0.5f, 0f, 0f), "use", 1f, _ => arrivals++);
+        for (var i = 0; i < 5; i++)
+            controller.Act(new AgentObservation("avatar_1", Vector3.Zero, Vector3.Zero, new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", i));
+        Check(arrivals == 1, "arriving at a doorway hands over exactly once, however many ticks follow");
+    }
+
+    /// <summary>
+    /// Interior furniture anchors (AGENT-LOOP-002 T5): which level meshes become anchors and with what
+    /// verbs, approach points beside (not inside) the object, stable readable ids. The real levels and
+    /// their collision are checked by running the scene; this drives the rules with a fake probe.
+    /// </summary>
+    private static void InteriorFurniture()
+    {
+        Console.WriteLine("\n[interior furniture anchors]");
+
+        static string Label(string name) => InteriorAnchors.Classify(name)?.Label ?? "(none)";
+        static string Verbs(string name) => string.Join("/", InteriorAnchors.Classify(name)?.Affords ?? Array.Empty<string>());
+        Check(Label("Cafe_Chair_3_N") == "Chair" && Verbs("Cafe_Chair_3_N") == "sit", "a café chair is a chair to sit on");
+        Check(Verbs("Bed_Mattress") == "sit/rest" && Verbs("WF_SofaSeat") == "sit/rest", "beds and sofas afford sit and rest");
+        Check(Verbs("WF_DeskTop_2") == "use" && Verbs("Bookshelf_400") == "use" && Verbs("Kit_Fridge") == "use",
+            "desks, shelves and appliances afford use");
+        Check(Label("DeskChair_0_0") == "Desk chair" && Label("Desk_0_0") == "Desk", "a desk chair is not taken for a desk");
+        Check(Label("UCX_Cafe_Chair_1_N") == "(none)" && Label("BookshelfShelf_1") == "(none)"
+            && Label("Cafe_SofaBack_1") == "(none)" && Label("Social_Wall_N") == "(none)",
+            "collision proxies, shelf boards, sofa backs and walls are not anchors");
+
+        var first = InteriorAnchors.Candidates(new Vector3(5f, 0f, 0f), new Vector3(1f, 1f, 1f), Vector3.Zero).First();
+        Check(first.X < 5f && Mathf.Abs(first.Z) < 0.001f, "the first approach tried faces the room, not the wall behind");
+
+        var meshes = new[]
+        {
+            new InteriorAnchors.LevelMesh("Cafe_Chair_2_S", new Vector3(4f, 0.3f, 0f), new Vector3(0.5f, 0.5f, 0.5f)),
+            new InteriorAnchors.LevelMesh("Cafe_Chair_1_N", new Vector3(-4f, 0.3f, 0f), new Vector3(0.5f, 0.5f, 0.5f)),
+            new InteriorAnchors.LevelMesh("Cafe_Counter_Top", new Vector3(0f, 0.8f, 6f), new Vector3(4f, 0.1f, 0.8f)),
+            new InteriorAnchors.LevelMesh("Cafe_Counter_Top_Dup", new Vector3(0f, 0.8f, 6f), new Vector3(4f, 0.1f, 0.8f)),
+            new InteriorAnchors.LevelMesh("Social_Floor", Vector3.Zero, new Vector3(20f, 0.1f, 20f)),
+        };
+        // Fake probe: the floor is at 0.25 everywhere; nothing is clear north of z = 5.5.
+        Vector3? Probe(Vector3 c, Vector3 _) => c.Z > 5.5f ? null : new Vector3(c.X, 0.25f, c.Z);
+        var built = InteriorAnchors.Build(meshes, Probe);
+        var again = InteriorAnchors.Build(meshes.Reverse(), Probe);
+        Check(built.Select(a => a.Id).SequenceEqual(new[] { "chair_1", "chair_2", "counter_1" }),
+            "ids are the label plus a running number in node-name order; duplicates become one anchor");
+        Check(built.Select(a => $"{a.Id}{a.Position}").SequenceEqual(again.Select(a => $"{a.Id}{a.Position}")),
+            "the same level gives the same anchors whatever order its meshes come in");
+        var chair = built[0];
+        Check(chair.Position.DistanceTo(chair.FacePoint!.Value) > 0.5f && chair.Position.Y == 0.25f,
+            "an anchor stands on the floor beside its object, not at the object's centre");
+        Check(built.TrueForAll(a => a.Kind == "object"), "furniture reports kind 'object'");
+        var counter = built[2];
+        Check(counter.Position.Z < 5.5f, "a blocked side is skipped for one the probe clears");
+        var unplaced = new List<string>();
+        Check(InteriorAnchors.Build(meshes, (_, _) => null, unplaced).Count == 0 && unplaced.Count == 3,
+            "an object with no clear approach gets no anchor and is reported");
+
+        Check(string.Join("/", AnchorAffordances.For(chair)) == "sit/approach/look_at", "perception lists a chair's own verbs");
+        Check(AnchorAffordances.Recheck(built, chair.Id, "sit", "avatar_1") == null
+            && AnchorAffordances.Recheck(built, chair.Id, "use", "avatar_1") == $"target '{chair.Id}' does not afford 'use'",
+            "ingress accepts sit on a chair and rejects use");
+
+        var sets = new SceneAnchorSets(Array.Empty<TaskAnchor>(),
+            id => id == "social_3" ? new Portal("Exit", "Exit", "", new Vector3(0f, 0f, 10f), Vector3.Back) : null);
+        sets.SetFurniture("social_3", built);
+        var room = sets.For("social_3");
+        Check(room.Count == 4 && room[0].IsPortal && room.Skip(1).SequenceEqual(built),
+            "a room's set is its exit followed by its furniture");
+    }
+
+    /// <summary>
+    /// Interaction execution's engine-free parts (AGENT-LOOP-002 T6): a hold lasts its ticks and hands
+    /// back once; a targeted rest needs something to rest on; a held object is occupied to everyone
+    /// but its holder. The avatar's own lifecycle is checked by running the scene.
+    /// </summary>
+    private static void Interactions()
+    {
+        Console.WriteLine("\n[interaction execution]");
+
+        var done = 0;
+        var hold = new InteractionController(120, () => done++);
+        var idleThroughout = true;
+        for (var tick = 1000; tick < 1300; tick += 30)
+        {
+            idleThroughout &= hold.Act(new AgentObservation("avatar_1", Vector3.Zero, Vector3.Zero,
+                new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "social_3", tick)).MoveDirection == Vector3.Zero;
+            if (tick == 1090)
+                Check(done == 0, "a 120-tick hold has not ended after 90 ticks");
+        }
+        Check(done == 1 && idleThroughout, "it ends once after its ticks, holding still throughout");
+
+        var bed = new TaskAnchor("bed_1", "Bed", AffordanceAxes.Neutral) { Affords = new[] { "sit", "rest" }, Kind = "object" };
+        var chair = new TaskAnchor("chair_1", "Chair", AffordanceAxes.Neutral) { Affords = new[] { "sit" }, Kind = "object" };
+        var room = new List<TaskAnchor> { bed, chair };
+        Check(AnchorAffordances.Recheck(room, "bed_1", "rest", "avatar_1") == null, "rest on a bed is accepted");
+        Check(AnchorAffordances.Recheck(room, "chair_1", "rest", "avatar_1") == "target 'chair_1' does not afford 'rest'",
+            "rest on a chair is rejected: a targeted rest needs something to rest on");
+
+        chair.Reserve("avatar_1");
+        Check(!PerceptionBuilder.VisiblePlaces("avatar_1", Vector3.Zero, room).Find(e => e.Id == "chair_1")!.Occupied
+            && PerceptionBuilder.VisiblePlaces("avatar_2", Vector3.Zero, room).Find(e => e.Id == "chair_1")!.Occupied,
+            "a chair in use is free to its holder and occupied to everyone else");
+        Check(AnchorAffordances.Recheck(room, "chair_1", "sit", "avatar_2") == "target 'chair_1' is occupied",
+            "a second avatar's sit on it is rejected 'occupied'");
+        chair.Release("avatar_1");
+        Check(AnchorAffordances.Recheck(room, "chair_1", "sit", "avatar_2") == null, "once released, the chair is free again");
     }
 
     private static void Check(bool condition, string what)

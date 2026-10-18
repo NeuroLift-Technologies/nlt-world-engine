@@ -1,0 +1,59 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (on top of T1-T5)",
+    "work_completed": [
+      "AGENT-LOOP-002 T6 (interaction execution), asked for by Joshua 2026-10-18. `use` only occupies (the brief's default; Joshua's question is open).",
+      "AvatarCharacter.ApplyInteraction(verb, anchor): reserve -> walk to the approach point -> on arrival face the object (FacePoint) and hold via the new InteractionController (sit 8 s, rest 12 s, use 5 s of simulation time) -> release -> wander fallback. Activity (active/sitting/resting/using/looking) is shown on the avatar's label and exposed read-only with HeldAnchor.",
+      "Any new intent ends an interaction and frees its object; 'wait' carries on with one under way; a repeat of the same interaction carries on; a scene transition (OnPlaced) ends it.",
+      "look_at turns the avatar to face the target and holds 2 s without moving; for an anchor with a FacePoint, ingress resolves look_at to the object's centre rather than the approach point.",
+      "AgentBrain.DropHeldDecision: when a hold starts, the last movement stops at once (decelerating through the locomotion ramp; nothing is placed).",
+      "IntentIngress: sit/use/rest on a non-doorway anchor go to ApplyInteraction (a reservation race is rejected 'occupied'); AnchorAffordances.Recheck covers a targeted rest.",
+      "AgentHarness: 7 new interaction assertions (113/113).",
+      "Screenshots: world-engine-godot/Images/Screenshots/t6-sitting.png and t6-look-at.png."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 T6 acceptance 4 (a model-driven run with the opt-in Qwen 0.6B path choosing and completing a sit or use inside a room) is not done: it needs neurolift-ai-fusion and its model, which are not in this environment."
+    ],
+    "blockers": [
+      "No Fusion server or model here, for T6 acceptance 4."
+    ],
+    "decisions_made": [
+      "No seated or lying animations exist (character animation is blocked on GRAPH-001 G1), and snapping the body onto a seat would add a second placement discontinuity. So the body stays at the approach point it walked to; the pose shows as facing the object, holding still, and the label's word. Real poses can replace the label when animations land.",
+      "'wait' does not interrupt an interaction under way; any other intent does. Without this, Fusion's 2 s decision cadence would stand a sitting avatar up almost at once.",
+      "Hold durations are constants on AvatarCharacter (SitSeconds, RestSeconds, UseSeconds, LookSeconds)."
+    ],
+    "decisions_pending": [
+      "Joshua: does `use` change world state (door opens, light on) or only occupy? Only occupy is implemented.",
+      "Joshua: should perception report the avatar's pose/activity and facing? Not reported (v1 has no field); it would be a schema change agreed with Fusion.",
+      "Joshua / Fusion side: the agent-loop-v1.md clarification for scene transitions (from T3) is still unwritten."
+    ],
+    "escalations": [
+      "Pathfinding / line-of-travel (from T3 and T5) still open: perception lists furniture by range only, so a model can choose a chair it cannot walk to. In the T6 check the nearest chair was not reachable in a straight line and the next one was."
+    ],
+    "next_agent_notes": "In-engine T6 check (office, scripted Fusion stand-in on the real HTTP path, temporary check node not committed): sit desk_chair_1 -> sitting, reserved, 0.83 m from its approach point, facing the chair within 0.0 deg; a second AvatarCharacter in the room sees desk_chair_1 occupied=true (holder sees false) and its sit through IntentIngress is rejected \"target 'desk_chair_1' is occupied\"; the hold ended and the chair was released (9.4 s of simulation after the check began watching), then the avatar walked 3.39 m in 1.5 s; use desk_2 -> using, reserved, released after the hold; look_at desk_1 -> facing error 55 deg -> 0.0 deg, moved 0.00 m. T3 round trip re-run on this code: all four kinds pass. Testing notes: time in-engine holds by physics ticks, not wall clock (headless physics can run behind real time at a raised time scale); and while the loop runs, accepted 'wait' intents keep an interaction going but would end a scripted walk, so pause the AgentLoopDriver for scripted movement. To finish acceptance 4 on the dev PC: run the opt-in loop against neurolift-ai-fusion with the Qwen model, enter the office or cafe (doors are `use` targets), and watch for a sit or use being chosen and held; prompt or policy changes for that belong in neurolift-ai-fusion, not here.",
+    "files_modified": [
+      "world-engine-godot/Agents/AvatarCharacter.cs",
+      "world-engine-godot/Agents/AgentBrain.cs",
+      "world-engine-godot/Agents/IntentIngress.cs",
+      "world-engine-godot/TaskAnchor.cs",
+      "world-engine-godot/Agents/ActionAssertions.cs",
+      "world-engine-godot/Images/Screenshots/t6-sitting.png",
+      "world-engine-godot/Images/Screenshots/t6-look-at.png",
+      "docs/active-threads.md",
+      "docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-t6-interactions.json"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
+      "AgentHarness: 113 passed, 0 failed.",
+      "In-engine T6 check as in next_agent_notes; T3 round trip regression; --selftest LAYOUT OK (simple, technical) under Xvfb."
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/107"
+  }
+}

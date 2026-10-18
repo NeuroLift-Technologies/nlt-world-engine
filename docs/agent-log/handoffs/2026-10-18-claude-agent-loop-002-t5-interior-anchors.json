@@ -1,0 +1,57 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (on top of T1-T4)",
+    "work_completed": [
+      "AGENT-LOOP-002 T5 (interior anchors), asked for by Joshua 2026-10-18.",
+      "InteriorAnchors (new): rule table over level mesh names (the prefixes InteriorStyle dresses) giving label and verbs; candidate approach points around an object ordered to face the room; Build() with an injected probe, readable stable ids (label + running number in node-name order), duplicate meshes merged, unplaceable objects reported.",
+      "TaskAnchor gains Affords (explicit verbs; AnchorAffordances.For uses them before axes), Kind (perception entity kind; furniture = object) and FacePoint (the object's centre, for T6).",
+      "SceneAnchorSets.SetFurniture/HasFurniture: a room's set is its exit followed by its furniture; each building's room keeps its own anchors (occupancy is per room).",
+      "Main.BuildRoomFurniture runs on entry once the room's collision is live: collects the loaded level's visible meshes (WorldView.ShownInteriorLevel), probes each candidate (standing-height floor, capsule clearance, nothing between it and the object) and logs counts and any object left without an anchor.",
+      "PerceptionBuilder reports each anchor's Kind.",
+      "AgentHarness: 15 new furniture assertions (106/106)."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 T6 next, in this session."
+    ],
+    "blockers": [],
+    "decisions_made": [
+      "Perception kind for furniture is 'object' (the brief's default for Joshua's open question).",
+      "Every seat is its own anchor, so the cafe lists 26 seats and the classroom 39 anchors in all. The Fusion side may want to filter or rank what it shows a small model.",
+      "Anchors are built from the loaded level at entry, with physics probes, rather than from a hand-written table, so a changed level gets anchors that match its geometry; the engine-free rules are harness-tested with a fake probe.",
+      "No reachability fix was attempted beyond placement: approach points are all clear; the unreached ones are blocked by walls and furniture on the straight line, which is pathfinding (escalate, per the brief)."
+    ],
+    "decisions_pending": [
+      "Joshua: pathfinding, or at least a line-of-travel check at ingress (contract §4 already allows re-checking collision), so a model that picks furniture behind a wall gets a rejection instead of a silent stall. Perception lists objects by range only.",
+      "Joshua: T5 furniture kind 'object' is the default in use; confirm or change."
+    ],
+    "escalations": [
+      "Pathfinding / line-of-travel (above), together with T3's three straight-line door stalls."
+    ],
+    "next_agent_notes": "In-engine results (temporary check node and scripted Fusion stand-in, not committed): personal_1 12 anchors (5 sit, 7 use; Dining_Chair_Seat and Stool_Seat2 boxed in), workplace_2 19 (11 sit, 8 use), social_3 28 (26 sit, 2 use), academic_4 39 (19 sit, 20 use; two study chairs boxed in). Rebuild: identical ids and positions. Loop 'approach' to the nearest anchor: office desk_2, cafe chair_10, classroom desk_chair_3 arrived at the approach point (1.03 m, inside the 1 m radius plus a step; 1.2-1.7 m from the object's centre); home sink_1 stalled behind a wall. Straight-line reach from the arrival point: home 5/12, office 14/19, cafe 17/28, classroom 29/39, with the stalled ids listed in the T5 check log. The home level is a multi-room flat whose exit is in the hall, so most of its furniture is behind walls from the arrival point.",
+    "files_modified": [
+      "world-engine-godot/InteriorAnchors.cs",
+      "world-engine-godot/InteriorAnchors.cs.uid",
+      "world-engine-godot/TaskAnchor.cs",
+      "world-engine-godot/SceneAnchors.cs",
+      "world-engine-godot/WorldView.cs",
+      "world-engine-godot/Main.cs",
+      "world-engine-godot/Agents/PerceptionBuilder.cs",
+      "world-engine-godot/Agents/ActionAssertions.cs",
+      "docs/active-threads.md",
+      "docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-t5-interior-anchors.json"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
+      "AgentHarness: 106 passed, 0 failed.",
+      "In-engine T5 check for all four rooms as in next_agent_notes."
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/107"
+  }
+}
