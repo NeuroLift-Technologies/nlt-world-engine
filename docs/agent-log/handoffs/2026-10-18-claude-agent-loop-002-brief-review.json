@@ -1,0 +1,49 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01EgGEhrw22wYLc4rvhmCFnQ",
+    "agent_name": "Claude (Anthropic) via Claude Code session; docs review and revision only",
+    "date": "2026-10-18",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/pensive-shannon-x9on97 (from main @ 3dce1a845d7561d7e2bd91e08fa46a98bf6580c0)",
+    "work_completed": [
+      "Reviewed the AGENT-LOOP-002 briefs and the 2026-10-17 handoff record against the code at 3dce1a8.",
+      "Committed the revised briefs to docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md: repo name corrected, §1 and §2 corrected and extended, every task updated, revision log at the end of the file.",
+      "Committed the 2026-10-17 handoff record with corrections: repo name, the four Babylon branches named, door id format, home doors never affording `use`, a note that the Babylon/UE retirement decision is not yet in CLAUDE.md or ENG-002.",
+      "Added the unclaimed AGENT-LOOP-002 thread to docs/active-threads.md."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 is unclaimed. Implementation of T1-T6 has not started."
+    ],
+    "blockers": [
+      "No dotnet or Godot in this container, so nothing was built or run; every finding comes from reading code.",
+      "The blockers in the 2026-10-17 handoff still stand (training environment, Fusion half not visible, unpinned asfdk-csharp sibling checkout, GRAPH-001 G1)."
+    ],
+    "decisions_made": [
+      "Joshua 2026-10-18: \"Fusion\" means the NeuroLift-Technologies/neurolift-ai-fusion repo. This repo is NeuroLift-Technologies/nlt-world-engine; \"nlt-fusion\" is an old name for this repo, not Fusion.",
+      "Joshua 2026-10-18: commit the briefs and the 2026-10-17 handoff with the review corrections applied."
+    ],
+    "decisions_pending": [
+      "Joshua: should `use` on an object change world state or only occupy it? (T6; default occupy only)",
+      "Joshua: perception `kind` for interior furniture (T5; default `object`, doors and exits stay `place`).",
+      "Joshua: should perception report the avatar's pose and facing (T6; default no)? v1's `self` allows only position and velocity, so yes means a schema/version change agreed with Fusion. Raised by the Codex review on PR #106.",
+      "Joshua: confirm Babylon/UE 'fully retired' so CLAUDE.md and the ENG-002 thread can be updated to match.",
+      "Joshua: is OPENCODE still active on GRAPH-002? Its status line says 'not yet started' while the last five commits to WorldView.cs and Main.cs are [CLAUDE]."
+    ],
+    "escalations": [
+      "None filed. Contract wording for scene transitions still needs to reach the Fusion side before merging (clarification only, no schema change)."
+    ],
+    "next_agent_notes": "Read the revised briefs before claiming AGENT-LOOP-002; §2 lists what the code does today with file:line references. Six findings change the implementation: (1) AgentLoopDriver serves one anchor list and ignores the scene id (AgentLoopDriver.cs:57, :101), so T2 must make anchors per scene; (2) ResolveTarget checks scene node names before anchors (:129), so T5 anchors named after furniture would resolve to mesh centres; (3) WorldView.ShowScene returns nothing and disables the open world before loading the level (WorldView.cs:226, :233), and the --scene pin swallows other requests (:200); (4) on arrival IntentMoveController installs an IdleController (AvatarCharacter.cs:166), and an intent received within ArrivalRadius produces no arrival event, so T3 needs its own arrival hook; (5) the loop avatar's scene and spawn come from the feed (Main.cs:250-251), so with the default replay it spawns at interior coordinates with SceneId personal_1; T1 must own the spawn; (6) spectator doors call ShowScene directly (WorldView.cs:683, :699, :724), so T1 must block them while the loop owns the scene. Also unrecorded: which fixture the 2026-10-17 AGENT-LOOP-001 run used (most likely --fixture open-world-day).",
+    "files_modified": [
+      "docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md",
+      "docs/agent-log/handoffs/2026-10-17-claude-agent-loop-002-scene-transition-briefs.json",
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-brief-review.json",
+      "docs/active-threads.md"
+    ],
+    "tests_run": [
+      "None built or run. Read-only checks: scene ids extracted from every fixture with Python; remote branches checked for Babylon code with git grep; both JSON records validated with python -m json.tool."
+    ],
+    "tests_passing": null,
+    "pr_url": null
+  }
+}

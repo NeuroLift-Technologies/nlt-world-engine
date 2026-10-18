@@ -1,0 +1,47 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01Ak2aBRKeLvQXaqp1kxWbzb",
+    "agent_name": "Claude (Anthropic) via Claude Code session; spec and audit only",
+    "date": "2026-10-17",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "none; read-only shallow checkout of main @ 3dce1a845d7561d7e2bd91e08fa46a98bf6580c0, no repo changes made",
+    "work_completed": [
+      "Audited HERMES's 'still needed' list against the repo at 3dce1a8; most corrections are in next_agent_notes.",
+      "Wrote AGENT-LOOP-002 briefs T1-T6 (scene transitions and interior interaction) with acceptance tests: docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md (committed 2026-10-18 with review corrections)."
+    ],
+    "work_in_progress": [
+      "AGENT-LOOP-002 is unclaimed. T1-T4 deliver 'go inside a building, camera follow or free'; T5-T6 deliver interior interaction."
+    ],
+    "blockers": [
+      "The training environment (reset hook, reward, completion, lock-step stepping) does not exist on the Godot side; PPO trainer has never run end to end (TRAIN-002). Not addressed by these briefs.",
+      "Fusion half of the loop (SessionOrchestrator, agent_loop_http.py, trainer) lives in neurolift-ai-fusion and was not visible to this audit.",
+      "world-engine-godot.csproj and AgentHarness.csproj reference ../../asfdk-csharp, a sibling checkout that is not a submodule and is not pinned; a clean clone or CI cannot build.",
+      "GRAPH-001 G1 decisions (Mixamo licence, character budget, animation source, hero props, spend) still block residents and role pins."
+    ],
+    "decisions_made": [
+      "Joshua 2026-10-17: Babylon.js and Unreal Engine are fully retired (not merely non-authoritative). Not yet reflected in CLAUDE.md or the ENG-002 thread, which still describe the UE tree as a retained, non-authoritative reference.",
+      "Joshua 2026-10-17: training is split across Godot (physical environment) and Fusion Python (policy/trainer); mid-November is when his Claude Pro period ends, not a readiness target.",
+      "Joshua 2026-10-17: near-term milestone is scene transition (avatar goes to a building and inside, moves around, interacts), before RL training.",
+      "Joshua 2026-10-17: entering a building is `use` on a door target (no new verbs, no schema bump); one live scene at a time; camera follow-or-free means free look within the avatar's current scene; the engine (not Fusion) places the avatar in the interior."
+    ],
+    "decisions_pending": [
+      "Joshua: should `use` on an object change world state (door opens, light on) or only occupy it? (T6)",
+      "Joshua: where RL step/reset/reward ownership lives; recommendation was reward in Fusion, with a new lock-step step/reset contract separate from agent-loop-v1.",
+      "Joshua: transport for per-tick training traffic (loopback HTTP was chosen 2026-10-08 with an explicit condition to revisit for high-rate channels).",
+      "Joshua: delete or archive WorldEngine/ (3,001 tracked files, 1.3 GB), _archive/ and the four Babylon branches on the remote (babylon-v2, babylon-world-engine-v2, world-engine-v2-pr-final, world-engine-v2-release).",
+      "Joshua: Sky3D star-map credit placement (CC BY 4.0, needs visible attribution; the public homepage already shows captures with the sky).",
+      "Joshua: deployment target (cloud VM viewed in browser vs local-first principle)."
+    ],
+    "escalations": [
+      "None filed by this session. Contract wording for scene transitions needs to reach the Fusion side before merging (clarification only, no schema change)."
+    ],
+    "next_agent_notes": "Start with the briefs file (docs/agent-log/AGENT-LOOP-002-scene-transition-briefs.md), revised 2026-10-18 after a code review; see handoffs/2026-10-18-claude-agent-loop-002-brief-review.json. Claim AGENT-LOOP-002 in docs/active-threads.md first; coordinate WorldView.cs and Main.cs with OPENCODE (GRAPH-002). Corrections to HERMES's list, verified in code at 3dce1a8: AGENT-LOOP-001 gate is MET (Joshua verified 2026-10-17); minimap/environment header/event feed are delivered (GP-3, 2026-10-10); Jolt collision is wired (terrain trimesh, building boxes, edge walls, kill plane, interior UCX bodies) so world-engine-godot/AGENTS.md section 3 and AGENT-SYSTEM.md 8.1/8.6 are stale; the AssemblyName fix is committed so the stray csproj/sln exist only on Joshua's disk. Real gaps found: wind shader time (_simT) ignores reduced motion; terrain CastShadow is still Off and roughness is a flat 0.97 with no detail maps; no vegetation LOD; no episode reset (IAgentController has no reset hook); no Sky3D star-map attribution in the repo; docs/active-threads.md has duplicated ENG-002/DIV-001/PHYS-001 sections; branches named in the log (feat/godot-building-archetypes-terrain, feat/godot-collision-personal) are not on the remote though their code is on main; four Babylon branches remain on the remote (babylon-v2, babylon-world-engine-v2, world-engine-v2-pr-final, world-engine-v2-release). Only an open-world anchor builder was found; interiors have no anchors (T5), and AgentLoopDriver ignores the scene id when serving anchors (T2). Door anchors are `door_{i}_{home|office|shop|school}` placed 1.7 m outside the door; affordances are axis-derived, so home doors afford `sit` and never `use` (T2). Use the CLI capture path; Fennara runtime_session cannot boot the scene on the dev PC.",
+    "files_modified": [],
+    "tests_run": [
+      "None. Repository was read only; nothing was built, run, or executed by this session."
+    ],
+    "tests_passing": null,
+    "pr_url": null
+  }
+}
