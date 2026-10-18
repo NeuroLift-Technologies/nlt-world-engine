@@ -215,7 +215,7 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
 - **T5 verification (2026-10-18):** AgentHarness 106/106 (15 new). In-engine:
   - furniture anchors per room: home 12, office 19, café 28, classroom 39, each with things to sit on and to use; ids stable on rebuild;
   - a loop `approach` ends at the approach point, not the object's centre;
-  - straight-line reach from each room's arrival point: home 5/12, office 14/19, café 17/28, classroom 29/39. The approach points are all clear; the rest are blocked by walls and furniture in the way. **Escalation (Joshua):** no pathfinding, and perception has no line-of-sight check, so a model can pick furniture it cannot walk to.
+  - straight-line reach from each room's arrival point: home 5/12, office 14/19, café 17/28, classroom 29/39. The approach points are all clear; the rest are blocked by walls and furniture in the way. **Escalation (Joshua):** no pathfinding, and perception has no line-of-sight check, so a model can pick furniture it cannot walk to. **Joshua, 2026-10-18:** leave it for now; revisit after the real-ML run (also raised by CodeRabbit on PR 107).
 - **T6 verification (2026-10-18):** AgentHarness 113/113 (7 new). In-engine, office, through the real loop:
   - `sit` holds a chair; a second avatar's `sit` is rejected "occupied"; the chair is released after the hold;
   - `use` holds a desk, then releases it;

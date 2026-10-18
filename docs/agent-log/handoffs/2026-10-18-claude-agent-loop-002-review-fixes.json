@@ -15,20 +15,20 @@
     "work_in_progress": [],
     "blockers": [],
     "decisions_made": [
-      "A governance denial still stops the avatar (IdleController) as before; it now also frees what it held rather than preserving the interaction."
+      "A governance denial still stops the avatar (IdleController) as before; it now also frees what it held rather than preserving the interaction.",
+      "Joshua, 2026-10-18: furniture-target reachability (CodeRabbit's InteriorAnchors.cs finding; the pathfinding escalation) is left as is for now and revisited after his local run with the real model. No navmesh, clear-path rejection or perception filter in this PR."
     ],
-    "decisions_pending": [
-      "Joshua: CodeRabbit's fourth finding (InteriorAnchors.cs) asks for travel reachability before a furniture target is admitted. This is the open pathfinding escalation from T3/T5. Not changed; the options are on the PR thread."
-    ],
+    "decisions_pending": [],
     "escalations": [
-      "Pathfinding / line-of-travel, as in the T6 handoff, now also raised by CodeRabbit on PR 107."
+      "Pathfinding / line-of-travel: deferred by Joshua until after the real-ML run."
     ],
     "next_agent_notes": "In-engine check (office, temporary node, not committed): sit desk_chair_1, then submit a 'wait' through IntentIngress with a gate that denies. Before the fix the result was rejected and the chair stayed occupied to others, held by the avatar. After the fix it is rejected, the chair is free, nothing is held and activity is 'active'. Then sit again and QueueFree the avatar. Before the fix the chair stayed occupied; after the fix it is free. Launch needs NLT_AGENT_LOOP_ENABLED=1 (any endpoint) for the local avatar to exist.",
     "files_modified": [
       "world-engine-godot/Agents/AvatarCharacter.cs",
       "world-engine-godot/Agents/IntentIngress.cs",
       "world-engine-godot/Main.cs",
-      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-review-fixes.json"
+      "docs/agent-log/handoffs/2026-10-18-claude-agent-loop-002-review-fixes.json",
+      "docs/active-threads.md"
     ],
     "tests_run": [
       "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
