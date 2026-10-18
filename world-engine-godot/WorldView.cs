@@ -264,12 +264,32 @@ public partial class WorldView : Node3D
 	/// terrain, building and edge-wall bodies would stay in the physics space and overlap the
 	/// interior room, which is instanced at the same origin. Disabling processing removes them
 	/// (<c>CollisionObject3D.DisableMode</c> defaults to Remove) until the world is shown again.
+	///
+	/// Physics stays where the live bodies are: while <see cref="OpenWorldBodiesLive"/> (the Fusion
+	/// tour's avatar walks the open world), showing an interior keeps the open world's bodies in the
+	/// physics space and makes the interior display-only, so the avatar is not left standing on
+	/// nothing — it walked off the room and fell through the sea bed when the open world was removed.
 	/// </summary>
 	private void SetOpenWorldActive(bool active)
 	{
 		_openWorld.Visible = active;
-		_openWorld.ProcessMode = active ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
+		bool openPhysics = active || OpenWorldBodiesLive;
+		_openWorld.ProcessMode = openPhysics ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
+		_interior.ProcessMode = active || !openPhysics ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
 		SyncAvatarGround();
+	}
+
+	/// <summary>
+	/// True while live physics bodies walk the open world. <c>Main</c> overrides this for its
+	/// avatars; the base world has none.
+	/// </summary>
+	protected virtual bool OpenWorldBodiesLive => false;
+
+	/// <summary>Re-apply the physics split after live bodies appear or disappear.</summary>
+	protected void RefreshWorldPhysics()
+	{
+		if (_openWorld != null && _interior != null)
+			SetOpenWorldActive(_openWorld.Visible);
 	}
 
 	/// <summary>Name of the flat y = 0 safety floor <c>Main</c> adds for live avatars.</summary>
@@ -278,13 +298,16 @@ public partial class WorldView : Node3D
 	/// <summary>
 	/// The safety floor is a 500 m sheet at sea level. In the open world it laid a solid surface
 	/// across the lake and the sea, so avatars walked on water; the terrain body is the ground there
-	/// now, and <see cref="TerrainBuilderPhysics.KillY"/> catches anything that falls through. Inside
-	/// an interior it stays on as a backstop under the level's own UCX floor.
+	/// now, and <see cref="TerrainBuilderPhysics.KillY"/> catches anything that falls through. It is
+	/// on only while the open world's bodies are out of the physics space, as a backstop under an
+	/// interior's own UCX floor.
 	/// </summary>
 	protected void SyncAvatarGround()
 	{
 		if (GetNodeOrNull<StaticBody3D>(AvatarGroundName) is { } ground && _openWorld != null)
-			ground.ProcessMode = _openWorld.Visible ? ProcessModeEnum.Disabled : ProcessModeEnum.Inherit;
+			ground.ProcessMode = _openWorld.ProcessMode == ProcessModeEnum.Disabled
+				? ProcessModeEnum.Inherit
+				: ProcessModeEnum.Disabled;
 	}
 
 	/// <summary>Look at an interior instance from above, sized to its own footprint.</summary>
@@ -840,6 +863,8 @@ public partial class WorldView : Node3D
 		var water = WaterBuilder.Build();
 		_waterMat = (ShaderMaterial)water.MaterialOverride;
 		_openWorld.AddChild(water);
+		// The water mesh is visual only; this is what keeps avatars on the shore.
+		_openWorld.AddChild(TerrainBuilderPhysics.WaterBarrier());
 
 		// --- Settlement + Vegetation ---
 		var rng = new SimulationRng((uint)WorldConstants.Seed);

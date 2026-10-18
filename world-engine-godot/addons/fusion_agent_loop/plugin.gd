@@ -62,10 +62,25 @@ var _start_button: Button
 var _stop_button: Button
 var _log_view: TextEdit
 
+## The server's stdout/stderr go to this file, not to a pipe. With a pipe, once the editor's
+## PeekNamedPipe-based read failed ("Condition !PeekNamedPipe(...) is true") nothing drained it,
+## the pipe filled, and uvicorn's next log write blocked the whole server: it kept listening on the
+## port but never answered. A file never fills, and the dock tails it instead.
+const SERVER_LOG := "user://fusion_agent_loop_server.log"
+
+## Runs the Fusion module exactly as `-m` would, with stdout/stderr (including native writes on
+## fds 1 and 2, e.g. from llama.cpp) appended to the log named in argv[1]. The log is opened per
+## write, never held: in the editor Godot reads files with _SH_DENYWR, which fails outright while
+## another process holds the file open for writing — the dock then never saw a single line.
+const LAUNCHER := "res://addons/fusion_agent_loop/launch_server.py"
+
+const TAIL_INTERVAL := 0.5
+
 var _server_pid := -1
-var _stdout: FileAccess = null
-var _stderr: FileAccess = null
-var _log_partial := ""
+var _log_path := ""
+var _log_offset := 0
+var _tail_timer := 0.0
+var _server_bound := false
 
 
 func _enter_tree() -> void:
@@ -153,48 +168,62 @@ func _enter_tree() -> void:
 	_refresh_status()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _server_pid == -1:
 		return
 
-	# Drain both pipes non-blocking. execute_with_pipe is non-blocking here, so this cannot stall
-	# the editor; an empty read just means no new output yet.
-	_log_partial += _read_pipe(_stdout)
-	_log_partial += _read_pipe(_stderr)
-	if not _log_partial.is_empty() and _log_view:
-		_log_view.text += _log_partial
-		_log_partial = ""
+	_tail_timer += delta
+	if _tail_timer < TAIL_INTERVAL:
+		return
+	_tail_timer = 0.0
+	var fresh := _tail_log()
+	_append_log(fresh)
+	# uvicorn prints this once the socket is bound. Until then the server is only a process; after
+	# it, Play will get answers. The status line is the one place that has to say which.
+	if not _server_bound and fresh.contains("Uvicorn running on"):
+		_server_bound = true
+		_refresh_status()
 
 	# The editor would otherwise keep showing "running" for a server that died on its own —
 	# which is what a wrong interpreter or a port clash looks like from in here.
 	if not OS.is_process_running(_server_pid):
 		_server_pid = -1
-		_close_pipes()
-		if _log_view:
-			_log_view.text += "\n[server exited before binding — check the repo path above and " \
-				+ "whether port %s is already taken]" % _port()
+		_server_bound = false
+		_append_log(_tail_log())
+		_append_log("\n[server exited — check the repo path above and whether port %s is already taken]" % _port())
 		_refresh_status()
 
 
-## Read whatever is available on a pipe, tolerating no-data and closed-pipe conditions.
-func _read_pipe(pipe: FileAccess) -> String:
-	if pipe == null:
+## New bytes appended to the server log since the last read. Opened and closed each time, so the
+## server keeps exclusive ownership of nothing and a missing file just means no output yet.
+func _tail_log() -> String:
+	if _log_path.is_empty() or not FileAccess.file_exists(_log_path):
 		return ""
-	var available := int(pipe.get_length())
-	if available <= 0:
+	var file := FileAccess.open(_log_path, FileAccess.READ)
+	if file == null:
 		return ""
-	var buffer := pipe.get_buffer(available)
-	if buffer.size() == 0:
-		return ""
-	return buffer.get_string_from_utf8()
+	var length := int(file.get_length())
+	var text := ""
+	if length > _log_offset:
+		file.seek(_log_offset)
+		text = file.get_buffer(length - _log_offset).get_string_from_utf8()
+		_log_offset = length
+	file.close()
+	return text
 
 
-func _close_pipes() -> void:
-	for pipe in [_stdout, _stderr]:
-		if pipe != null:
-			pipe.close()
-	_stdout = null
-	_stderr = null
+## Append to the dock log, keeping only the tail so a long-running server cannot grow it unbounded.
+func _append_log(text: String) -> void:
+	if text.is_empty() or _log_view == null:
+		return
+	var combined := _log_view.text + text
+	if combined.length() > 20000:
+		combined = combined.right(20000)
+	_log_view.text = combined
+	# Assigning .text leaves the view at the top, where the wrapped "Waiting for uvicorn to bind..."
+	# banner fills the box — so new server output landed below the fold and the dock looked stuck.
+	_log_view.set_caret_line(_log_view.get_line_count() - 1)
+	_log_view.adjust_viewport_to_caret()
 
 
 func _exit_tree() -> void:
@@ -344,10 +373,10 @@ func _on_start_pressed() -> void:
 	var model: String = _model_edit.text.strip_edges() if _model_edit else ""
 
 	# Godot 4.4/4.7 OS.create_process takes only (path, arguments, open_console): it cannot set a
-	# working directory, pass environment, or redirect output. execute_with_pipe does support
-	# piped stdio, and the child's environment is the editor's, so the Fusion variables are set
-	# on the editor process first and inherited by the child. They are restored afterwards so the
-	# editor itself is not left mutated.
+	# working directory, pass environment, or redirect output. The child's environment is the
+	# editor's, so the Fusion variables are set on the editor process first and inherited by the
+	# child, then restored so the editor itself is not left mutated. Output redirection is done
+	# inside the child by LAUNCHER.
 	var previous_model := OS.get_environment(MODEL_KEY)
 	var previous_port := OS.get_environment(PORT_KEY)
 	var previous_pythonpath := OS.get_environment(PYTHONPATH_KEY)
@@ -371,25 +400,31 @@ func _on_start_pressed() -> void:
 	var pythonpath_value := repo if previous_pythonpath.is_empty() else repo + path_sep + previous_pythonpath
 	OS.set_environment(PYTHONPATH_KEY, pythonpath_value)
 
-	var args := PackedStringArray(["-m", FUSION_MODULE])
-	var proc := OS.execute_with_pipe(python, args, false)
+	# Start each run with an empty log so the dock shows this server, not the last one.
+	_log_path = ProjectSettings.globalize_path(SERVER_LOG)
+	var truncate := FileAccess.open(_log_path, FileAccess.WRITE)
+	if truncate != null:
+		truncate.close()
+	_log_offset = 0
+	_tail_timer = 0.0
+	_server_bound = false
+
+	var args := PackedStringArray(["-u", ProjectSettings.globalize_path(LAUNCHER), _log_path, FUSION_MODULE])
+	var pid := OS.create_process(python, args, false)
 	_restore_server_env(had_model, previous_model, previous_port, previous_pythonpath)
 
-	if proc.is_empty():
+	if pid <= 0:
 		_set_log("Failed to launch:\n%s\n\nCheck the interpreter path." % python)
 		_server_pid = -1
 		_refresh_status()
 		return
 
-	_server_pid = int(proc.get("pid", -1))
-	_stdout = proc.get("stdio", null)
-	_stderr = proc.get("stderr", null)
-	_log_partial = ""
+	_server_pid = pid
 
 	# A pid is returned even when the module fails to import, so a wrong repo path shows up as a
 	# fast exit rather than a launch failure. Naming the checkout makes that case self-evident in
 	# the log instead of requiring a guess from a bare process id.
-	_set_log("Started Fusion endpoint (pid %d) from:\n%s\n\nWaiting for uvicorn to bind..." % [_server_pid, repo])
+	_set_log("Started Fusion endpoint (pid %d) from:\n%s\nLog: %s\n\nWaiting for uvicorn to bind...\n" % [_server_pid, repo, _log_path])
 	_refresh_status()
 
 
@@ -418,9 +453,19 @@ func _on_stop_pressed() -> void:
 
 func _stop_server() -> void:
 	if _server_pid != -1 and OS.is_process_running(_server_pid):
-		OS.kill(_server_pid)
+		_kill_tree(_server_pid)
 	_server_pid = -1
-	_close_pipes()
+	_server_bound = false
+
+
+## A venv's python.exe on Windows is a launcher that starts the real interpreter as a child, so
+## OS.kill(pid) stopped only the launcher and left the real server holding the port ("address
+## already in use" on the next Start). taskkill /T takes the whole tree.
+func _kill_tree(pid: int) -> void:
+	if OS.get_name() == "Windows":
+		OS.execute("taskkill", PackedStringArray(["/PID", str(pid), "/T", "/F"]))
+	else:
+		OS.kill(pid)
 
 
 func _set_log(text: String) -> void:
@@ -452,7 +497,10 @@ func _refresh_status() -> void:
 	if _toggle.button_pressed:
 		_status.text = "Set for this editor session. Press Play."
 		if _server_pid != -1 and OS.is_process_running(_server_pid):
-			_status.text = "Loop enabled, Fusion running (pid %d)." % _server_pid
+			if _server_bound:
+				_status.text = "Loop enabled, Fusion listening on :%s. Press Play." % _port()
+			else:
+				_status.text = "Loop enabled, Fusion starting (pid %d)..." % _server_pid
 		else:
 			_status.text = "Loop enabled. Start Fusion, or it will stay on the model-free fallback."
 	else:
