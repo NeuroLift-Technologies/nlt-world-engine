@@ -863,6 +863,8 @@ public partial class WorldView : Node3D
 		var water = WaterBuilder.Build();
 		_waterMat = (ShaderMaterial)water.MaterialOverride;
 		_openWorld.AddChild(water);
+		// The water mesh is visual only; this is what keeps avatars on the shore.
+		_openWorld.AddChild(TerrainBuilderPhysics.WaterBarrier());
 
 		// --- Settlement + Vegetation ---
 		var rng = new SimulationRng((uint)WorldConstants.Seed);
