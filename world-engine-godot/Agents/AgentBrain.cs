@@ -139,6 +139,8 @@ public partial class AgentBrain : CharacterBody3D
 
         // 5. Let Jolt resolve collisions.
         MoveAndSlide();
+        if (OS.HasEnvironment("NLT_DEBUG_FALL") && Engine.GetPhysicsFrames() % 30 == 0)
+            GD.Print($"FALLDBG f={Engine.GetPhysicsFrames()} pos={GlobalPosition} ground={WorldGeometry.HeightAt(GlobalPosition.X, GlobalPosition.Z):F2} floor={IsOnFloor()} scene={SceneId}");
 
         // 6. Kill-plane: tunnelling past every body (or a level with no collision at all) must
         //    end standing on the terrain, not falling forever. Same XZ clamped to the island so
