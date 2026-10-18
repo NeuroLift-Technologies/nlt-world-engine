@@ -223,13 +223,13 @@ public static class AnchorAffordances
         => !anchor.IsPortal && anchor.IsFull && !anchor.IsOccupiedBy(agentId);
 
     /// <summary>
-    /// Execution-time check for <c>use</c> and <c>sit</c>: the target must be an anchor in the
+    /// Execution-time check for <c>use</c>, <c>sit</c> and a targeted <c>rest</c>: the target must be an anchor in the
     /// agent's scene, afford the verb, and be free. Returns null when execution may proceed, else the
     /// rejection reason. Other verbs only need the target to exist, which the caller checks.
     /// </summary>
     public static string? Recheck(IReadOnlyList<TaskAnchor> sceneAnchors, string targetId, string verb, string agentId)
     {
-        if (verb is not ("use" or "sit"))
+        if (verb is not ("use" or "sit" or "rest"))
             return null;
         TaskAnchor? anchor = null;
         foreach (var a in sceneAnchors)

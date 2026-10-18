@@ -238,6 +238,23 @@ Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observe
 
 ## T6 — Interaction execution (`sit`, `use`, `rest`, `look_at`)
 
+**Status: delivered 2026-10-18, except acceptance 4.** `use` only occupies (the default; Joshua's question is still open).
+
+- **Lifecycle.** `sit`/`use`/targeted `rest` on furniture reserve the anchor at ingress (after its affordance and occupancy re-check), walk to its approach point, and on arrival face the object and hold: sit 8 s, rest 12 s, use 5 s of simulation time. Then they release it and return to the wander fallback.
+- **Interruptions.** Any new intent ends the interaction and frees the object. `wait` carries on (Fusion decides every 2 s), and a repeat of the same interaction carries on rather than restarting.
+- **`look_at`.** The avatar turns to face the object's centre (`FacePoint`, not the approach point) and holds 2 s without moving.
+- **Targeted `rest`.** It needs something that affords rest (a bed or a sofa).
+- **No position writes.** The avatar stays where it arrived, beside the object. When a hold starts the held movement is dropped so it decelerates at once.
+- **Pose.** There are no seated or lying animations (GRAPH-001 G1), so the pose shows as facing, holding still, and the avatar's label word (`sitting`, `resting`, `using`, `looking`).
+- **Perception.** The holder sees its own chair `occupied: false`; others see `true`. Pose is not reported (§0 default).
+
+**Measured in-engine (office, through the real loop):**
+- **`sit desk_chair_1`.** Sitting, reserved, facing the chair within 0.0°. A second avatar sees it occupied, and its `sit` through ingress is rejected "target 'desk_chair_1' is occupied". After the hold it is released and the avatar walks off.
+- **`use desk_2`.** Held, then released.
+- **`look_at desk_1`.** Turned from 55° off to 0.0°, moved 0.00 m.
+- **Screenshots.** `t6-sitting.png`, `t6-look-at.png`.
+- **Not done here: acceptance 4**, a model-driven run with the Qwen 0.6B path. It needs `neurolift-ai-fusion` and its model, which are not available in this environment. Run it on the dev PC.
+
 Depends on T5. **Needs Joshua's answer first:** should `use` change anything physical (a door opens, a light turns on) or only occupy the object? Default if unanswered: occupy only.
 
 **Do**

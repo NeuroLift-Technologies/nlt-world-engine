@@ -161,8 +161,22 @@ public sealed class IntentIngress
         }
 
         // 4. Apply: verb → locomotion only. Speed/accel/collision stay engine-owned; a doorway's
-        //    transition runs on arrival.
-        avatar.ApplyIntent(intent.Verb, resolved, onArrival);
+        //    transition runs on arrival. Sitting on, resting on or using an object reserves it now
+        //    and holds it on arrival (AGENT-LOOP-002 T6); `use` only occupies it (the default while
+        //    Joshua's question on world-state effects is open).
+        if (onArrival == null && intent.Verb is "sit" or "use" or "rest"
+            && SceneAnchor(avatar, intent.TargetId) is { IsPortal: false } held)
+        {
+            if (!avatar.ApplyInteraction(intent.Verb, held))
+                return reject($"target '{intent.TargetId}' is occupied");
+        }
+        else
+        {
+            // look_at faces the object itself: an anchor's position is the approach point beside it.
+            if (intent.Verb == "look_at" && SceneAnchor(avatar, intent.TargetId)?.FacePoint is { } face)
+                resolved = face;
+            avatar.ApplyIntent(intent.Verb, resolved, onArrival);
+        }
 
         var accepted = new IntentExecutionResult
         {
@@ -187,10 +201,14 @@ public sealed class IntentIngress
 
     /// <summary>The doorway link of <paramref name="targetId"/> in the avatar's scene, or null.</summary>
     private PortalLink? PortalTarget(AvatarCharacter avatar, string? targetId)
+        => SceneAnchor(avatar, targetId)?.Link;
+
+    /// <summary>The anchor <paramref name="targetId"/> names in the avatar's scene, or null.</summary>
+    private TaskAnchor? SceneAnchor(AvatarCharacter avatar, string? targetId)
     {
         foreach (var anchor in _anchorsFor(avatar.SceneId))
             if (anchor.Id == targetId)
-                return anchor.Link;
+                return anchor;
         return null;
     }
 

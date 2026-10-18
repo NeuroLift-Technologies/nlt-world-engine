@@ -59,9 +59,93 @@ public partial class AvatarCharacter : AgentBrain
             Vector3.Zero,
             Velocity,
             DisplayName,
-            "active",
+            _activity,
             ReducedMotion);
+        // While interacting, face the object even as the last of the walk decelerates: Sync turns
+        // the visual to the direction of travel while there is any.
+        if (_facePoint is { } face)
+            FaceToward(face);
     }
+
+    // --- Interaction (AGENT-LOOP-002 T6) ---------------------------------------------------------
+    // reserve on accept -> walk -> on arrival face the object and hold -> release -> autonomy.
+    // Nothing here writes position: the avatar stays where it arrived, beside the object (the
+    // anchor's approach point). There are no seated or lying animations yet (character animation is
+    // blocked on GRAPH-001 G1), so the pose shows as facing, holding still, and the label's word.
+
+    /// <summary>How long each interaction holds, in seconds of simulation time.</summary>
+    public const float SitSeconds = 8f, RestSeconds = 12f, UseSeconds = 5f, LookSeconds = 2f;
+
+    private string _activity = "active";
+    private TaskAnchor? _heldAnchor;
+    private string? _heldVerb;
+    private Vector3? _facePoint;
+
+    /// <summary>What the avatar is doing: active, sitting, resting, using or looking. Shown on its label.</summary>
+    public string Activity => _activity;
+
+    /// <summary>The anchor this avatar holds while sitting, resting or using it, or null.</summary>
+    public TaskAnchor? HeldAnchor => _heldAnchor;
+
+    /// <summary>
+    /// Sit on, rest on or use <paramref name="anchor"/>: reserve it now, walk to its approach point,
+    /// then hold there facing the object. Returns false, changing nothing, if someone else holds it.
+    /// Called by ingress after its affordance and occupancy re-check.
+    /// </summary>
+    public bool ApplyInteraction(string verb, TaskAnchor anchor)
+    {
+        // The same interaction again (a model repeating itself each decision) carries on rather than
+        // restarting the walk or the hold.
+        if (_heldAnchor == anchor && _heldVerb == verb)
+            return true;
+        EndInteraction();
+        _heldVerb = verb;
+        if (!anchor.Reserve(AgentId))
+            return false;
+        _heldAnchor = anchor;
+        var toTarget = anchor.Position - GlobalPosition;
+        toTarget.Y = 0f;
+        const float ArrivalRadius = 1f;
+        if (toTarget.LengthSquared() > ArrivalRadius * ArrivalRadius)
+            Attach(new IntentMoveController(anchor.Position, verb, ArrivalRadius, _ => BeginHold(verb, anchor)));
+        else
+            BeginHold(verb, anchor);
+        return true;
+    }
+
+    private void BeginHold(string verb, TaskAnchor anchor)
+    {
+        if (_heldAnchor != anchor)
+            return;
+        _facePoint = anchor.FacePoint ?? anchor.Position;
+        _activity = verb switch { "sit" => "sitting", "rest" => "resting", _ => "using" };
+        float seconds = verb switch { "sit" => SitSeconds, "rest" => RestSeconds, _ => UseSeconds };
+        DropHeldDecision();
+        Attach(new InteractionController(HoldTicks(seconds), () =>
+        {
+            EndInteraction();
+            Attach(WanderFallback());
+        }));
+    }
+
+    /// <summary>Release whatever the avatar holds and stop facing it. Safe to call when idle.</summary>
+    private void EndInteraction()
+    {
+        _heldAnchor?.Release(AgentId);
+        _heldAnchor = null;
+        _heldVerb = null;
+        _facePoint = null;
+        _activity = "active";
+    }
+
+    private void FaceToward(Vector3 point)
+    {
+        var to = point - GlobalPosition;
+        if (new Vector2(to.X, to.Z).LengthSquared() > 0.0001f)
+            _resident.Rotation = new Vector3(0f, Mathf.Atan2(to.X, to.Z), 0f);
+    }
+
+    private static int HoldTicks(float seconds) => Mathf.Max(1, Mathf.RoundToInt(seconds * Engine.PhysicsTicksPerSecond));
 
     /// <summary>
     /// Engine-side entry point for a validated <c>nlt.agent-loop.v1</c> semantic intent.
@@ -78,6 +162,27 @@ public partial class AvatarCharacter : AgentBrain
     /// already standing there (AGENT-LOOP-002 T3: <c>use</c> on a doorway transitions on arrival).</param>
     public void ApplyIntent(string verb, Vector3? resolvedTargetPosition = null, Action? onArrival = null)
     {
+        // 'wait' carries on with an interaction under way — walking to a chair or sitting on it.
+        // Fusion decides every couple of seconds, so a wait would otherwise stand the avatar up
+        // almost as soon as it sat. Any other intent ends the interaction and frees what it held.
+        if (verb == "wait" && (_heldAnchor != null || _facePoint != null))
+            return;
+        EndInteraction();
+
+        // look_at: turn to face the target where the avatar stands, hold a moment, then carry on.
+        if (verb == "look_at" && resolvedTargetPosition.HasValue)
+        {
+            _facePoint = resolvedTargetPosition.Value;
+            _activity = "looking";
+            DropHeldDecision();
+            Attach(new InteractionController(HoldTicks(LookSeconds), () =>
+            {
+                EndInteraction();
+                Attach(WanderFallback());
+            }));
+            return;
+        }
+
         // Map semantic verbs to locomotion directions.
         // "approach" → move toward the resolved target.
         // "rest" / "wait" → hold still (Idle).
@@ -123,6 +228,7 @@ public partial class AvatarCharacter : AgentBrain
     /// </summary>
     protected override void OnPlaced(Vector3 facing)
     {
+        EndInteraction();
         if (new Vector2(facing.X, facing.Z).LengthSquared() > 0.0001f)
             _resident.Rotation = new Vector3(0f, Mathf.Atan2(facing.X, facing.Z), 0f);
         Attach(WanderFallback());
@@ -190,6 +296,38 @@ internal sealed class IntentMoveController : IAgentController
 
     public void OnActionRejected(in AgentObservation observation, in AgentAction action, string reason)
         => GD.PushWarning($"[IntentMoveController:{_verb}] rejected: {reason}");
+}
+
+/// <summary>
+/// Holds the agent still for a number of physics ticks — sitting, resting, using or looking — then
+/// hands back exactly once (AGENT-LOOP-002 T6). Counts from the first tick it is asked about.
+/// </summary>
+internal sealed class InteractionController : IAgentController
+{
+    private readonly int _holdTicks;
+    private Action? _onDone;
+    private int? _startTick;
+
+    public InteractionController(int holdTicks, Action onDone)
+    {
+        _holdTicks = holdTicks;
+        _onDone = onDone;
+    }
+
+    public void Attach(string agentId) { }
+
+    public AgentAction Act(AgentObservation observation)
+    {
+        _startTick ??= observation.Tick;
+        if (observation.Tick - _startTick.Value >= _holdTicks && _onDone is { } done)
+        {
+            _onDone = null;
+            done();
+        }
+        return AgentAction.Idle;
+    }
+
+    public void OnActionRejected(in AgentObservation observation, in AgentAction action, string reason) { }
 }
 
 /// <summary>Controller that keeps the agent still. Used when a non-targeted intent arrives.</summary>

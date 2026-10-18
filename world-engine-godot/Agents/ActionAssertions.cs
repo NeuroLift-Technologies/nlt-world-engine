@@ -38,6 +38,7 @@ public static class ActionAssertions
         DoorsAndExits();
         SceneTransitions();
         InteriorFurniture();
+        Interactions();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
@@ -260,6 +261,44 @@ public static class ActionAssertions
         var room = sets.For("social_3");
         Check(room.Count == 4 && room[0].IsPortal && room.Skip(1).SequenceEqual(built),
             "a room's set is its exit followed by its furniture");
+    }
+
+    /// <summary>
+    /// Interaction execution's engine-free parts (AGENT-LOOP-002 T6): a hold lasts its ticks and hands
+    /// back once; a targeted rest needs something to rest on; a held object is occupied to everyone
+    /// but its holder. The avatar's own lifecycle is checked by running the scene.
+    /// </summary>
+    private static void Interactions()
+    {
+        Console.WriteLine("\n[interaction execution]");
+
+        var done = 0;
+        var hold = new InteractionController(120, () => done++);
+        var idleThroughout = true;
+        for (var tick = 1000; tick < 1300; tick += 30)
+        {
+            idleThroughout &= hold.Act(new AgentObservation("avatar_1", Vector3.Zero, Vector3.Zero,
+                new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "social_3", tick)).MoveDirection == Vector3.Zero;
+            if (tick == 1090)
+                Check(done == 0, "a 120-tick hold has not ended after 90 ticks");
+        }
+        Check(done == 1 && idleThroughout, "it ends once after its ticks, holding still throughout");
+
+        var bed = new TaskAnchor("bed_1", "Bed", AffordanceAxes.Neutral) { Affords = new[] { "sit", "rest" }, Kind = "object" };
+        var chair = new TaskAnchor("chair_1", "Chair", AffordanceAxes.Neutral) { Affords = new[] { "sit" }, Kind = "object" };
+        var room = new List<TaskAnchor> { bed, chair };
+        Check(AnchorAffordances.Recheck(room, "bed_1", "rest", "avatar_1") == null, "rest on a bed is accepted");
+        Check(AnchorAffordances.Recheck(room, "chair_1", "rest", "avatar_1") == "target 'chair_1' does not afford 'rest'",
+            "rest on a chair is rejected: a targeted rest needs something to rest on");
+
+        chair.Reserve("avatar_1");
+        Check(!PerceptionBuilder.VisiblePlaces("avatar_1", Vector3.Zero, room).Find(e => e.Id == "chair_1")!.Occupied
+            && PerceptionBuilder.VisiblePlaces("avatar_2", Vector3.Zero, room).Find(e => e.Id == "chair_1")!.Occupied,
+            "a chair in use is free to its holder and occupied to everyone else");
+        Check(AnchorAffordances.Recheck(room, "chair_1", "sit", "avatar_2") == "target 'chair_1' is occupied",
+            "a second avatar's sit on it is rejected 'occupied'");
+        chair.Release("avatar_1");
+        Check(AnchorAffordances.Recheck(room, "chair_1", "sit", "avatar_2") == null, "once released, the chair is free again");
     }
 
     private static void Check(bool condition, string what)

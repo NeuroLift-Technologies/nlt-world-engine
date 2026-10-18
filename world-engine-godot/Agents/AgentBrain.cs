@@ -134,6 +134,13 @@ public partial class AgentBrain : CharacterBody3D
     protected virtual void OnPlaced(Vector3 facing) { }
 
     /// <summary>
+    /// Stop executing the held decision now rather than at the next controller poll (up to
+    /// <see cref="DecisionInterval"/> later). The body decelerates through the locomotion ramp as
+    /// usual — nothing is placed. Used when an interaction starts holding still (AGENT-LOOP-002 T6).
+    /// </summary>
+    protected void DropHeldDecision() => _decision = default;
+
+    /// <summary>
     /// The single placement path: position, zero velocity, locomotion reset, and the held decision
     /// cleared so the last move does not keep playing from the new spot.
     /// </summary>
