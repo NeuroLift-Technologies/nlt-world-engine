@@ -76,6 +76,25 @@ public partial class WorldViewHud : Control
             return;
 
         DrawSceneStrip(ThemeDB.FallbackFont, _a11y.Palette, _feed.Current, GetViewportRect().Size);
+        if (_world.ViewNotice is { } notice)
+            DrawNotice(ThemeDB.FallbackFont, _a11y.Palette, notice, GetViewportRect().Size);
+    }
+
+    /// <summary>
+    /// The world's note about the view (peeking into a room, or a door that cannot be used now), just
+    /// under the scene strip, so a refused click is never silent.
+    /// </summary>
+    private void DrawNotice(Font font, Palette p, string text, Vector2 viewport)
+    {
+        int size = _a11y.Font(Ui.SmallFont);
+        var s = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
+        float stripHeight = font.GetHeight(size) + 10f;
+        var bg = new Rect2(new Vector2((viewport.X - s.X - 16f) * 0.5f, TopBarHeight + 8f + stripHeight + 6f),
+            s + new Vector2(16, 10));
+        DrawRect(bg, p.Backdrop with { A = 0.85f });
+        DrawRect(bg, p.Warn, false, 1f);
+        DrawString(font, new Vector2(bg.Position.X + 8, bg.Position.Y + s.Y + 1), text,
+            HorizontalAlignment.Left, -1, size, p.Text);
     }
 
     private void DrawSceneStrip(Font font, Palette p, StateFeed? doc, Vector2 viewport)

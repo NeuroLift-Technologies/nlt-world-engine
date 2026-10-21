@@ -719,16 +719,38 @@ public partial class WorldView : Node3D
 	/// True while something other than the spectator owns the displayed scene. <c>Main</c> overrides
 	/// it for the agent loop, where the view follows the avatar (AGENT-LOOP-002 T1). Every spectator
 	/// doorway ends in <see cref="Activate"/> or the exit branch of <see cref="EnterOrExit"/>, and
-	/// both check it, so only a click or key press that would really use a door is refused.
+	/// while this is true both hand the door to <see cref="SpectatorDoor"/> instead of using it.
 	/// </summary>
 	protected virtual bool SpectatorDoorsLocked => false;
 
-	private bool RefuseLockedDoor()
+	/// <summary>
+	/// A spectator used a doorway while <see cref="SpectatorDoorsLocked"/>: <paramref name="sceneId"/>
+	/// is the room behind it, or "" for the way out. Returns true when the view changed. The base
+	/// world refuses; <c>Main</c> lets the spectator look inside without moving the avatar.
+	/// </summary>
+	protected virtual bool SpectatorDoor(string sceneId, string kind)
 	{
-		if (!SpectatorDoorsLocked)
-			return false;
-		GD.Print("WorldView: doorways are locked while the agent loop runs; the view follows the avatar's scene.");
-		return true;
+		GD.Print("WorldView: doorways are locked; the view follows the scene's owner.");
+		return false;
+	}
+
+	private string? _viewNotice;
+	private ulong _viewNoticeUntilMs;
+
+	/// <summary>
+	/// One line telling the spectator why the view is what it is (peeking into a room, or a door that
+	/// cannot be used now), or null. Drawn by the observer under the scene strip.
+	/// </summary>
+	public string? ViewNotice
+		=> _viewNotice != null && (_viewNoticeUntilMs == 0 || Time.GetTicksMsec() < _viewNoticeUntilMs)
+			? _viewNotice
+			: null;
+
+	/// <summary>Show <paramref name="text"/> as the <see cref="ViewNotice"/>: for a few seconds, or until replaced.</summary>
+	protected void SetViewNotice(string? text, double seconds = 0)
+	{
+		_viewNotice = text;
+		_viewNoticeUntilMs = seconds > 0 ? Time.GetTicksMsec() + (ulong)(seconds * 1000) : 0;
 	}
 
 	/// <summary>Activate the doorway the pointer clicked, if the click landed on one.</summary>
@@ -776,8 +798,8 @@ public partial class WorldView : Node3D
 	{
 		if (_interior.Visible)
 		{
-			if (RefuseLockedDoor())
-				return false;
+			if (SpectatorDoorsLocked)
+				return SpectatorDoor("", SceneCatalog.OpenWorldKind);
 			ShowScene("", SceneCatalog.OpenWorldKind);
 			return true;
 		}
@@ -798,11 +820,13 @@ public partial class WorldView : Node3D
 		return Activate(best);
 	}
 
-	/// <summary>Step through <paramref name="portal"/>. False when the doors are locked.</summary>
+	/// <summary>Step through <paramref name="portal"/>. False when the view did not change.</summary>
 	private bool Activate(Portal portal)
 	{
-		if (RefuseLockedDoor())
-			return false;
+		if (SpectatorDoorsLocked)
+			return portal.SceneId.Length == 0
+				? SpectatorDoor("", SceneCatalog.OpenWorldKind)
+				: SpectatorDoor(portal.SceneId, SceneCatalog.InteriorKind);
 		if (portal.SceneId.Length == 0)
 			ShowScene("", SceneCatalog.OpenWorldKind);   // the return door
 		else

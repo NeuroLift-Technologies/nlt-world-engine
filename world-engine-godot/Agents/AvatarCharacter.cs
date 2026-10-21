@@ -80,6 +80,7 @@ public partial class AvatarCharacter : AgentBrain
     private TaskAnchor? _heldAnchor;
     private string? _heldVerb;
     private Vector3? _facePoint;
+    private bool _enRoute;
 
     /// <summary>What the avatar is doing: active, sitting, resting, using or looking. Shown on its label.</summary>
     public string Activity => _activity;
@@ -128,9 +129,13 @@ public partial class AvatarCharacter : AgentBrain
         }));
     }
 
-    /// <summary>Release whatever the avatar holds and stop facing it. Safe to call when idle.</summary>
+    /// <summary>
+    /// Release whatever the avatar holds, stop facing it, and forget any walk to a target: every
+    /// caller is about to replace the controller that walk ran on. Safe to call when idle.
+    /// </summary>
     private void EndInteraction()
     {
+        _enRoute = false;
         _heldAnchor?.Release(AgentId);
         _heldAnchor = null;
         _heldVerb = null;
@@ -180,10 +185,11 @@ public partial class AvatarCharacter : AgentBrain
     /// already standing there (AGENT-LOOP-002 T3: <c>use</c> on a doorway transitions on arrival).</param>
     public void ApplyIntent(string verb, Vector3? resolvedTargetPosition = null, Action? onArrival = null)
     {
-        // 'wait' carries on with an interaction under way — walking to a chair or sitting on it.
-        // Fusion decides every couple of seconds, so a wait would otherwise stand the avatar up
-        // almost as soon as it sat. Any other intent ends the interaction and frees what it held.
-        if (verb == "wait" && (_heldAnchor != null || _facePoint != null))
+        // 'wait' carries on with whatever is under way — walking to a target, or walking to a chair
+        // and sitting on it. Fusion decides every couple of seconds, so a wait would otherwise stop
+        // the avatar short of every target and stand it up almost as soon as it sat. Any other
+        // intent ends the interaction and frees what it held.
+        if (verb == "wait" && (_heldAnchor != null || _facePoint != null || _enRoute))
             return;
         EndInteraction();
 
@@ -201,15 +207,8 @@ public partial class AvatarCharacter : AgentBrain
             return;
         }
 
-        // Map semantic verbs to locomotion directions.
-        // "approach" → move toward the resolved target.
-        // "rest" / "wait" → hold still (Idle).
-        // "sit" / "use" → move to target; interaction is not implemented yet.
-        // "look_at" / "communicate" → hold still; facing is not implemented yet.
-        //
-        // A richer implementation will swap in a GoToTarget controller; this is the minimal
-        // wiring that proves the seam works before that layer is built.
-
+        // Targeted movement: walk to the resolved target. (sit / use / rest on an object, and use on a
+        // doorway, reach here or ApplyInteraction through ingress; look_at is handled above.)
         if (resolvedTargetPosition.HasValue && (verb is "approach" or "use" or "sit"))
         {
             var toTarget = (resolvedTargetPosition.Value - GlobalPosition);
@@ -217,14 +216,14 @@ public partial class AvatarCharacter : AgentBrain
             const float ArrivalRadius = 1f;
             if (toTarget.LengthSquared() > ArrivalRadius * ArrivalRadius)
             {
-                // Hand back to the wander controller on arrival rather than freezing. Parking on
-                // IdleController here meant that once an avatar reached its first destination it
-                // never left, because every subsequent intent repeated the same "approach" it had
-                // already satisfied — the tour could only ever make one trip.
+                // On arrival the avatar holds still (the controller handed back) until Fusion's next
+                // intent, and anything owed on arrival — a doorway's transition — runs.
+                _enRoute = true;
                 Attach(new IntentMoveController(
                     resolvedTargetPosition.Value, verb, ArrivalRadius,
                     controller =>
                     {
+                        _enRoute = false;
                         Attach(controller);
                         onArrival?.Invoke();
                     }));
@@ -232,9 +231,19 @@ public partial class AvatarCharacter : AgentBrain
             }
         }
 
-        // Non-targeted, or already standing at the target: return to local autonomy rather than
-        // stopping dead. Fusion decides *which* place to visit; between decisions the avatar keeps
-        // moving under its own controller. Already at the target counts as arriving.
+        // 'wait', and 'rest' with nothing to rest on, hold still where the avatar stands until the
+        // next intent (Joshua, 2026-10-21). Wandering here made a model-driven avatar look exactly
+        // like one with no model: the model's "stay put" played out as a walk around the world.
+        if (verb is "wait" or "rest" && !resolvedTargetPosition.HasValue)
+        {
+            _activity = verb == "rest" ? "resting" : "waiting";
+            DropHeldDecision();
+            Attach(new IdleController());
+            return;
+        }
+
+        // Anything else non-targeted, or already standing at the target: return to local autonomy.
+        // Already at the target counts as arriving.
         Attach(WanderFallback());
         if (resolvedTargetPosition.HasValue)
             onArrival?.Invoke();
@@ -253,8 +262,9 @@ public partial class AvatarCharacter : AgentBrain
     }
 
     /// <summary>
-    /// The controller this avatar falls back to whenever Fusion has nothing to say: on a
-    /// non-targeted verb, on arrival, or when governance denies an intent.
+    /// The controller this avatar falls back to when Fusion's last intent is done: an interaction or
+    /// a look has ended, a scene transition has placed it, or an intent was already satisfied where
+    /// it stands. 'wait' and 'rest' hold still instead, and a governance denial halts it.
     ///
     /// Given the world's destinations, this tours between them; with none, it degrades to the
     /// need-driven wander the avatar already shipped with. Built fresh each call so the tour
