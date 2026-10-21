@@ -253,7 +253,7 @@ Follow already exists (`WorldView.Follow(Func<Vector3?>)`, `PollFollow`, observe
 - **`use desk_2`.** Held, then released.
 - **`look_at desk_1`.** Turned from 55° off to 0.0°, moved 0.00 m.
 - **Screenshots.** `t6-sitting.png`, `t6-look-at.png`.
-- **Not done here: acceptance 4**, a model-driven run with the Qwen 0.6B path. It needs `neurolift-ai-fusion` and its model, which are not available in this environment. Run it on the dev PC.
+- **Acceptance 4: run on the dev PC 2026-10-21, not met.** Fusion's GGUF adapter (`gguf_agent_decision.py`) only lets Qwen output `wait` or `approach`, so a model-driven `sit`/`use` — or the `use door` needed to get indoors — cannot happen on the shipped path. Shipped run: 41 decisions, 39 `wait`, 2 `approach`, never left the open world. A local probe with the verbs widened chose `look_at` 81 of 84 times and never `use`. Full numbers in `docs/active-threads.md` (AGENT-LOOP-002). Per this brief, recorded as a finding; the contract is unchanged. Rerun once Fusion decides what the adapter may emit.
 
 Depends on T5. **Needs Joshua's answer first:** should `use` change anything physical (a door opens, a light turns on) or only occupy the object? Default if unanswered: occupy only.
 
