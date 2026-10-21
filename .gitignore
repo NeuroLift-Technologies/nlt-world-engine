@@ -126,6 +126,10 @@ world-engine-godot/ml-MODELS/
 # for the Fusion agent loop and is part of the product, not local scratch, so it
 # stays tracked. Only this directory is re-included; every other addon stays ignored.
 !world-engine-godot/addons/fusion_agent_loop/
+# Vendored third-party addon, approved under OTOI §4.4 on 2026-10-21 (see
+# docs/escalations/2026-10-03-addons-external-integration-approval.md). project.godot autoloads
+# its runtime server, so it must ship with the repo or a fresh clone points at a missing script.
+!world-engine-godot/addons/godot_mcp_toolkit/
 ziva_agent_DUPLICATE_moved_out/
 world-engine-godot/.fennara/
 

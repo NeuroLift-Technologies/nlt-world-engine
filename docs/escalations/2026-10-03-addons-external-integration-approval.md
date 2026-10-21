@@ -100,6 +100,7 @@ not decisions.
 | `godotopenxrvendors` | **Approved** | Ships binaries. Emits `Property not found: 'xr/openxr/extensions/hand_tracking'` — engine/vendor skew (`compatibility_minimum = 4.6` vs 4.7.2 runtime). Benign, not project config. No editor-tagged libs, so Godot falls back to `template_debug`. |
 | `beehave` | **Approved, not enabled** | Enable from *Project Settings → Plugins* when wanted. |
 | `nobodywho` | **Approved for Fusion-side use only** | Must not be installed in `world-engine-godot`. Any future use is via `nobodywho-server` on an OpenAI-compatible endpoint, owned by Fusion. |
+| `godot_mcp_toolkit` | **Approved and adopted, 2026-10-21** | Added after this record; see the addendum at the end. Vendored in git, enabled, autoloaded. |
 
 ## Fit assessment against the current plan (2026-10-03, agent recommendation)
 
@@ -294,3 +295,17 @@ camera in the observation**. Consequences:
 - NobodyWho v11.0.0 is built against the **Godot 4.5 API** (`compatibility_minimum = 4.5`,
   `godot-ffi-0.4.5`) while this project runs 4.7.2. Not a stale install — it is what upstream ships.
   There is no newer Godot-targeted build. Relevant only if the Fusion-side server path is adopted.
+## Addendum 2026-10-21 — `godot_mcp_toolkit` (Godot MCP Toolkit)
+
+**Approved under OTOI §4.4 by Joshua W. Dorsey, Sr., in-session on 2026-10-21**, with the instruction to vendor the addon into git rather than keep it local.
+
+| Fact | Value |
+|---|---|
+| Upstream | NPGameDev, *Godot MCP Toolkit* v1.0.4, MIT licence (`addons/godot_mcp_toolkit/LICENSE`) |
+| Kind | GDScript editor plugin + runtime autoload. **No native binaries**; 281 files, 2.2 MB |
+| In git | Vendored — re-included by a `.gitignore` exception, because `project.godot` autoloads `MCPRuntimeServer` from it (the same fresh-clone rule that made `project.godot` and `addons/fennara/` land together in `ae5424b`) |
+| Bridge | `world-engine-godot/.mcp.json` runs `@npgamedev/godot-mcp-server`, **pinned to 1.0.4** to match the addon (the unpinned `npx -y` form fetched whatever was latest on every launch) |
+| Network | Runtime server binds `127.0.0.1` only (ports 6570–6585), token-authenticated handshake |
+| Shipped builds | The runtime server does not listen in any export template (`OS.has_feature("editor")` gate in `runtime/mcp_runtime_server.gd`), so the deployed game opens no MCP port |
+
+**Conditions:** keep the server pin and the addon version in step when either is upgraded; review the upstream diff before replacing the vendored copy. It overlaps `godot_ai` and `fennara` (all three are MCP bridges); retiring one is Joshua's call, not an agent's.
