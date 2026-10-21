@@ -222,6 +222,12 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
   - `look_at` turns the avatar to face the object (0.0°) without moving;
   - the T3 round trip still passes.
   **Still to do:** the model-driven run (Qwen 0.6B via `neurolift-ai-fusion`), which needs the dev PC.
+- **First real-ML run (Joshua, 2026-10-21):** the avatar only walked around the world. Two causes:
+  - `neurolift-ai-fusion`'s model prompt and parser allowed only `wait` and `approach`, so no door `use`, `sit`, `rest` or `look_at` could ever be chosen. That is fixed on the Fusion side.
+  - Here, `wait` and an untargeted `rest` handed the avatar back to the wander tour. **Joshua, 2026-10-21:** `wait` holds still. Now `wait` and untargeted `rest` hold the avatar where it stands until the next intent (label "waiting"/"resting"). A `wait` arriving mid-walk lets the walk finish, as it already let an interaction carry on. In-engine before → after:
+    - `wait` moved 3.70 m in 3 s → 0.00 m;
+    - a `wait` 0.5 s into a 6 m approach abandoned all four test walks → the walk arrives;
+    - untargeted `rest` moved 1.97 m → 0.00 m.
 - **Scope:** T1 per-avatar scene authority (including the loop avatar's spawn) → T2 door/exit targets and per-scene anchors → T3 engine-owned transition → T4 camera follow/free → T5 interior anchors → T6 interaction execution. T1–T4 deliver "go inside a building, camera follow or free"; T5–T6 deliver interior interaction. Builds on the verified AGENT-LOOP-001 path.
 - **Decisions (Joshua 2026-10-17):** `use` on a door target (no new verbs, no schema bump); one live scene at a time; "without the camera following" means free look within the avatar's current scene; the engine, not Fusion, places the avatar.
 - **Open (Joshua):** does `use` change world state (T6, default occupy only); perception `kind` for interior furniture (T5, default `object`); should perception report the avatar's pose and facing (T6, default no; v1 has no field for it, so yes means a schema/version change agreed with Fusion).
