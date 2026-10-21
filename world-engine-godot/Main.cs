@@ -117,6 +117,10 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		// Null holds the camera until the avatar is placed.
 		if (_transiting && _followTargetId is LocalAvatarTargetId or "")
 			return null;
+		// While the spectator peeks into a room the avatar is not in that scene; following it would
+		// pull the camera out of the room the spectator chose.
+		if (_peekFrom != null && _followTargetId is LocalAvatarTargetId or "")
+			return null;
 		if (_followTargetId == LocalAvatarTargetId)
 		{
 			if (_avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local) && IsInstanceValid(local))
@@ -188,10 +192,15 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		// still the old one; the transition settles both.
 		if (_transiting)
 			return;
-		string sceneId = _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local)
-			&& IsInstanceValid(local) && !string.IsNullOrEmpty(local.SceneId)
-				? local.SceneId
-				: SceneCatalog.OpenWorldId;
+		string sceneId = LoopAvatarScene;
+		if (_peekFrom != null)
+		{
+			// The spectator is looking into a room. That holds until they come back, or until the
+			// avatar itself changes scene, when the view goes with it.
+			if (sceneId == _peekFrom)
+				return;
+			EndPeekState();
+		}
 		if (sceneId == _shownSceneId)
 			return;
 		if (!SceneCatalog.TryKindFor(sceneId, out string kind))
@@ -202,6 +211,74 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		_shownSceneId = sceneId;
 		_shownSceneKind = kind;
 		ShowScene(SceneCatalog.IsOpenWorld(sceneId) ? "" : sceneId, kind);
+		SyncAvatarVisibility();
+	}
+
+	/// <summary>The scene the loop avatar is in, or the open world before it exists.</summary>
+	private string LoopAvatarScene
+		=> _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? local)
+			&& IsInstanceValid(local) && !string.IsNullOrEmpty(local.SceneId)
+				? local.SceneId
+				: SceneCatalog.OpenWorldId;
+
+	// --- Spectator peek (Joshua, 2026-10-21) ------------------------------------------------------
+	// While the loop runs the view belongs to the avatar, but a click on a building still shows the
+	// room inside — only the view: the avatar keeps living where it is, and nothing it does changes.
+	// Physics stays with the avatar (OpenWorldBodiesLive), so the room shown is display-only. Only
+	// one interior can be loaded at a time, so the spectator can look into rooms only while the
+	// avatar is outdoors: with the avatar inside, its room is the one that must stay loaded.
+
+	/// <summary>The avatar's scene when the spectator started peeking, or null when not peeking.</summary>
+	private string? _peekFrom;
+
+	/// <inheritdoc />
+	protected override bool SpectatorDoor(string sceneId, string kind)
+	{
+		if (_transiting)
+		{
+			SetViewNotice("The avatar is going through a door; try again in a moment.", 4);
+			return false;
+		}
+		string avatarScene = LoopAvatarScene;
+		if (_peekFrom != null && (sceneId.Length == 0 || sceneId == avatarScene))
+		{
+			EndPeekState();
+			ShowLoopAvatarScene();
+			GD.Print($"[Spectator] back with the avatar in {avatarScene}");
+			return true;
+		}
+		if (!SceneCatalog.IsOpenWorld(avatarScene))
+		{
+			SetViewNotice($"The avatar is inside ({avatarScene}); the view stays with it until it leaves.", 5);
+			GD.Print($"[Spectator] door refused: the avatar is inside {avatarScene}");
+			return false;
+		}
+		if (sceneId.Length == 0 || !ShowScene(sceneId, kind))
+			return false;
+		_peekFrom = avatarScene;
+		_shownSceneId = sceneId;
+		_shownSceneKind = kind;
+		SyncAvatarVisibility();
+		SetViewNotice($"Looking inside ({sceneId}). The avatar is still outside: press E or click the exit to go back.");
+		GD.Print($"[Spectator] peeking into {sceneId}; the avatar stays in {avatarScene}");
+		return true;
+	}
+
+	private void EndPeekState()
+	{
+		_peekFrom = null;
+		SetViewNotice(null);
+	}
+
+	/// <summary>
+	/// With the loop on, a live avatar is drawn only in the scene on show: one walking the open world
+	/// while the spectator looks into a room would otherwise float among the room's furniture.
+	/// </summary>
+	private void SyncAvatarVisibility()
+	{
+		foreach (var avatar in _avatars.Values)
+			if (IsInstanceValid(avatar))
+				avatar.Visible = !EnableFusionAgentLoop || avatar.SceneId == _shownSceneId;
 	}
 
 	// --- Engine-owned scene transition (AGENT-LOOP-002 T3) --------------------------------------
@@ -220,6 +297,8 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		if (_transiting)
 			return;
 		_transiting = true;
+		// The view goes with the avatar: a spectator's peek ends here.
+		EndPeekState();
 		avatar.HoldForTransition();
 		Callable.From(() => RunTransit(avatar, link)).CallDeferred();
 	}
@@ -262,6 +341,7 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 
 			var landing = new Vector3(arrival.X, FloorBelow(avatar, arrival, indoor) + 0.05f, arrival.Z);
 			avatar.TransitionTo(landing, target, facing);
+			SyncAvatarVisibility();
 			avatar.InteriorRecoveryPoint = indoor ? landing : null;
 			// Inside, the wander fallback roams the room rather than heading for the exit.
 			avatar.Anchors = indoor ? System.Array.Empty<TaskAnchor>() : _worldAnchors;

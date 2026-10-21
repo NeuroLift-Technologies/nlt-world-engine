@@ -228,6 +228,12 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
     - `wait` moved 3.70 m in 3 s → 0.00 m;
     - a `wait` 0.5 s into a 6 m approach abandoned all four test walks → the walk arrives;
     - untargeted `rest` moved 1.97 m → 0.00 m.
+- **Spectator peek (Joshua, 2026-10-21):** with the loop on, clicking a building or pressing `E` was refused and only logged ("it doesn't go to the scene"). Now a click shows that building's room to the spectator. The avatar keeps living outdoors, unseen; physics stays with it, so the room shown is display-only. `E` or the exit returns to the avatar, and the view also goes with the avatar if it changes scene. While the avatar is inside a room, doors are refused with an on-screen note: only one interior can be loaded, and it must be the avatar's. A notice line under the scene strip says which case applies. In-engine (real click path, loop on):
+  - click on the office: the room shows; the avatar stays in `open_world` on its own ground (y 7.38 → 7.35, still walking), hidden; the peek holds through 5 s of feed documents;
+  - `E` returns to the avatar;
+  - an avatar transition during a peek takes the view with it;
+  - with the avatar inside, `E` is refused with the note.
+  Screenshots: `Images/Screenshots/spectator-peek-inside.png`, `spectator-peek-refused.png`.
 - **Scope:** T1 per-avatar scene authority (including the loop avatar's spawn) → T2 door/exit targets and per-scene anchors → T3 engine-owned transition → T4 camera follow/free → T5 interior anchors → T6 interaction execution. T1–T4 deliver "go inside a building, camera follow or free"; T5–T6 deliver interior interaction. Builds on the verified AGENT-LOOP-001 path.
 - **Decisions (Joshua 2026-10-17):** `use` on a door target (no new verbs, no schema bump); one live scene at a time; "without the camera following" means free look within the avatar's current scene; the engine, not Fusion, places the avatar.
 - **Open (Joshua):** does `use` change world state (T6, default occupy only); perception `kind` for interior furniture (T5, default `object`); should perception report the avatar's pose and facing (T6, default no; v1 has no field for it, so yes means a schema/version change agreed with Fusion).

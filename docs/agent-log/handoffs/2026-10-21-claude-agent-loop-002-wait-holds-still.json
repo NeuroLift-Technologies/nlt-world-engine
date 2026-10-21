@@ -11,7 +11,8 @@
       "AvatarCharacter.ApplyIntent: 'wait' and 'rest' with no target hold the avatar still (IdleController, last movement dropped) until the next intent; the label shows 'waiting' / 'resting'.",
       "A 'wait' arriving while the avatar walks to a target lets the walk finish (as 'wait' already let an interaction carry on). Without this, Fusion's 2 s cadence would stop the avatar short of every target.",
       "Stale comments in ApplyIntent and on WanderFallback brought in line with what the code does.",
-      "CodeRabbit on PR 111: the 'walking to a target' flag survived when sit/use/rest (ApplyInteraction) or a governance halt replaced the walk, so after the interaction every 'wait' was ignored and the avatar wandered. EndInteraction, which every replacement path calls, now clears it. In-engine, approach -> sit -> hold ends -> wait: before, moved 1.12 m in 3 s; after, 0.00 m, labelled 'waiting'."
+      "CodeRabbit on PR 111: the 'walking to a target' flag survived when sit/use/rest (ApplyInteraction) or a governance halt replaced the walk, so after the interaction every 'wait' was ignored and the avatar wandered. EndInteraction, which every replacement path calls, now clears it. In-engine, approach -> sit -> hold ends -> wait: before, moved 1.12 m in 3 s; after, 0.00 m, labelled 'waiting'.",
+      "Spectator peek (Joshua chose it 2026-10-21, after 'when i click on a building it doesn't go to the scene'). WorldView hands a spectator door used while the doors are locked to an overridable SpectatorDoor, and has a ViewNotice drawn by WorldViewHud under the scene strip. Main peeks while the avatar is outdoors: ShowScene for the room, display-only because physics stays with the avatar, and the avatar is hidden. The peek survives per-document ShowLoopAvatarScene. It ends on E/exit or when the avatar changes scene (Transit ends it). With the avatar indoors, doors are refused with a notice, since only one interior instance exists. The camera stops following the avatar while peeking."
     ],
     "work_in_progress": [
       "T6 acceptance 4 (model-driven sit/use) still needs Joshua's dev-PC run with the widened Fusion prompt."
@@ -20,15 +21,21 @@
     "decisions_made": [
       "Joshua, 2026-10-21: 'wait' holds still instead of wandering (and the Fusion prompt is widened).",
       "Untargeted 'rest' is treated like 'wait' (hold still, labelled resting), matching the existing intent of the verb map's comment.",
-      "If an approach stalls against an obstacle (no pathfinding, deferred by Joshua 2026-10-18), a following 'wait' now leaves it pressing against the obstacle rather than wandering off. The model has to choose another target."
+      "If an approach stalls against an obstacle (no pathfinding, deferred by Joshua 2026-10-18), a following 'wait' now leaves it pressing against the obstacle rather than wandering off. The model has to choose another target.",
+      "Joshua, 2026-10-21: with the loop on, a click on a building peeks inside (view only). That answers the T1 open question 'a refused spectator door is only logged'. Peeking is offered only while the avatar is outdoors, because WorldView holds one interior instance, which must be the avatar's room while it is inside."
     ],
     "decisions_pending": [],
     "escalations": [],
-    "next_agent_notes": "In-engine check (open world, loop on with an unreachable endpoint, temporary node not committed), before -> after: 'wait' moved 3.70 m in 3 s -> 0.00 m (label 'waiting'); approach 6 m then 'wait' 0.5 s in: none of four directions arrived (left 2.7-14.5 m away) -> arrived on the first; untargeted 'rest' moved 1.97 m -> 0.00 m (label 'resting'). After arrival the avatar decelerates 0.37 m and then holds.",
+    "next_agent_notes": "In-engine check (open world, loop on with an unreachable endpoint, temporary node not committed), before -> after: 'wait' moved 3.70 m in 3 s -> 0.00 m (label 'waiting'); approach 6 m then 'wait' 0.5 s in: none of four directions arrived (left 2.7-14.5 m away) -> arrived on the first; untargeted 'rest' moved 1.97 m -> 0.00 m (label 'resting'). After arrival the avatar decelerates 0.37 m and then holds. Spectator peek check (temporary node, real Activate/EnterOrExit path, loop on): office click -> shown workplace_2, the avatar stays open_world, hidden, y 7.38 -> 7.35, the peek holds 5 s; E -> back, visible, no notice; a peek at home then an avatar transit to the office -> view goes with the avatar, peek cleared; E with the avatar inside -> refused, notice shown. The figure in spectator-peek-inside.png is the feed's replay ghost (GRAPH-002), not the live avatar.",
     "files_modified": [
       "world-engine-godot/Agents/AvatarCharacter.cs",
       "docs/active-threads.md",
-      "docs/agent-log/handoffs/2026-10-21-claude-agent-loop-002-wait-holds-still.json"
+      "docs/agent-log/handoffs/2026-10-21-claude-agent-loop-002-wait-holds-still.json",
+      "world-engine-godot/WorldView.cs",
+      "world-engine-godot/Main.cs",
+      "world-engine-godot/Observer/WorldViewHud.cs",
+      "world-engine-godot/Images/Screenshots/spectator-peek-inside.png",
+      "world-engine-godot/Images/Screenshots/spectator-peek-refused.png"
     ],
     "tests_run": [
       "dotnet build world-engine-godot.csproj: 0 errors, the 2 known WorldView.cs nullable warnings.",
