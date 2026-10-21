@@ -10,7 +10,8 @@
       "Diagnosed Joshua's first real-ML run (the avatar only walked around the world). Cause 1, in neurolift-ai-fusion: both model decision sources (gguf_agent_decision.py, transformers_agent_decision.py) prompt and parse only 'wait' and 'approach', so the AGENT-LOOP-002 verbs could never be chosen. That is fixed in a separate neurolift-ai-fusion PR. Cause 2, here: 'wait' and an untargeted 'rest' handed the avatar back to the wander tour, so a model saying 'stay put' looked like no model at all.",
       "AvatarCharacter.ApplyIntent: 'wait' and 'rest' with no target hold the avatar still (IdleController, last movement dropped) until the next intent; the label shows 'waiting' / 'resting'.",
       "A 'wait' arriving while the avatar walks to a target lets the walk finish (as 'wait' already let an interaction carry on). Without this, Fusion's 2 s cadence would stop the avatar short of every target.",
-      "Stale comments in ApplyIntent and on WanderFallback brought in line with what the code does."
+      "Stale comments in ApplyIntent and on WanderFallback brought in line with what the code does.",
+      "CodeRabbit on PR 111: the 'walking to a target' flag survived when sit/use/rest (ApplyInteraction) or a governance halt replaced the walk, so after the interaction every 'wait' was ignored and the avatar wandered. EndInteraction, which every replacement path calls, now clears it. In-engine, approach -> sit -> hold ends -> wait: before, moved 1.12 m in 3 s; after, 0.00 m, labelled 'waiting'."
     ],
     "work_in_progress": [
       "T6 acceptance 4 (model-driven sit/use) still needs Joshua's dev-PC run with the widened Fusion prompt."
@@ -34,6 +35,7 @@
       "AgentHarness: 113 passed, 0 failed.",
       "In-engine check as in next_agent_notes, on the code before and after the change."
     ],
-    "tests_passing": true
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/111"
   }
 }

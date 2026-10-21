@@ -129,9 +129,13 @@ public partial class AvatarCharacter : AgentBrain
         }));
     }
 
-    /// <summary>Release whatever the avatar holds and stop facing it. Safe to call when idle.</summary>
+    /// <summary>
+    /// Release whatever the avatar holds, stop facing it, and forget any walk to a target: every
+    /// caller is about to replace the controller that walk ran on. Safe to call when idle.
+    /// </summary>
     private void EndInteraction()
     {
+        _enRoute = false;
         _heldAnchor?.Release(AgentId);
         _heldAnchor = null;
         _heldVerb = null;
@@ -188,7 +192,6 @@ public partial class AvatarCharacter : AgentBrain
         if (verb == "wait" && (_heldAnchor != null || _facePoint != null || _enRoute))
             return;
         EndInteraction();
-        _enRoute = false;
 
         // look_at: turn to face the target where the avatar stands, hold a moment, then carry on.
         if (verb == "look_at" && resolvedTargetPosition.HasValue)
