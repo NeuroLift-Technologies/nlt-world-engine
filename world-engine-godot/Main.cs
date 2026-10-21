@@ -117,9 +117,9 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		// Null holds the camera until the avatar is placed.
 		if (_transiting && _followTargetId is LocalAvatarTargetId or "")
 			return null;
-		// While the spectator peeks into a room the avatar is not in that scene; following it would
-		// pull the camera out of the room the spectator chose.
-		if (_peekFrom != null && _followTargetId is LocalAvatarTargetId or "")
+		// While the spectator peeks into a room, following anyone (the avatar outdoors, or a feed agent
+		// placed in the feed's scene) would pull the camera out of the room the spectator chose.
+		if (_peekFrom != null)
 			return null;
 		if (_followTargetId == LocalAvatarTargetId)
 		{
@@ -237,6 +237,12 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		if (_transiting)
 		{
 			SetViewNotice("The avatar is going through a door; try again in a moment.", 4);
+			return false;
+		}
+		// A --scene capture pin holds the view: a peek could be shown but never undone.
+		if (PinnedSceneId != null)
+		{
+			SetViewNotice($"The view is pinned to {PinnedSceneId} for capture; doors are not used.", 4);
 			return false;
 		}
 		string avatarScene = LoopAvatarScene;
