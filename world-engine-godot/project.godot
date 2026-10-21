@@ -20,6 +20,7 @@ _fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
 BeehaveGlobalMetrics="*uid://c3ktl6ontsdt7"
 BeehaveGlobalDebugger="*uid://bl3ma400hpvsh"
 Audio="*res://scripts/audio.gd"
+MCPRuntimeServer="*res://addons/godot_mcp_toolkit/runtime/mcp_runtime_server.gd"
 
 [dotnet]
 
@@ -27,7 +28,7 @@ project/assembly_name="NLT World Engine (Godot)"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/Color grading/plugin.cfg", "res://addons/beehave/plugin.cfg", "res://addons/fusion_agent_loop/plugin.cfg", "res://addons/sky_3d/plugin.cfg")
+enabled=PackedStringArray("res://addons/Color grading/plugin.cfg", "res://addons/beehave/plugin.cfg", "res://addons/fusion_agent_loop/plugin.cfg", "res://addons/godot_mcp_toolkit/plugin.cfg", "res://addons/sky_3d/plugin.cfg")
 
 [importer_defaults]
 
