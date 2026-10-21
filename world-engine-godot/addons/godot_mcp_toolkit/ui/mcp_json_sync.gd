@@ -25,7 +25,10 @@ const _TEMPLATE_PATH := "res://addons/godot_mcp_toolkit/.mcp.json.template"
 const _SERVER_KEY := "godot-mcp-toolkit"
 
 # Released npm package the client launches — the default (release) command base.
-const _RELEASE_PACKAGE := "@npgamedev/godot-mcp-server"
+# LOCAL PATCH (nlt-world-engine, 2026-10-21): pinned to the vendored addon's version so a
+# regenerated .mcp.json cannot drift to a newer server. Reapply or drop on upgrade; see
+# docs/escalations/2026-10-03-addons-external-integration-approval.md.
+const _RELEASE_PACKAGE := "@npgamedev/godot-mcp-server@1.0.4"
 
 # Optional env override: set to a local dist/index.js and the builder emits the
 # dev form ([code]node <that path>[/code]) instead of the released npx form — one

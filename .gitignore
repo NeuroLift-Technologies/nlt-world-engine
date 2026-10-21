@@ -130,6 +130,9 @@ world-engine-godot/ml-MODELS/
 # docs/escalations/2026-10-03-addons-external-integration-approval.md). project.godot autoloads
 # its runtime server, so it must ship with the repo or a fresh clone points at a missing script.
 !world-engine-godot/addons/godot_mcp_toolkit/
+# Its .mcp.json is per-OS (cmd /c npx on Windows, bare npx elsewhere) and user-owned, so each
+# checkout generates its own with the addon's "Write .mcp.json"; the writer pins the server version.
+world-engine-godot/.mcp.json
 ziva_agent_DUPLICATE_moved_out/
 world-engine-godot/.fennara/
 

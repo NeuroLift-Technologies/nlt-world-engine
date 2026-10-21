@@ -304,8 +304,9 @@ camera in the observation**. Consequences:
 | Upstream | NPGameDev, *Godot MCP Toolkit* v1.0.4, MIT licence (`addons/godot_mcp_toolkit/LICENSE`) |
 | Kind | GDScript editor plugin + runtime autoload. **No native binaries**; 281 files, 2.2 MB |
 | In git | Vendored — re-included by a `.gitignore` exception, because `project.godot` autoloads `MCPRuntimeServer` from it (the same fresh-clone rule that made `project.godot` and `addons/fennara/` land together in `ae5424b`) |
-| Bridge | `world-engine-godot/.mcp.json` runs `@npgamedev/godot-mcp-server`, **pinned to 1.0.4** to match the addon (the unpinned `npx -y` form fetched whatever was latest on every launch) |
+| Bridge | `@npgamedev/godot-mcp-server`, **pinned to 1.0.4** to match the addon (the unpinned `npx -y` form fetched whatever was latest on every launch). `world-engine-godot/.mcp.json` is **not committed**: it is per-OS (`cmd /c npx` on Windows, bare `npx` elsewhere) and user-owned, so each checkout generates it with the addon's *Write .mcp.json* (dock or Tools menu) |
+| Local patch | `ui/mcp_json_sync.gd` `_RELEASE_PACKAGE` pinned to `@npgamedev/godot-mcp-server@1.0.4`, so the writer emits the pinned server on every OS. The only change to upstream code |
 | Network | Runtime server binds `127.0.0.1` only (ports 6570–6585), token-authenticated handshake |
 | Shipped builds | The runtime server does not listen in any export template (`OS.has_feature("editor")` gate in `runtime/mcp_runtime_server.gd`), so the deployed game opens no MCP port |
 
-**Conditions:** keep the server pin and the addon version in step when either is upgraded; review the upstream diff before replacing the vendored copy. It overlaps `godot_ai` and `fennara` (all three are MCP bridges); retiring one is Joshua's call, not an agent's.
+**Conditions:** keep the server pin and the addon version in step when either is upgraded, and reapply (or drop, if upstream pins it) the `mcp_json_sync.gd` patch; review the upstream diff before replacing the vendored copy. It overlaps `godot_ai` and `fennara` (all three are MCP bridges); retiring one is Joshua's call, not an agent's.
