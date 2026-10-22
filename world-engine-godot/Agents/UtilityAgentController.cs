@@ -42,6 +42,17 @@ public sealed class UtilityAgentController : IAgentController
 
     public void Attach(string agentId) { }
 
+    /// <summary>
+    /// Replaced before arriving (a Fusion intent, a halt): release the anchor this tour reserved,
+    /// or the claim outlives the controller and the anchor reads as full to everyone, this agent's
+    /// own later tours included.
+    /// </summary>
+    public void Detach(string agentId)
+    {
+        _target?.Release(agentId);
+        _target = null;
+    }
+
     public AgentAction Act(AgentObservation observation)
     {
         // When the world offers real destinations, seek the nearest reachable one instead of

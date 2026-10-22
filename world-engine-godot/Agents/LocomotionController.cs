@@ -16,6 +16,12 @@ public interface IAgentController
     /// <summary>Called once at attach, before the first <see cref="Act"/>.</summary>
     void Attach(string agentId);
 
+    /// <summary>
+    /// Called when another controller replaces this one, so it can give back what it holds (an
+    /// anchor it reserved on the way to it). Most controllers hold nothing.
+    /// </summary>
+    void Detach(string agentId) { }
+
     /// <summary>Produce this tick's decision from what the model can see.</summary>
     AgentAction Act(AgentObservation observation);
 

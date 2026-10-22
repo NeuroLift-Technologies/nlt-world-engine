@@ -62,6 +62,10 @@ public partial class AgentBrain : CharacterBody3D
     /// <summary>Attach the cognition that supplies decisions. May be null — the agent holds still.</summary>
     public void Attach(IAgentController controller)
     {
+        // The outgoing controller gives back what it holds first: a tour replaced mid-route
+        // otherwise kept its anchor reserved for good.
+        if (_controller != null && !ReferenceEquals(_controller, controller))
+            _controller.Detach(AgentId);
         _controller = controller;
         controller.Attach(AgentId);
     }

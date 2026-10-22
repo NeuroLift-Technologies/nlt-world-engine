@@ -12,7 +12,8 @@
       "Plaza and roads draped on the terrain (Joshua's choice over colliders plus step-up). TerrainBuilder.SurfaceHeightAt is the terrain mesh's own surface (what the trimesh body is); TerrainBuilder.Segments is the shared grid size. SettlementBuilder.PlazaPaving / RoadPaving build the paving 4 cm / 3 cm above that surface; the raised plaza disc and the flat road boxes are gone. The well stands on the ground; benches are a seat on two legs (they sat flush in the old deck).",
       "Tree trunk bodies (Joshua): one Collision_Trees static body with a cylinder per trunk (620), at the trunk's base radius from the ground to its visual top (VegetationBuilder.ColliderFor, sized to Joshua's spec). Rocks, canopies and grass stay walk-through.",
       "AgentHarness: new [ground: paving and tree trunks] section, 13 checks.",
-      "Avatar stuck at a tree (Joshua's run, after trunks became solid). It stopped at (-64.38, -19.37) about 20 s before Fusion's first intent. Fixed head-on stalls: LocomotionController.AroundObstacle, called from AgentBrain with last tick's wall normal, turns a heading pressing into an obstacle within ~32 degrees of head-on along it, keeping one side while blocked. Fixed why it was there: AvatarCharacter.Anchors now reaches the spawn UtilityAgentController (Main sets anchors after _Ready, so it marched its 'quiet' bearing due south). Fixed the tour parking on the anchor it had just reached (UtilityAgentController now moves on to another while one is free). Harness 139/139 (10 detour, 3 tour checks)."
+      "Avatar stuck at a tree (Joshua's run, after trunks became solid). It stopped at (-64.38, -19.37) about 20 s before Fusion's first intent. Fixed head-on stalls: LocomotionController.AroundObstacle, called from AgentBrain with last tick's wall normal, turns a heading pressing into an obstacle within ~32 degrees of head-on along it, keeping one side while blocked. Fixed why it was there: AvatarCharacter.Anchors now reaches the spawn UtilityAgentController (Main sets anchors after _Ready, so it marched its 'quiet' bearing due south). Fixed the tour parking on the anchor it had just reached (UtilityAgentController now moves on to another while one is free). Harness 139/139 (10 detour, 3 tour checks).",
+      "CodeRabbit on PR 114: a touring UtilityAgentController replaced before arriving kept its anchor reserved for good (AgentBrain.Attach never told the old controller). Added IAgentController.Detach (default no-op), called on the outgoing controller in AgentBrain.Attach; the tour releases its target. In-engine: 'wait' mid-route left 'plaza' claimed before, nothing after. Harness 140/140."
     ],
     "work_in_progress": [],
     "blockers": [
@@ -51,7 +52,7 @@
     ],
     "tests_run": [
       "dotnet build world-engine-godot.csproj --no-incremental: 0 errors, the 2 known WorldView.cs nullable warnings.",
-      "AgentHarness: 139 passed, 0 failed (113 before; 13 ground, 10 detour, 3 tour checks).",
+      "AgentHarness: 140 passed, 0 failed (113 before; 13 ground, 10 detour, 4 tour checks).",
       "Fusion tests in the GGUF venv: test_agent_loop, test_agent_loop_choices, test_gguf_agent_decision 35 passed, 1 skipped; test_agent_loop_http not collected (the venv lacks httpx2).",
       "Governance validation: 29 passed, 0 failed.",
       "In-engine probe and acceptance 4 runs as in next_agent_notes and work_completed."

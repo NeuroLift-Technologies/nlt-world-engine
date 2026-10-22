@@ -484,6 +484,17 @@ public static class ActionAssertions
         Check(At(0.5f, 1).MoveDirection.X < 0f, "it first heads for the nearest anchor (the plaza)");
         Check(At(0.5f, 2).MoveDirection.X > 0f, "on reaching the plaza it sets off for the well, not back to the plaza");
         Check(At(9.5f, 3).MoveDirection.X < 0f, "and on reaching the well it heads back out again");
+
+        // Replaced mid-route (a Fusion intent arrives before it gets there), the tour must give up
+        // the anchor it reserved; otherwise the claim outlives it and the anchor reads as full.
+        var stand = new TaskAnchor("plaza", "Plaza", AffordanceAxes.Neutral) { Position = Vector3.Zero };
+        var leaving = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { stand } };
+        leaving.Act(new AgentObservation("avatar_1", new Vector3(8f, 0f, 0f), Vector3.Zero,
+            new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", 1));
+        bool claimed = stand.IsOccupiedBy("avatar_1");
+        ((IAgentController)leaving).Detach("avatar_1");
+        Check(claimed && !stand.IsOccupiedBy("avatar_1") && !stand.IsFull,
+            "a tour replaced before arriving releases the anchor it was walking to");
     }
 
     private static void Check(bool condition, string what)
