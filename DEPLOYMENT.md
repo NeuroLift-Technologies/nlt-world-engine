@@ -280,11 +280,11 @@ before it is exposed publicly.
 
 ---
 
-## Scaling to 19+ Pairs
+## Scaling to 20+ Pairs
 
 | Resource | Count | Notes |
 |----------|-------|-------|
-| UE Server containers | 19 | One per pair, isolated |
+| UE Server containers | 20 | One per pair, isolated |
 | CPU per server | 2-4 cores | Mass Entity simulation |
 | Memory per server | 4-8 GB | Assets + state |
 | WebSocket connections | 100-1000/pair | Observers |
@@ -294,7 +294,7 @@ before it is exposed publicly.
 | Platform | Approach |
 |----------|----------|
 | Kubernetes | One Deployment per pair, StatefulSet for persistence |
-| Docker Compose | Development: `docker compose up` with 19 services |
+| Docker Compose | Development: `docker compose up` with 20 services |
 | VM-based | One VM per pair, systemd service for UE server |
 
 ---
