@@ -47,7 +47,7 @@ public partial class AvatarCharacter : AgentBrain
 
         // Default controller: deterministic wandering so the avatar moves immediately.
         // Fusion (or LLM) can replace this at runtime via Attach().
-        _spawnFallback = new UtilityAgentController(WorldConstants.Seed, AgentId) { Anchors = Anchors };
+        _spawnFallback = new UtilityAgentController(WorldConstants.Seed, AgentId) { Anchors = Anchors, Visits = _tourVisits };
         Attach(_spawnFallback);
     }
 
@@ -283,7 +283,13 @@ public partial class AvatarCharacter : AgentBrain
     /// re-evaluates where to go next rather than resuming a stale target.
     /// </summary>
     private IAgentController WanderFallback() =>
-        new UtilityAgentController(WorldConstants.Seed, AgentId) { Anchors = Anchors };
+        new UtilityAgentController(WorldConstants.Seed, AgentId) { Anchors = Anchors, Visits = _tourVisits };
+
+    /// <summary>
+    /// Where this avatar's tour has been, shared by every fallback it builds, so the tour carries
+    /// on round the anchors across Fusion's intents instead of restarting at the nearest.
+    /// </summary>
+    private readonly TourMemory _tourVisits = new();
 
     /// <summary>
     /// Places this avatar may walk to. Set by the composition root, which is the only place that

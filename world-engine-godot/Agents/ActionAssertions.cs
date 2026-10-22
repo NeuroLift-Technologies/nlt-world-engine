@@ -485,6 +485,38 @@ public static class ActionAssertions
         Check(At(0.5f, 2).MoveDirection.X > 0f, "on reaching the plaza it sets off for the well, not back to the plaza");
         Check(At(9.5f, 3).MoveDirection.X < 0f, "and on reaching the well it heads back out again");
 
+        // Least recently visited (Joshua, 2026-10-22): the tour works through every anchor before it
+        // revisits one, so from the plaza it reaches the doors instead of alternating plaza <-> well.
+        var p2 = new TaskAnchor("plaza", "Plaza", AffordanceAxes.Neutral) { Position = new Vector3(0f, 0f, 0f) };
+        var w2 = new TaskAnchor("well", "Well", AffordanceAxes.Neutral) { Position = new Vector3(10f, 0f, 0f) };
+        var door = new TaskAnchor("door_1_office", "Office", AffordanceAxes.Neutral) { Position = new Vector3(0f, 0f, 30f) };
+        var memory = new TourMemory();
+        var first = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { p2, w2, door }, Visits = memory };
+        AgentObservation Obs(float x, float z, int tick) => new("avatar_1", new Vector3(x, 0f, z), Vector3.Zero,
+            new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", tick);
+        first.Act(Obs(0.5f, 0f, 1));                 // to the plaza
+        first.Act(Obs(0.5f, 0f, 2));                 // reached: on to the well, the nearest not yet visited
+        var afterWell = first.Act(Obs(9.5f, 0f, 3)); // reached: the door, not back to the nearer plaza
+        Check(afterWell.MoveDirection.Z > 0.5f, "after plaza and well it goes on to the door, not back to the nearer plaza");
+
+        var fresh = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { p2, w2, door }, Visits = memory };
+        first.Detach("avatar_1");
+        Check(fresh.Act(Obs(9.5f, 0f, 4)).MoveDirection.Z > 0.5f,
+            "a fresh fallback sharing the avatar's tour memory carries on to the door too");
+
+        // A target it cannot get any closer to (a building in the way, no pathfinding) counts as
+        // visited after a while, so the tour moves on instead of pushing at a wall for good.
+        var blocked = new TaskAnchor("door_2_shop", "Shop", AffordanceAxes.Neutral) { Position = new Vector3(-6f, 0f, 0f) };
+        var open = new TaskAnchor("well", "Well", AffordanceAxes.Neutral) { Position = new Vector3(12f, 0f, 0f) };
+        var pushing = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { blocked, open } };
+        bool pressedOn = pushing.Act(Obs(0f, 0f, 1)).MoveDirection.X < 0f;
+        for (int tick = 30; tick <= 300; tick += 30)
+            pressedOn &= pushing.Act(Obs(0f, 0f, tick)).MoveDirection.X < 0f;
+        Check(pressedOn, "it keeps trying a blocked target for a few seconds");
+        var gaveUp = pushing.Act(Obs(0f, 0f, 30 + (int)(UtilityAgentController.GiveUpSeconds / WorldConstants.Tick) + 60));
+        Check(gaveUp.MoveDirection.X > 0f && !blocked.IsOccupiedBy("avatar_1"),
+            "then gives it up, releases it, and sets off for another anchor");
+
         // Replaced mid-route (a Fusion intent arrives before it gets there), the tour must give up
         // the anchor it reserved; otherwise the claim outlives it and the anchor reads as full.
         var stand = new TaskAnchor("plaza", "Plaza", AffordanceAxes.Neutral) { Position = Vector3.Zero };
