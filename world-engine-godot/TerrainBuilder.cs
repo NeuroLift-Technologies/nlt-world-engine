@@ -4,7 +4,38 @@ namespace NltWorldEngine;
 
 public static class TerrainBuilder
 {
-    public static MeshInstance3D Build(int seg = 208)
+    /// <summary>
+    /// Grid cells per side of the terrain mesh, and so of the trimesh body built from it
+    /// (<see cref="TerrainBuilderPhysics.TerrainBody"/>). <see cref="SurfaceHeightAt"/> assumes it.
+    /// </summary>
+    public const int Segments = 208;
+
+    /// <summary>
+    /// Height of the terrain mesh's surface at (x, z): what an avatar on the terrain body stands on.
+    /// <see cref="WorldGeometry.HeightAt"/> is the smooth field <see cref="Build"/> samples at grid
+    /// vertices; between them the mesh is flat triangles, centimetres off the field. Anything laid
+    /// on the ground (the settlement's paving) follows this surface, or the terrain shows through it.
+    /// </summary>
+    public static float SurfaceHeightAt(float x, float z)
+    {
+        // The same float arithmetic as Build's Vertex, so grid points land on identical heights.
+        const float size = WorldConstants.World;
+        float step = size / Segments;
+        float gx = (x + size / 2f) / step, gz = (z + size / 2f) / step;
+        if (gx < 0f || gz < 0f || gx >= Segments || gz >= Segments)
+            return WorldGeometry.HeightAt(x, z);
+
+        int i = (int)gx, j = (int)gz;
+        float fx = gx - i, fz = gz - j;
+        float H(int ci, int cj) => WorldGeometry.HeightAt(-size / 2f + ci * step, -size / 2f + cj * step);
+        float a = H(i, j), b = H(i + 1, j), c = H(i + 1, j + 1), d = H(i, j + 1);
+        // Build splits each cell along its a-c diagonal into triangles (a, b, c) and (a, c, d).
+        return fx >= fz
+            ? a + (b - a) * fx + (c - b) * fz
+            : a + (d - a) * fz + (c - d) * fx;
+    }
+
+    public static MeshInstance3D Build(int seg = Segments)
     {
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);

@@ -47,8 +47,17 @@ public partial class AvatarCharacter : AgentBrain
 
         // Default controller: deterministic wandering so the avatar moves immediately.
         // Fusion (or LLM) can replace this at runtime via Attach().
-        Attach(new UtilityAgentController(WorldConstants.Seed, AgentId));
+        _spawnFallback = new UtilityAgentController(WorldConstants.Seed, AgentId) { Anchors = Anchors };
+        Attach(_spawnFallback);
     }
+
+    /// <summary>
+    /// The controller <see cref="_Ready"/> attaches. The composition root sets <see cref="Anchors"/>
+    /// only after the avatar is in the tree, so the setter hands them on to it. Without that it
+    /// never had destinations and walked its need's fixed bearing (with Main's even needs, due
+    /// south) out of town until Fusion's first intent replaced it.
+    /// </summary>
+    private UtilityAgentController? _spawnFallback;
 
     public override void _Process(double delta)
     {
@@ -111,6 +120,9 @@ public partial class AvatarCharacter : AgentBrain
             Attach(new IntentMoveController(anchor.Position, verb, ArrivalRadius, _ => BeginHold(verb, anchor)));
         else
             BeginHold(verb, anchor);
+        // The controller just replaced may have been a tour walking to this same anchor. Claims are
+        // per agent, not per controller, so the tour's Detach released this one: claim it again.
+        anchor.Reserve(AgentId);
         return true;
     }
 
@@ -275,9 +287,21 @@ public partial class AvatarCharacter : AgentBrain
 
     /// <summary>
     /// Places this avatar may walk to. Set by the composition root, which is the only place that
-    /// knows the anchor set. Empty means need-driven wander with no fixed destinations.
+    /// knows the anchor set. Empty means need-driven wander with no fixed destinations. Reaches the
+    /// spawn controller if it is still attached, as well as every later fallback.
     /// </summary>
-    public IReadOnlyList<TaskAnchor> Anchors { get; set; } = System.Array.Empty<TaskAnchor>();
+    public IReadOnlyList<TaskAnchor> Anchors
+    {
+        get => _anchors;
+        set
+        {
+            _anchors = value;
+            if (_spawnFallback != null)
+                _spawnFallback.Anchors = value;
+        }
+    }
+
+    private IReadOnlyList<TaskAnchor> _anchors = System.Array.Empty<TaskAnchor>();
 }
 
 /// <summary>

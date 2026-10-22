@@ -39,6 +39,9 @@ public static class ActionAssertions
         SceneTransitions();
         InteriorFurniture();
         Interactions();
+        GroundSurfaces();
+        Detours();
+        TourMovesOn();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
@@ -299,6 +302,199 @@ public static class ActionAssertions
             "a second avatar's sit on it is rejected 'occupied'");
         chair.Release("avatar_1");
         Check(AnchorAffordances.Recheck(room, "chair_1", "sit", "avatar_2") == null, "once released, the chair is free again");
+    }
+
+    /// <summary>
+    /// Avatars stand on the terrain body, so what is drawn on the ground has to agree with it: the
+    /// plaza and roads are paving just above that surface, and every tree trunk has a body.
+    /// </summary>
+    private static void GroundSurfaces()
+    {
+        Console.WriteLine("\n[ground: paving and tree trunks]");
+
+        // SurfaceHeightAt is the terrain mesh: the field's own height at grid vertices, and inside a
+        // cell never outside that cell's corner heights.
+        const float size = WorldConstants.World;
+        float step = size / TerrainBuilder.Segments;
+        bool onVertices = true, insideCells = true;
+        for (int n = 0; n < 400; n++)
+        {
+            int i = 40 + n % 20 * 6, j = 40 + n / 20 * 6;
+            float x = -size / 2f + i * step, z = -size / 2f + j * step;
+            onVertices &= MathF.Abs(TerrainBuilder.SurfaceHeightAt(x, z) - WorldGeometry.HeightAt(x, z)) < 1e-3f;
+            float[] corners =
+            {
+                WorldGeometry.HeightAt(x, z), WorldGeometry.HeightAt(x + step, z),
+                WorldGeometry.HeightAt(x, z + step), WorldGeometry.HeightAt(x + step, z + step),
+            };
+            float inside = TerrainBuilder.SurfaceHeightAt(x + step * 0.37f, z + step * 0.61f);
+            insideCells &= inside >= corners.Min() - 1e-3f && inside <= corners.Max() + 1e-3f;
+        }
+        Check(onVertices, "the terrain surface equals the height field at the mesh's grid vertices");
+        Check(insideCells, "inside a cell it stays within the cell's corner heights");
+
+        // Each paving triangle's centroid and edge midpoints against the surface: below the lift means
+        // terrain shows through the paving, well above it means the paving floats and feet sink into it.
+        static (float Low, float High, int Down) Clearance(List<Vector3> tris)
+        {
+            float low = float.MaxValue, high = float.MinValue;
+            int down = 0;
+            for (int t = 0; t < tris.Count; t += 3)
+            {
+                Vector3 a = tris[t], b = tris[t + 1], c = tris[t + 2];
+                if ((b - a).Cross(c - a).Y >= 0f)
+                    down++;
+                foreach (var p in new[] { (a + b + c) / 3f, (a + b) / 2f, (b + c) / 2f, (c + a) / 2f })
+                {
+                    float gap = p.Y - TerrainBuilder.SurfaceHeightAt(p.X, p.Z);
+                    low = MathF.Min(low, gap);
+                    high = MathF.Max(high, gap);
+                }
+            }
+            return (low, high, down);
+        }
+
+        var plaza = SettlementBuilder.PlazaPaving();
+        var pc = Clearance(plaza);
+        Check(pc.Down == 0, "every plaza paving triangle faces up");
+        Check(pc.Low > 0.01f && pc.High < SettlementBuilder.PlazaLift + 0.02f,
+            $"the plaza paving lies on the ground ({pc.Low:F3}..{pc.High:F3} m above it)");
+        float area = 0f;
+        for (int t = 0; t < plaza.Count; t += 3)
+            area += MathF.Abs((plaza[t + 1] - plaza[t]).Cross(plaza[t + 2] - plaza[t]).Y) / 2f;
+        float disc = MathF.PI * SettlementBuilder.PlazaRadius * SettlementBuilder.PlazaRadius;
+        Check(area > disc * 0.99f && area < disc * 1.01f, $"it covers the plaza disc ({area:F0} of {disc:F0} m²)");
+
+        bool roadsUp = true, roadsReach = true;
+        float roadLow = float.MaxValue, roadHigh = float.MinValue;
+        for (int r = 0; r < SettlementBuilder.RoadCount; r++)
+        {
+            var road = SettlementBuilder.RoadPaving(r);
+            var rc = Clearance(road);
+            roadsUp &= rc.Down == 0;
+            roadLow = MathF.Min(roadLow, rc.Low);
+            roadHigh = MathF.Max(roadHigh, rc.High);
+            float near = float.MaxValue, far = 0f;
+            foreach (var v in road)
+            {
+                float d = new Vector2(v.X - WorldConstants.SettleX, v.Z - WorldConstants.SettleZ).Length();
+                near = MathF.Min(near, d);
+                far = MathF.Max(far, d);
+            }
+            roadsReach &= near < SettlementBuilder.PlazaRadius && far >= SettlementBuilder.RoadLength;
+        }
+        Check(roadsUp, "every road paving triangle faces up");
+        Check(roadLow > 0.01f && roadHigh < SettlementBuilder.RoadLift + 0.02f,
+            $"the roads lie on the ground, over the hills too ({roadLow:F3}..{roadHigh:F3} m above it)");
+        Check(roadsReach, "each road runs from inside the plaza edge to its full length");
+
+        // Trunks: a body on every tree, from the ground (a trunk's base can float a little) past an
+        // avatar's shoulders, where its 0.4 m capsule is widest, and as wide as the bark it stands in.
+        var plans = SettlementBuilder.BuildPlans(new SimulationRng((uint)WorldConstants.Seed));
+        var trunks = VegetationBuilder.Trunks(plans);
+        bool centred = true, grounded = true, tall = true, fits = true;
+        foreach (var (visual, body, ground) in trunks)
+        {
+            float scale = visual.Basis.Scale.X;
+            centred &= MathF.Abs(body.Centre.X - visual.Origin.X) < 1e-3f && MathF.Abs(body.Centre.Z - visual.Origin.Z) < 1e-3f;
+            grounded &= body.Centre.Y - body.Height / 2f <= ground + 1e-3f;
+            tall &= body.Centre.Y + body.Height / 2f >= ground + 1.4f;
+            fits &= body.Radius >= VegetationBuilder.TrunkTopRadius * scale - 1e-3f
+                && body.Radius <= VegetationBuilder.TrunkBottomRadius * scale + 1e-3f;
+        }
+        Check(trunks.Count > 100, $"the trees have trunks to collide with ({trunks.Count})");
+        Check(centred, "each trunk's body stands on its trunk");
+        Check(grounded, "it reaches the ground, so no avatar slips under a trunk that floats");
+        Check(tall, "it rises past an avatar's shoulders");
+        Check(fits, "its radius is between the trunk's top and base radius");
+    }
+
+    /// <summary>
+    /// A heading that meets an obstacle head-on is turned along it, so a straight-line controller
+    /// walking into a tree trunk goes round instead of pushing in place (Joshua's avatar stalled at
+    /// one on its spawn bearing, 2026-10-22). A glancing heading is left to the physics slide.
+    /// </summary>
+    private static void Detours()
+    {
+        Console.WriteLine("\n[detour round obstacles]");
+
+        var east = AgentAction.Move(new Vector3(1f, 0f, 0f), 0.8f);
+        var trunkAhead = new Vector3(-1f, 0f, 0f); // normal points back at the agent
+
+        int side = 0;
+        var free = LocomotionController.AroundObstacle(east, Vector3.Zero, ref side);
+        Check(free.MoveDirection == east.MoveDirection && side == 0, "with nothing in the way the heading is unchanged");
+
+        side = 0;
+        var headOn = LocomotionController.AroundObstacle(east, trunkAhead, ref side);
+        Check(MathF.Abs(headOn.MoveDirection.Dot(trunkAhead)) < 1e-4f && side != 0,
+            "head-on, the heading turns along the obstacle instead of into it");
+        Check(MathF.Abs(headOn.MoveDirection.Length() - 0.8f) < 1e-4f && headOn.MoveDirection.Y == 0f,
+            "it keeps its effort and stays on the ground plane");
+
+        side = 0;
+        var leaning = LocomotionController.AroundObstacle(
+            AgentAction.Move(new Vector3(1f, 0f, -0.2f)), trunkAhead, ref side);
+        Check(leaning.MoveDirection.Z < -0.9f, "a heading that leans one way goes round that way");
+
+        side = 0;
+        var other = LocomotionController.AroundObstacle(
+            AgentAction.Move(new Vector3(1f, 0f, 0.2f)), trunkAhead, ref side);
+        Check(other.MoveDirection.Z > 0.9f, "and the other way when it leans the other way");
+
+        int committed = side;
+        var stillBlocked = LocomotionController.AroundObstacle(
+            AgentAction.Move(new Vector3(1f, 0f, -0.05f)), trunkAhead, ref side);
+        Check(side == committed && stillBlocked.MoveDirection.Z > 0.9f,
+            "once it has picked a way round it keeps it while blocked, rather than dithering");
+
+        side = 1;
+        var glancing = AgentAction.Move(new Vector3(1f, 0f, 1f));
+        var slid = LocomotionController.AroundObstacle(glancing, trunkAhead, ref side);
+        Check(slid.MoveDirection == glancing.MoveDirection, "a glancing heading is left to the physics slide");
+
+        side = 1;
+        var away = AgentAction.Move(new Vector3(-1f, 0f, 0f));
+        Check(LocomotionController.AroundObstacle(away, trunkAhead, ref side).MoveDirection == away.MoveDirection,
+            "walking away from the obstacle is unchanged");
+
+        side = 1;
+        LocomotionController.AroundObstacle(east, Vector3.Zero, ref side);
+        Check(side == 0, "the chosen side is forgotten once the obstacle is gone");
+
+        side = 0;
+        var still = LocomotionController.AroundObstacle(AgentAction.Idle, trunkAhead, ref side);
+        Check(still.MoveDirection == Vector3.Zero, "standing still against it stays still");
+    }
+
+    /// <summary>
+    /// The model-free fallback tours the world's anchors: on reaching one it walks to another. It
+    /// used to pick the anchor it had just released, as the nearest, and park on it for good.
+    /// </summary>
+    private static void TourMovesOn()
+    {
+        Console.WriteLine("\n[fallback tour]");
+
+        var plaza = new TaskAnchor("plaza", "Plaza", AffordanceAxes.Neutral) { Position = new Vector3(0f, 0f, 0f) };
+        var well = new TaskAnchor("well", "Well", AffordanceAxes.Neutral) { Position = new Vector3(10f, 0f, 0f) };
+        var tour = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { plaza, well } };
+        AgentAction At(float x, int tick) => tour.Act(new AgentObservation("avatar_1", new Vector3(x, 0f, 0f), Vector3.Zero,
+            new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", tick));
+
+        Check(At(0.5f, 1).MoveDirection.X < 0f, "it first heads for the nearest anchor (the plaza)");
+        Check(At(0.5f, 2).MoveDirection.X > 0f, "on reaching the plaza it sets off for the well, not back to the plaza");
+        Check(At(9.5f, 3).MoveDirection.X < 0f, "and on reaching the well it heads back out again");
+
+        // Replaced mid-route (a Fusion intent arrives before it gets there), the tour must give up
+        // the anchor it reserved; otherwise the claim outlives it and the anchor reads as full.
+        var stand = new TaskAnchor("plaza", "Plaza", AffordanceAxes.Neutral) { Position = Vector3.Zero };
+        var leaving = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { stand } };
+        leaving.Act(new AgentObservation("avatar_1", new Vector3(8f, 0f, 0f), Vector3.Zero,
+            new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", 1));
+        bool claimed = stand.IsOccupiedBy("avatar_1");
+        ((IAgentController)leaving).Detach("avatar_1");
+        Check(claimed && !stand.IsOccupiedBy("avatar_1") && !stand.IsFull,
+            "a tour replaced before arriving releases the anchor it was walking to");
     }
 
     private static void Check(bool condition, string what)

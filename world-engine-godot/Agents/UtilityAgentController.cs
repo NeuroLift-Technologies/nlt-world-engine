@@ -26,6 +26,9 @@ public sealed class UtilityAgentController : IAgentController
     /// <summary>Anchor the agent is currently walking toward, or null when wandering.</summary>
     private TaskAnchor? _target;
 
+    /// <summary>The anchor last reached, passed over by the next choice while another is free.</summary>
+    private TaskAnchor? _lastReached;
+
     /// <summary>Distance at which an anchor counts as reached and the agent picks another.</summary>
     private const float ArrivalRadius = 2.5f;
 
@@ -38,6 +41,17 @@ public sealed class UtilityAgentController : IAgentController
     }
 
     public void Attach(string agentId) { }
+
+    /// <summary>
+    /// Replaced before arriving (a Fusion intent, a halt): release the anchor this tour reserved,
+    /// or the claim outlives the controller and the anchor reads as full to everyone, this agent's
+    /// own later tours included.
+    /// </summary>
+    public void Detach(string agentId)
+    {
+        _target?.Release(agentId);
+        _target = null;
+    }
 
     public AgentAction Act(AgentObservation observation)
     {
@@ -80,8 +94,9 @@ public sealed class UtilityAgentController : IAgentController
             if (toTarget.Length() > ArrivalRadius)
                 return AgentAction.Move(toTarget.Normalized(), 1f);
 
-            // Reached. Release the claim so the next cycle is free to revisit it, and re-decide.
+            // Reached. Release the claim so a later cycle is free to revisit it, and re-decide.
             _target.Release(observation.AgentId);
+            _lastReached = _target;
             _target = null;
         }
 
@@ -97,14 +112,21 @@ public sealed class UtilityAgentController : IAgentController
             : Wander();
     }
 
-    /// <summary>Closest anchor with room for this agent, excluding the one already held.</summary>
+    /// <summary>
+    /// Closest anchor with room for this agent, excluding the one already held. The one just
+    /// reached is chosen only when nothing else is free: released on arrival, it is also the
+    /// nearest, and re-picking it parked the agent there for good.
+    /// </summary>
     private TaskAnchor? NearestUnclaimed(in AgentObservation observation)
+        => Nearest(observation, _lastReached) ?? Nearest(observation, null);
+
+    private TaskAnchor? Nearest(in AgentObservation observation, TaskAnchor? skip)
     {
         TaskAnchor? best = null;
         var bestDistance = float.MaxValue;
         foreach (var anchor in Anchors)
         {
-            if (anchor.IsOccupiedBy(observation.AgentId))
+            if (anchor == skip || anchor.IsOccupiedBy(observation.AgentId))
                 continue;
             if (anchor.IsFull)
                 continue;
