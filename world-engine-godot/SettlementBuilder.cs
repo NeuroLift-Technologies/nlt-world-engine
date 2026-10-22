@@ -45,6 +45,21 @@ public static class SettlementBuilder
     private const float RoadLengthFraction = 0.9f;
 
     /// <summary>
+    /// Height of the road and plaza paving above the terrain surface, in metres. The paving lies on
+    /// the ground rather than being a raised deck: avatars stand on the terrain body, so a deck
+    /// floated above it sank their feet 0.2–0.5 m into the plaza, and flat road boxes ran up to
+    /// 4.3 m into the hillsides. The plaza sits a centimetre above the roads, so the strip where
+    /// they overlap draws the plaza instead of both flickering.
+    /// </summary>
+    public const float RoadLift = 0.03f, PlazaLift = 0.04f;
+
+    /// <summary>Where each road's paving starts: just inside the plaza edge, so no grass shows between.</summary>
+    public const float RoadPavingStart = PlazaRadius - 0.5f;
+
+    /// <summary>Distance from the settlement centre to each road's far end.</summary>
+    public const float RoadLength = WorldConstants.SettleR * RoadLengthFraction;
+
+    /// <summary>
     /// Is a building footprint at (x, z) clear of every radial road?
     /// </summary>
     /// <remarks>
@@ -69,8 +84,7 @@ public static class SettlementBuilder
             // Component along the road axis, clamped to the road's length: past the far end a
             // building is beyond the road, before the centre it is inside the plaza instead.
             var along = dx * ax + dz * az;
-            var len = WorldConstants.SettleR * RoadLengthFraction;
-            if (along < 0f || along > len) continue;
+            if (along < 0f || along > RoadLength) continue;
 
             // Perpendicular distance from the building centre to the road axis.
             var lateral = MathF.Abs(dx * az - dz * ax);
@@ -132,6 +146,92 @@ public static class SettlementBuilder
         BuildingKind.School => new Color("cc79a7"),
         _ => Colors.White,
     };
+
+    /// <summary>
+    /// The plaza's paving as a triangle list (three vertices per triangle, faces up), every vertex
+    /// <see cref="PlazaLift"/> above <see cref="TerrainBuilder.SurfaceHeightAt"/>. Pure geometry, so
+    /// the harness can check it lies on the ground; <see cref="Build"/> turns it into the mesh.
+    /// </summary>
+    public static List<Vector3> PlazaPaving()
+    {
+        // About a metre between rings, and 1.7 m between spokes at the rim: fine enough that the
+        // terrain's own triangles cannot rise through the paving between its vertices.
+        const int rings = 13, sectors = 48;
+        Vector3 At(int ring, int sector)
+        {
+            float r = PlazaRadius * ring / rings, a = sector / (float)sectors * Mathf.Tau;
+            return OnGround(WorldConstants.SettleX + MathF.Cos(a) * r, WorldConstants.SettleZ + MathF.Sin(a) * r, PlazaLift);
+        }
+
+        var tris = new List<Vector3>();
+        for (int k = 0; k < rings; k++)
+            for (int s = 0; s < sectors; s++)
+                AddQuad(tris, At(k, s), At(k, s + 1), At(k + 1, s + 1), At(k + 1, s));
+        return tris;
+    }
+
+    /// <summary>
+    /// Road <paramref name="index"/>'s paving as a triangle list, <see cref="RoadLift"/> above the
+    /// terrain surface from <see cref="RoadPavingStart"/> to <see cref="RoadLength"/>, so it climbs
+    /// and dips with the ground. Same axis as <see cref="ClearOfRoads"/> tests buildings against.
+    /// </summary>
+    public static List<Vector3> RoadPaving(int index)
+    {
+        float a = index / (float)RoadCount * Mathf.Pi * 2f + RoadAngleOffset;
+        float ax = MathF.Sin(a), az = MathF.Cos(a);
+        // A quarter metre along by 0.31 m across. Out on the hills the terrain's 2.2 m triangles meet
+        // at creases between paving vertices, and the paving floats off them in proportion to the
+        // spacing: 9 cm at 1 m by 1.25 m, 6 cm at half that.
+        const int columns = 8;
+        int steps = (int)MathF.Ceiling((RoadLength - RoadPavingStart) / 0.25f);
+        Vector3 At(int step, int column)
+        {
+            float d = RoadPavingStart + (RoadLength - RoadPavingStart) * step / steps;
+            float lateral = RoadWidth * (column / (float)columns - 0.5f);
+            return OnGround(WorldConstants.SettleX + ax * d + az * lateral, WorldConstants.SettleZ + az * d - ax * lateral, RoadLift);
+        }
+
+        var tris = new List<Vector3>();
+        for (int k = 0; k < steps; k++)
+            for (int c = 0; c < columns; c++)
+                AddQuad(tris, At(k, c), At(k, c + 1), At(k + 1, c + 1), At(k + 1, c));
+        return tris;
+    }
+
+    private static Vector3 OnGround(float x, float z, float lift) => new(x, TerrainBuilder.SurfaceHeightAt(x, z) + lift, z);
+
+    /// <summary>Append quad (p00, p10, p11, p01) as two upward triangles.</summary>
+    private static void AddQuad(List<Vector3> tris, Vector3 p00, Vector3 p10, Vector3 p11, Vector3 p01)
+    {
+        AddUpward(tris, p00, p10, p11);
+        AddUpward(tris, p00, p11, p01);
+    }
+
+    /// <summary>
+    /// Append one triangle wound to face up, as <see cref="TerrainBuilder"/>'s are (Godot's front
+    /// face is clockwise seen from above, which gives a negative cross-product Y). Triangles with
+    /// no area, at the plaza's centre, are dropped.
+    /// </summary>
+    private static void AddUpward(List<Vector3> tris, Vector3 a, Vector3 b, Vector3 c)
+    {
+        float y = (b - a).Cross(c - a).Y;
+        if (MathF.Abs(y) < 1e-6f) return;
+        if (y > 0f) (b, c) = (c, b);
+        tris.Add(a);
+        tris.Add(b);
+        tris.Add(c);
+    }
+
+    private static MeshInstance3D PavingMesh(List<Vector3> tris, Material material)
+    {
+        var st = new SurfaceTool();
+        st.Begin(Mesh.PrimitiveType.Triangles);
+        foreach (var v in tris)
+            st.AddVertex(v);
+        st.GenerateNormals();
+        st.SetMaterial(material);
+        return new MeshInstance3D { Mesh = st.Commit(), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+    }
 
     public static List<Plan> BuildPlans(SimulationRng rng)
     {
@@ -227,34 +327,15 @@ public static class SettlementBuilder
             i++;
         }
 
-        // plaza — raised 0.5 so it sits visibly on terrain instead of clipping
-        root.AddChild(new MeshInstance3D
-        {
-            Mesh = new CylinderMesh { Height = 0.22f, TopRadius = PlazaRadius, BottomRadius = PlazaRadius, RadialSegments = 40 },
-            MaterialOverride = pathMat,
-            Position = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 0.5f, WorldConstants.SettleZ),
-        });
-
-        // Roads use the same RoadCount/RoadWidth/RoadAngleOffset constants BuildPlans tests
-        // against, so a building can never be placed across a road this loop draws.
+        // Plaza and roads are paving on the ground. Avatars walk on the terrain body beneath, so
+        // neither needs a collider of its own. Roads use the same RoadCount/RoadWidth/RoadAngleOffset
+        // constants BuildPlans tests against, so a building can never be placed across one.
+        root.AddChild(PavingMesh(PlazaPaving(), pathMat));
         for (int r = 0; r < RoadCount; r++)
-        {
-            float a = r / (float)RoadCount * Mathf.Pi * 2f + RoadAngleOffset;
-            float len = WorldConstants.SettleR * RoadLengthFraction;
-            var road = new MeshInstance3D
-            {
-                Mesh = new BoxMesh { Size = new Vector3(RoadWidth, 0.2f, len) },
-                MaterialOverride = pathMat,
-                Position = new Vector3(WorldConstants.SettleX, WorldConstants.SettleY + 0.5f, WorldConstants.SettleZ),
-                Rotation = new Vector3(0, a, 0),
-            };
-            road.Position += road.Basis * new Vector3(0, 0, len / 2f);
-            root.AddChild(road);
-        }
+            root.AddChild(PavingMesh(RoadPaving(r), pathMat));
 
-        // well at plaza edge
-        float wy = WorldConstants.SettleY;
-        var wellPos = new Vector3(WorldConstants.SettleX + 8f, wy, WorldConstants.SettleZ + 3f);
+        // well at plaza edge, standing on the ground
+        var wellPos = OnGround(WorldConstants.SettleX + 8f, WorldConstants.SettleZ + 3f, 0f);
         root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { Height = 1.1f, TopRadius = 1.3f, BottomRadius = 1.45f, RadialSegments = 12 }, MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0x8a8078FF), Roughness = 0.95f }, Position = wellPos + new Vector3(0, 0.55f, 0) });
         root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { Height = 0.1f, TopRadius = 1.05f, BottomRadius = 1.05f, RadialSegments = 12 }, MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0x2f6f74FF), Roughness = 0.3f }, Position = wellPos + new Vector3(0, 1.05f, 0) });
         root.AddChild(new MeshInstance3D { Mesh = new CylinderMesh { Height = 2.0f, TopRadius = 0f, BottomRadius = 1.7f, RadialSegments = 4 }, MaterialOverride = roofMat, Position = wellPos + new Vector3(0, 2.4f, 0), Rotation = new Vector3(0, Mathf.Pi / 4f, 0) });
@@ -264,13 +345,20 @@ public static class SettlementBuilder
         wellBody.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(2.9f, 1.2f, 2.9f) } });
         root.AddChild(wellBody);
 
-        // benches around plaza
+        // benches around plaza: a seat on two legs, standing on the paving. (The old seat slab sat
+        // flush with the raised plaza deck; on paving at ground level it would have floated.)
         for (int b = 0; b < 6; b++)
         {
             float a = b / 6f * Mathf.Pi * 2f + 0.2f;
             float rr = 10.5f;
-            var bp = new Vector3(WorldConstants.SettleX + MathF.Cos(a) * rr, wy, WorldConstants.SettleZ + MathF.Sin(a) * rr);
-            var bench = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(2.2f, 0.16f, 0.6f) }, MaterialOverride = doorMat, Position = bp + new Vector3(0, 0.55f, 0), Rotation = new Vector3(0, a + Mathf.Pi / 2f, 0) };
+            var bench = new Node3D
+            {
+                Position = OnGround(WorldConstants.SettleX + MathF.Cos(a) * rr, WorldConstants.SettleZ + MathF.Sin(a) * rr, PlazaLift),
+                Rotation = new Vector3(0, a + Mathf.Pi / 2f, 0),
+            };
+            bench.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(2.2f, 0.1f, 0.55f) }, MaterialOverride = doorMat, Position = new Vector3(0, 0.45f, 0) });
+            foreach (float legX in new[] { -0.85f, 0.85f })
+                bench.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.12f, 0.4f, 0.45f) }, MaterialOverride = doorMat, Position = new Vector3(legX, 0.2f, 0) });
             root.AddChild(bench);
         }
 

@@ -9,6 +9,65 @@ public static class VegetationBuilder
     private sealed record Spot(float X, float Z, float Y, float Scale, float Rot, float Tint);
     public static readonly List<ShaderMaterial> WindMats = new();
 
+    /// <summary>The trunk mesh every tree instances, before its per-tree scale.</summary>
+    public const float TrunkHeight = 2.6f, TrunkTopRadius = 0.16f, TrunkBottomRadius = 0.30f;
+
+    /// <summary>
+    /// A tree trunk's collision cylinder in world space. <see cref="Centre"/> is the cylinder's
+    /// middle: Godot's <see cref="CylinderShape3D"/> is centred on its node.
+    /// </summary>
+    public readonly record struct TrunkCollider(Vector3 Centre, float Radius, float Height);
+
+    private static List<Spot> TreeSpots(List<SettlementBuilder.Plan> plans) => SeededPlacement(620, (x, z, r) =>
+    {
+        float h = WorldGeometry.HeightAt(x, z);
+        return h > WorldConstants.Water + 1.6f && WorldGeometry.SlopeAt(x, z) < 0.42f && ClearOfSettlement(x, z, plans, 1.5f);
+    });
+
+    /// <summary>Where one tree's trunk mesh is drawn: its size, some height variation, and a turn about Y.</summary>
+    private static Transform3D TrunkTransform(Spot t)
+    {
+        float sc = 0.72f + t.Scale * 0.85f;
+        return new Transform3D(new Basis(Quaternion.FromEuler(new Vector3(0, t.Rot * Mathf.Pi * 2f, 0))).Scaled(new Vector3(sc, sc * (0.85f + t.Tint * 0.4f), sc)),
+            new Vector3(t.X, t.Y - 0.2f + 1.3f * sc, t.Z));
+    }
+
+    /// <summary>
+    /// Every tree's trunk as drawn, the collider built for it, and the terrain surface under it.
+    /// For the harness; <see cref="Build"/> uses the same functions.
+    /// </summary>
+    public static List<(Transform3D Visual, TrunkCollider Body, float GroundY)> Trunks(List<SettlementBuilder.Plan> plans)
+    {
+        var trunks = new List<(Transform3D, TrunkCollider, float)>();
+        foreach (var t in TreeSpots(plans))
+        {
+            var visual = TrunkTransform(t);
+            float ground = TerrainBuilder.SurfaceHeightAt(t.X, t.Z);
+            trunks.Add((visual, ColliderFor(visual, ground), ground));
+        }
+        return trunks;
+    }
+
+    /// <summary>
+    /// The collision cylinder for one trunk. <paramref name="trunk"/> places the trunk mesh: a
+    /// <see cref="TrunkHeight"/> cylinder tapering from <see cref="TrunkBottomRadius"/> at its base
+    /// to <see cref="TrunkTopRadius"/>, centred on <c>trunk.Origin</c> and scaled by
+    /// <c>trunk.Basis.Scale</c> (X and Z equal, Y varies per tree). <paramref name="groundY"/> is
+    /// the terrain surface under the tree; the trunk's base can float up to ~0.1 m above it. Jolt
+    /// does not take non-uniform scale on shapes, so the size is baked into the cylinder.
+    /// </summary>
+    private static TrunkCollider ColliderFor(Transform3D trunk, float groundY)
+    {
+        // Joshua, 2026-10-22: the base radius the whole way up, from the ground to the trunk's
+        // visual top. Avatars never clip the bark; higher up, where the trunk tapers, they stop a
+        // few centimetres short of it. Starting at the ground closes the gap under a floating base.
+        var scale = trunk.Basis.Scale;
+        float top = trunk.Origin.Y + TrunkHeight * 0.5f * scale.Y;
+        float height = top - groundY;
+        return new TrunkCollider(new Vector3(trunk.Origin.X, groundY + height * 0.5f, trunk.Origin.Z),
+            TrunkBottomRadius * scale.X, height);
+    }
+
     private static List<Spot> SeededPlacement(int count, Func<float, float, SimulationRng, bool> test)
     {
         var out_ = new List<Spot>();
@@ -95,19 +154,21 @@ void fragment() {
         var root = new Node3D();
 
         // trees: one trunk + 3 canopy cones per spot, four MultiMesh layers
-        var treeSpots = SeededPlacement(620, (x, z, r) =>
-        {
-            float h = WorldGeometry.HeightAt(x, z);
-            return h > WorldConstants.Water + 1.6f && WorldGeometry.SlopeAt(x, z) < 0.42f && ClearOfSettlement(x, z, plans, 1.5f);
-        });
+        var treeSpots = TreeSpots(plans);
 
-        var trunkMesh = new CylinderMesh { Height = 2.6f, TopRadius = 0.16f, BottomRadius = 0.30f, RadialSegments = 6 };
-        root.AddChild(Instanced(trunkMesh, WindMat(new Color(0x5a4534FF), 0.03f), treeSpots, t =>
+        var trunkMesh = new CylinderMesh { Height = TrunkHeight, TopRadius = TrunkTopRadius, BottomRadius = TrunkBottomRadius, RadialSegments = 6 };
+        root.AddChild(Instanced(trunkMesh, WindMat(new Color(0x5a4534FF), 0.03f), treeSpots, TrunkTransform, true));
+
+        // Trunks stop avatars; canopies (above head height), rocks and grass do not. One static
+        // body holds every trunk's cylinder, and Jolt compounds them. It sits under the open world,
+        // so it leaves the physics space with the terrain while an interior shows.
+        var trunkBody = new StaticBody3D { Name = "Collision_Trees" };
+        foreach (var t in treeSpots)
         {
-            float sc = 0.72f + t.Scale * 0.85f;
-            return new Transform3D(new Basis(Quaternion.FromEuler(new Vector3(0, t.Rot * Mathf.Pi * 2f, 0))).Scaled(new Vector3(sc, sc * (0.85f + t.Tint * 0.4f), sc)),
-                new Vector3(t.X, t.Y - 0.2f + 1.3f * sc, t.Z));
-        }, true));
+            var c = ColliderFor(TrunkTransform(t), TerrainBuilder.SurfaceHeightAt(t.X, t.Z));
+            trunkBody.AddChild(new CollisionShape3D { Shape = new CylinderShape3D { Radius = c.Radius, Height = c.Height }, Position = c.Centre });
+        }
+        root.AddChild(trunkBody);
 
         root.AddChild(Instanced(Cone(1.35f, 2.9f, 8), WindMat(new Color(0x3d5c36FF), 0.10f), treeSpots, t => T(t, 3.2f, 0.72f, 0.85f), true));
         root.AddChild(Instanced(Cone(1.05f, 2.4f, 8), WindMat(new Color(0x4a7038FF), 0.13f), treeSpots, t => T(t, 4.5f, 0.72f, 0.85f), true));
