@@ -235,7 +235,76 @@ dotnet run --project AgentHarness/AgentHarness.csproj
 | Import an asset | `ART-PIPELINE.md` G2 — **manifest row first**; GP-0 gates apply to character/hero art |
 | Touch the Fusion loop / protocol | `agent-loop.md`, `../docs/contracts/agent-loop-v1.md` + schema, `Agents/AgentLoopProtocol.cs` |
 | Verify my change | §6 |
+| Drive the running editor from Claude Code | §9 — Godot MCP Toolkit |
 | Something is unclear | Escalate to Joshua — do not guess |
+
+---
+
+## 9. Driving the editor from Claude Code (Godot MCP Toolkit)
+
+The vendored `addons/godot_mcp_toolkit/` (v1.0.4, approved in
+`../docs/escalations/2026-10-03-addons-external-integration-approval.md`) runs a localhost
+WebSocket server inside the editor. Its npm bridge, `@npgamedev/godot-mcp-server`, is what
+Claude Code talks to. The bridge is registered once per machine; nothing about it is committed.
+
+**One-time setup, per machine** (Node 22+; run from the repo root; Windows form shown):
+
+```bash
+claude mcp add godot-mcp-toolkit --scope local -e GODOT_MCP_CONFIG_VERSION=1 -e GODOT_MCP_PROJECT_PATH=C:/Users/joshd/nlt-repos/nlt-world-engine/world-engine-godot -- cmd /c npx -y @npgamedev/godot-mcp-server@1.0.4
+```
+
+- **`GODOT_MCP_PROJECT_PATH` is required.** The bridge finds the editor by an *exact* match of
+  `GODOT_MCP_PROJECT_PATH`, else its cwd, against the registry at
+  `%APPDATA%\godot-mcp-toolkit\projects.json`, which is keyed by the Godot project root
+  (`…/world-engine-godot`). Claude Code starts the bridge in the repo root, so without it the
+  bridge never finds the editor. For the same reason the `world-engine-godot/.mcp.json` that the
+  addon's *Write .mcp.json* produces does not reach a repo-root session. Use your checkout's
+  absolute path.
+- **`--scope local`** stores the entry in `~/.claude.json` for this checkout only: no file in the
+  repo, and other projects do not get the tools. (Project scope would write a repo-root
+  `.mcp.json`, which is not gitignored and must not be committed.)
+- **`@1.0.4`** stays in step with the addon version (an approval condition). Upgrade both together.
+- **`cmd /c npx`** because `npx` is a `.cmd` shim on Windows (the same form the addon writes).
+  From Git Bash, prefix the command with `MSYS_NO_PATHCONV=1`, or MSYS rewrites `/c` into `C:/`.
+
+Then give MCP servers longer to start. On the 7.8 GB dev PC a **cold** bridge start (the first
+after an idle stretch, with the editor open) takes 20–41 s to answer MCP `initialize`; warm, it
+takes 4–8 s. Claude Code's default startup window is 30 s, so without this the first session
+comes up with no Godot tools. Put this in the repo-root `.claude/settings.local.json`, which
+stays local and is never committed:
+
+```json
+{ "env": { "MCP_TIMEOUT": "90000" } }
+```
+
+Check it with `claude mcp get godot-mcp-toolkit` → `✔ Connected`. The bridge starts and lists
+its tools without an editor and finds the editor later on its own.
+
+**Each use:**
+
+1. Open the editor on `world-engine-godot`. The plugin is enabled in `project.godot`; the
+   **MCP** bottom-panel dock shows the bound port (`127.0.0.1:6550`–`6560`). On the 7.8 GB dev
+   PC, close other heavy apps first.
+2. Start a **new** Claude Code session in the repo root (MCP servers load at session start; in an
+   open session use `/mcp` → reconnect). Tools appear as `mcp__godot-mcp-toolkit__*`: 36 at
+   connect (`scene_get_tree`, `project_get_settings`, `script_read`, `game_start`, …), and
+   `discover_tools` loads more.
+3. Read before you write: start with `scene_get_tree` or `project_get_settings`. Mutating tools
+   change the open project, the same checkout other sessions may be editing, so claim first
+   (§7). Most of the world is built at runtime from C#, so the edited scene tree of `Main.tscn` is
+   nearly empty. That is expected.
+
+**`✘ Failed to connect` / "connection timed out after …ms":** two known causes.
+
+- **Slow cold start.** If the timeout is 30000ms, `MCP_TIMEOUT` is not set (see above). Run
+  `/mcp` → reconnect; the second start is warm.
+- **Stale registry entry.** Open `%APPDATA%\godot-mcp-toolkit\projects.json`. An entry for
+  `…/world-engine-godot` with `"port": -1` is a runtime-only entry. A game started without the
+  editor (CLI `--capture`, agent-loop runs) writes it, and only a clean game exit removes it, so
+  a killed game leaves it behind. Bridge 1.0.4 dials `ws://127.0.0.1:-1`, throws `Invalid URL`
+  before answering MCP `initialize`, and Claude Code reports a timeout. **Fix:** open the editor
+  (its startup deletes the stale runtime entry), then `/mcp` → reconnect. Do not hand-edit
+  `projects.json`.
 
 
 
