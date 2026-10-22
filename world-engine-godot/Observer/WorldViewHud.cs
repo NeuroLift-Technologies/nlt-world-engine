@@ -87,14 +87,45 @@ public partial class WorldViewHud : Control
     private void DrawNotice(Font font, Palette p, string text, Vector2 viewport)
     {
         int size = _a11y.Font(Ui.SmallFont);
-        var s = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
-        float stripHeight = font.GetHeight(size) + 10f;
-        var bg = new Rect2(new Vector2((viewport.X - s.X - 16f) * 0.5f, TopBarHeight + 8f + stripHeight + 6f),
-            s + new Vector2(16, 10));
+        // Wrapped to the window, so a large accessibility font never pushes the way back off-screen.
+        const float Margin = 16f, Pad = 8f;
+        var lines = WrapLines(font, text, size, Mathf.Max(viewport.X - 2f * (Margin + Pad), 80f));
+        float lineHeight = font.GetHeight(size);
+        float width = 0f;
+        foreach (var line in lines)
+            width = Mathf.Max(width, font.GetStringSize(line, HorizontalAlignment.Left, -1, size).X);
+        float stripHeight = lineHeight + 10f;
+        var bg = new Rect2(new Vector2((viewport.X - width) * 0.5f - Pad, TopBarHeight + 8f + stripHeight + 6f),
+            new Vector2(width + 2f * Pad, lineHeight * lines.Count + 10f));
         DrawRect(bg, p.Backdrop with { A = 0.85f });
         DrawRect(bg, p.Warn, false, 1f);
-        DrawString(font, new Vector2(bg.Position.X + 8, bg.Position.Y + s.Y + 1), text,
-            HorizontalAlignment.Left, -1, size, p.Text);
+        for (int i = 0; i < lines.Count; i++)
+        {
+            float lineWidth = font.GetStringSize(lines[i], HorizontalAlignment.Left, -1, size).X;
+            DrawString(font, new Vector2((viewport.X - lineWidth) * 0.5f, bg.Position.Y + 5f + font.GetAscent(size) + i * lineHeight),
+                lines[i], HorizontalAlignment.Left, -1, size, p.Text);
+        }
+    }
+
+    /// <summary>Greedy word wrap of <paramref name="text"/> to <paramref name="maxWidth"/> pixels.</summary>
+    private static System.Collections.Generic.List<string> WrapLines(Font font, string text, int size, float maxWidth)
+    {
+        var lines = new System.Collections.Generic.List<string>();
+        string current = "";
+        foreach (var word in text.Split(' '))
+        {
+            string candidate = current.Length == 0 ? word : current + " " + word;
+            if (current.Length > 0 && font.GetStringSize(candidate, HorizontalAlignment.Left, -1, size).X > maxWidth)
+            {
+                lines.Add(current);
+                current = word;
+            }
+            else
+                current = candidate;
+        }
+        if (current.Length > 0)
+            lines.Add(current);
+        return lines;
     }
 
     private void DrawSceneStrip(Font font, Palette p, StateFeed? doc, Vector2 viewport)
