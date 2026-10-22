@@ -120,6 +120,9 @@ public partial class AvatarCharacter : AgentBrain
             Attach(new IntentMoveController(anchor.Position, verb, ArrivalRadius, _ => BeginHold(verb, anchor)));
         else
             BeginHold(verb, anchor);
+        // The controller just replaced may have been a tour walking to this same anchor. Claims are
+        // per agent, not per controller, so the tour's Detach released this one: claim it again.
+        anchor.Reserve(AgentId);
         return true;
     }
 
