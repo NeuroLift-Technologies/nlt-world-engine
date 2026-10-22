@@ -57,7 +57,7 @@ Compression is therefore **not** a blocker for the G1.2 size budget.
 
 ### LOD budget at 144 tris/resident
 
-`RENDERER-PLAN.md` line 37 specifies 19–20 Avatar+Aide pairs.
+`RENDERER-PLAN.md` line 37 specifies 20 Avatar+Aide pairs.
 
 | Residents | Total tris | Skeletons animated | Anim channels |
 |---|---|---|---|

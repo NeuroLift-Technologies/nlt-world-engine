@@ -38,7 +38,7 @@ Consequently the following work is **retired, not deferred** — it existed to p
 
 ```
 Fusion (Python) — AUTHORITATIVE
-  world simulation · per-agent policies (1 per Avatar, 1 per Aide, 19–20 pairs)
+  world simulation · per-agent policies (1 per Avatar, 1 per Aide, 20 pairs)
   PPO training · RRT core · fusion gate · observer state schemas
         │
         │  state feed (~1 Hz)
@@ -223,7 +223,7 @@ Four, all already specified in Fusion. The renderer does not compute them; it **
 
 1. **Self-sufficiency** — independence rising across attempts.
 2. **Burnout minimisation** — incidence, severity and time-to-recovery over the run.
-3. **Self-recognition** — the Avatar notices its own decline and acts before collapse. Metacognition is track 7 of 19 (`SelfMonitor / AwareMate`) and **is not measured by the fusion gate**; consider a seventh dimension, or the behaviour most characteristic of the method is trained but never graded.
+3. **Self-recognition** — the Avatar notices its own decline and acts before collapse. Metacognition is pair 11 of 20 (`AwareMate`) and **is not measured by the fusion gate**; consider a seventh dimension, or the behaviour most characteristic of the method is trained but never graded.
 4. **Coached recovery** — the Aide's RRT core steps in when burnout occurs.
 
 The legible narrative is a contrast:

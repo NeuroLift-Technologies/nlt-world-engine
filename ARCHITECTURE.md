@@ -132,7 +132,7 @@ Each **pair** (Avatar + Aide) runs as an isolated UE simulation:
 
 ---
 
-## Scaling to 19+ Pairs
+## Scaling to 20+ Pairs
 
 | Resource | Old (Cloudflare) | UE 5.8 Equivalent |
 |----------|------------------|-------------------|

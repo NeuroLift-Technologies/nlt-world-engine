@@ -94,7 +94,7 @@ Being honest about the other direction — these are fine as procedural primitiv
 ### Phase G1 — Decisions (Joshua; blocking)
 
 - [ ] **G1.1 Character asset source.** Mixamo (Adobe, free, redistribution terms need confirming per-asset) vs CC0 alternatives vs purchased. **Mixamo's licence has historically not permitted redistribution of the raw assets** — if residents ship in this repo or a build, that needs a real answer, not an assumption.
-- [ ] **G1.2 Character count and LOD budget.** 19–20 Avatar+Aide pairs (`RENDERER-PLAN.md` line 37). 20 skinned meshes with animation is a different cost from 20 `MultiMesh` cones. Do we animate all of them, or LOD to billboard/static beyond N metres?
+- [ ] **G1.2 Character count and LOD budget.** 20 Avatar+Aide pairs (`RENDERER-PLAN.md` line 37). 20 skinned meshes with animation is a different cost from 20 `MultiMesh` cones. Do we animate all of them, or LOD to billboard/static beyond N metres?
 - [ ] **G1.3 Animation source.** Bake clips into the GLB, or ship a separate animation set? Walk cycle only, or also idle/sit/converse per the state machine in the stale design doc §5?
 - [ ] **G1.4 Hero prop policy.** Trees, rocks, street furniture — import CC0, or keep procedural? §4.1 argues keep; this is the call.
 - [ ] **G1.5 Budget.** Is this zero-cost (CC0 only), or is spend authorised? Per OTOI §4.4 this is Joshua's decision, not an agent's.

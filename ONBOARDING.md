@@ -148,7 +148,7 @@ Run:      cd _archive/world-engine-v2 && npm install && npm run dev
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**19 Avatar-Aide pairs** — 16 executive function (FocusFlow, Timely, TaskKickstart, etc.) + 3 non-executive (StressShield, SensoryBalance, ConfidenceCoach).
+**20 Avatar-Aide pairs** — 14 executive function (StayAlert, ImpulseGuard, FocusFlow, Timely, MemoryMate, MoodEase, TaskKickstart, CalmCore, Planner Pro, SmoothSwitch, AwareMate, SteadyMind, FocusRecharge, EffortAlign) + 6 non-executive (StressShield, SensoryBalance, SocialSync, SensorySeeker, ConfidenceCoach, RSDShield). The roster in `neurolift-ai-fusion/README.md` is canonical.
 
 ---
 
