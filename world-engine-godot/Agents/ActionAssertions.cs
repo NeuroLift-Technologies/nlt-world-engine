@@ -40,6 +40,8 @@ public static class ActionAssertions
         InteriorFurniture();
         Interactions();
         GroundSurfaces();
+        Detours();
+        TourMovesOn();
 
         Console.WriteLine($"\n=== {_passed} passed, {_failed} failed ===");
         return _failed == 0;
@@ -405,6 +407,83 @@ public static class ActionAssertions
         Check(grounded, "it reaches the ground, so no avatar slips under a trunk that floats");
         Check(tall, "it rises past an avatar's shoulders");
         Check(fits, "its radius is between the trunk's top and base radius");
+    }
+
+    /// <summary>
+    /// A heading that meets an obstacle head-on is turned along it, so a straight-line controller
+    /// walking into a tree trunk goes round instead of pushing in place (Joshua's avatar stalled at
+    /// one on its spawn bearing, 2026-10-22). A glancing heading is left to the physics slide.
+    /// </summary>
+    private static void Detours()
+    {
+        Console.WriteLine("\n[detour round obstacles]");
+
+        var east = AgentAction.Move(new Vector3(1f, 0f, 0f), 0.8f);
+        var trunkAhead = new Vector3(-1f, 0f, 0f); // normal points back at the agent
+
+        int side = 0;
+        var free = LocomotionController.AroundObstacle(east, Vector3.Zero, ref side);
+        Check(free.MoveDirection == east.MoveDirection && side == 0, "with nothing in the way the heading is unchanged");
+
+        side = 0;
+        var headOn = LocomotionController.AroundObstacle(east, trunkAhead, ref side);
+        Check(MathF.Abs(headOn.MoveDirection.Dot(trunkAhead)) < 1e-4f && side != 0,
+            "head-on, the heading turns along the obstacle instead of into it");
+        Check(MathF.Abs(headOn.MoveDirection.Length() - 0.8f) < 1e-4f && headOn.MoveDirection.Y == 0f,
+            "it keeps its effort and stays on the ground plane");
+
+        side = 0;
+        var leaning = LocomotionController.AroundObstacle(
+            AgentAction.Move(new Vector3(1f, 0f, -0.2f)), trunkAhead, ref side);
+        Check(leaning.MoveDirection.Z < -0.9f, "a heading that leans one way goes round that way");
+
+        side = 0;
+        var other = LocomotionController.AroundObstacle(
+            AgentAction.Move(new Vector3(1f, 0f, 0.2f)), trunkAhead, ref side);
+        Check(other.MoveDirection.Z > 0.9f, "and the other way when it leans the other way");
+
+        int committed = side;
+        var stillBlocked = LocomotionController.AroundObstacle(
+            AgentAction.Move(new Vector3(1f, 0f, -0.05f)), trunkAhead, ref side);
+        Check(side == committed && stillBlocked.MoveDirection.Z > 0.9f,
+            "once it has picked a way round it keeps it while blocked, rather than dithering");
+
+        side = 1;
+        var glancing = AgentAction.Move(new Vector3(1f, 0f, 1f));
+        var slid = LocomotionController.AroundObstacle(glancing, trunkAhead, ref side);
+        Check(slid.MoveDirection == glancing.MoveDirection, "a glancing heading is left to the physics slide");
+
+        side = 1;
+        var away = AgentAction.Move(new Vector3(-1f, 0f, 0f));
+        Check(LocomotionController.AroundObstacle(away, trunkAhead, ref side).MoveDirection == away.MoveDirection,
+            "walking away from the obstacle is unchanged");
+
+        side = 1;
+        LocomotionController.AroundObstacle(east, Vector3.Zero, ref side);
+        Check(side == 0, "the chosen side is forgotten once the obstacle is gone");
+
+        side = 0;
+        var still = LocomotionController.AroundObstacle(AgentAction.Idle, trunkAhead, ref side);
+        Check(still.MoveDirection == Vector3.Zero, "standing still against it stays still");
+    }
+
+    /// <summary>
+    /// The model-free fallback tours the world's anchors: on reaching one it walks to another. It
+    /// used to pick the anchor it had just released, as the nearest, and park on it for good.
+    /// </summary>
+    private static void TourMovesOn()
+    {
+        Console.WriteLine("\n[fallback tour]");
+
+        var plaza = new TaskAnchor("plaza", "Plaza", AffordanceAxes.Neutral) { Position = new Vector3(0f, 0f, 0f) };
+        var well = new TaskAnchor("well", "Well", AffordanceAxes.Neutral) { Position = new Vector3(10f, 0f, 0f) };
+        var tour = new UtilityAgentController(WorldConstants.Seed, "avatar_1") { Anchors = new[] { plaza, well } };
+        AgentAction At(float x, int tick) => tour.Act(new AgentObservation("avatar_1", new Vector3(x, 0f, 0f), Vector3.Zero,
+            new[] { 0.5f, 0.5f, 0.5f, 0.5f }, "open_world", tick));
+
+        Check(At(0.5f, 1).MoveDirection.X < 0f, "it first heads for the nearest anchor (the plaza)");
+        Check(At(0.5f, 2).MoveDirection.X > 0f, "on reaching the plaza it sets off for the well, not back to the plaza");
+        Check(At(9.5f, 3).MoveDirection.X < 0f, "and on reaching the well it heads back out again");
     }
 
     private static void Check(bool condition, string what)

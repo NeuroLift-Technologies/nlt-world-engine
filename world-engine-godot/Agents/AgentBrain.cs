@@ -28,6 +28,9 @@ public partial class AgentBrain : CharacterBody3D
     private AgentObservation _observation;
     private DecisionHold _decision;
     private float _sinceDecision;
+
+    /// <summary>Which way round the obstacle in front is being walked: 0 none, ±1 a side.</summary>
+    private int _detourSide;
     private int _tick;
 
     // --- Events -------------------------------------------------------------------
@@ -197,8 +200,11 @@ public partial class AgentBrain : CharacterBody3D
 
         // 3. Compute desired XZ velocity via LocomotionController ramps (accel/decel/turn).
         //    We pass the current physics velocity in so the ramp starts from the correct speed.
+        //    A heading that last tick's slide met head-on is turned along the obstacle first, so a
+        //    straight-line controller walks round a tree trunk instead of pushing at it for good.
         _locomotion.SyncFromPhysics(Velocity);
-        _locomotion.Step(action, dt);
+        var steered = LocomotionController.AroundObstacle(action, IsOnWall() ? GetWallNormal() : Vector3.Zero, ref _detourSide);
+        _locomotion.Step(steered, dt);
 
         // 4. Build final velocity: XZ from locomotion, Y from gravity (Jolt handles it).
         var newVelocity = new Vector3(

@@ -115,6 +115,47 @@ public sealed class LocomotionController
         }
     }
 
+    /// <summary>
+    /// How squarely a heading must press into an obstacle before <see cref="AroundObstacle"/> turns
+    /// it: the cosine of the angle from straight in, so 0.85 is within about 32°. Shallower than
+    /// that, the physics slide along the obstacle is already quick enough to carry the agent round.
+    /// </summary>
+    public const float HeadOnThreshold = 0.85f;
+
+    /// <summary>
+    /// Turn a heading that runs into an obstacle along it instead. <c>MoveAndSlide</c> slides along
+    /// anything met at an angle, but met head-on (a tree trunk or a wall dead ahead) the slide has
+    /// no sideways part, and every controller here steers in straight lines, so the agent pushed in
+    /// place for good. Pressing in nearly head-on, the heading keeps its effort and points along
+    /// the obstacle, on the side it already leans toward. <paramref name="side"/> carries that
+    /// choice between ticks so the agent commits to one way round, and resets once nothing is in
+    /// the way. <paramref name="wallNormal"/> is the obstacle's normal toward the agent, or zero.
+    /// </summary>
+    public static AgentAction AroundObstacle(in AgentAction action, Vector3 wallNormal, ref int side)
+    {
+        var heading = new Vector3(action.MoveDirection.X, 0f, action.MoveDirection.Z);
+        var normal = new Vector3(wallNormal.X, 0f, wallNormal.Z);
+        float effort = heading.Length();
+        if (normal.LengthSquared() < 1e-6f || effort < 1e-4f)
+        {
+            side = 0;
+            return action;
+        }
+
+        normal = normal.Normalized();
+        var direction = heading / effort;
+        float into = -direction.Dot(normal);
+        if (into < HeadOnThreshold)
+            return action;
+
+        // Perpendicular to the normal on the ground plane; side picks which way along it. Dead-on
+        // the heading leans neither way, and the first perpendicular is taken.
+        var perpendicular = new Vector3(-normal.Z, 0f, normal.X);
+        if (side == 0)
+            side = (direction + normal * into).Dot(perpendicular) >= 0f ? 1 : -1;
+        return new AgentAction(perpendicular * (side * effort), action.Interaction, action.TargetId);
+    }
+
     /// <summary>Place the agent without going through the accel ramp (scene load, teleport, replay seek).</summary>
     public void Teleport(Vector3 position)
     {
