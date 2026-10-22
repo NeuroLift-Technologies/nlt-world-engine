@@ -14,7 +14,8 @@
       "AgentHarness: new [ground: paving and tree trunks] section, 13 checks.",
       "Avatar stuck at a tree (Joshua's run, after trunks became solid). It stopped at (-64.38, -19.37) about 20 s before Fusion's first intent. Fixed head-on stalls: LocomotionController.AroundObstacle, called from AgentBrain with last tick's wall normal, turns a heading pressing into an obstacle within ~32 degrees of head-on along it, keeping one side while blocked. Fixed why it was there: AvatarCharacter.Anchors now reaches the spawn UtilityAgentController (Main sets anchors after _Ready, so it marched its 'quiet' bearing due south). Fixed the tour parking on the anchor it had just reached (UtilityAgentController now moves on to another while one is free). Harness 139/139 (10 detour, 3 tour checks).",
       "CodeRabbit on PR 114: a touring UtilityAgentController replaced before arriving kept its anchor reserved for good (AgentBrain.Attach never told the old controller). Added IAgentController.Detach (default no-op), called on the outgoing controller in AgentBrain.Attach; the tour releases its target. In-engine: 'wait' mid-route left 'plaza' claimed before, nothing after. Harness 140/140.",
-      "CodeRabbit follow-up on PR 114: claims are per agent, so when an interaction ('use plaza') replaced a tour walking to the same anchor, the tour's Detach released the interaction's claim. AvatarCharacter.ApplyInteraction now claims the anchor again after the controller swap. In-engine: the plaza was not held after the swap before the change, held after."
+      "CodeRabbit follow-up on PR 114: claims are per agent, so when an interaction ('use plaza') replaced a tour walking to the same anchor, the tour's Detach released the interaction's claim. AvatarCharacter.ApplyInteraction now claims the anchor again after the controller swap. In-engine: the plaza was not held after the swap before the change, held after.",
+      "Fallback tour route (Joshua's choice): least recently visited free anchor, never-reached first, nearest breaking ties. TourMemory lives on AvatarCharacter and is shared by every fallback it builds. A target with no 0.5 m of progress for 8 s (UtilityAgentController.GiveUpSeconds) counts as visited, so a building in the way does not stall the tour. In-engine from the plaza, 180 s: 10 distinct anchors (8 doors, including door_2_shop, door_3_school, door_8_home), one give-up; before, plaza <-> well only."
     ],
     "work_in_progress": [],
     "blockers": [
@@ -25,12 +26,12 @@
       "Joshua, 2026-10-22: tree trunks get bodies; rocks do not for now.",
       "Joshua, 2026-10-22: a trunk's collider uses its base radius from the ground to its visual top.",
       "Paving lifts: 3 cm for roads, 4 cm for the plaza, so the strip where they overlap draws the plaza rather than both flickering.",
-      "Road paving grid 0.25 m along by 0.31 m across: at 1 m by 1.25 m the paving floated up to 9 cm off the terrain's creases on the hills; the harness caught it."
+      "Road paving grid 0.25 m along by 0.31 m across: at 1 m by 1.25 m the paving floated up to 9 cm off the terrain's creases on the hills; the harness caught it.",
+      "Joshua, 2026-10-22: the fallback tour goes to the least recently visited free anchor."
     ],
     "decisions_pending": [
       "AGENT-LOOP-002: what wait should do when nothing is in perception range (resume wandering only then; spawn or perceive so a door is always in range; or accept it).",
-      "Fusion side: a goal, need or policy that makes the local model prefer sit or use, before acceptance 4 is rerun.",
-      "The fallback tour picks the nearest anchor other than the one just reached, so from the plaza it alternates plaza <-> well. A richer route (least recently visited, or including doors) is Joshua's call."
+      "Fusion side: a goal, need or policy that makes the local model prefer sit or use, before acceptance 4 is rerun."
     ],
     "escalations": [],
     "next_agent_notes": "In-engine probe on Jolt (temporary scene built from the production builders, deleted before commit): avatars dropped on 7 flat plaza/road spots settled within 1 mm of SurfaceHeightAt, feet 2.9-3.9 cm under the paving top; on the road hills within 3.5 cm (the capsule's round bottom rests uphill of its centre). Walked into a trunk head-on, an avatar stopped at 0.84 m from its axis (trunk 0.44 + capsule 0.40) and stayed, 4.84 m short of its target; 0.3 m off-centre it slid round at touching distance and arrived. So with no pathfinding an approach straight through a trunk now stalls; trees are at least 5 m from building footprints and about 16.5 m from the plaza centre, so door and plaza approaches should not meet one. On this PC, close the Godot editor before running the game with the Fusion loop. The acceptance 4 scratch tooling (a pass-through decision logger, timing and order probes) lives outside both repos in C:/Users/joshd/nlt-repos/_scratch/acceptance4. Stall probe (temporary, deleted): the southbound spawn avatar from 8 m north of Joshua's stall point now passes the tree; a head-on approach arrives 0.73 m short (inside its 1 m arrival radius, was 4.72 m); anchors handed over after spawn now tour plaza <-> well instead of marching 20.1 m south in 15 s; door sweep from the plaza, one avatar at a time with 40 s each, reaches 7 of 10, the same three stalls as T3 (door_2_shop, door_3_school, door_8_home, on other buildings). A sweep at 14 s per door reads 0 of 10 only because doors are 25-38 m away at 1.4 m/s.",
@@ -53,7 +54,7 @@
     ],
     "tests_run": [
       "dotnet build world-engine-godot.csproj --no-incremental: 0 errors, the 2 known WorldView.cs nullable warnings.",
-      "AgentHarness: 140 passed, 0 failed (113 before; 13 ground, 10 detour, 4 tour checks).",
+      "AgentHarness: 144 passed, 0 failed (113 before; 13 ground, 10 detour, 8 tour checks).",
       "Fusion tests in the GGUF venv: test_agent_loop, test_agent_loop_choices, test_gguf_agent_decision 35 passed, 1 skipped; test_agent_loop_http not collected (the venv lacks httpx2).",
       "Governance validation: 29 passed, 0 failed.",
       "In-engine probe and acceptance 4 runs as in next_agent_notes and work_completed."

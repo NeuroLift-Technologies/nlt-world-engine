@@ -23,14 +23,31 @@ public sealed class UtilityAgentController : IAgentController
     /// <summary>Places this agent tours between, or empty for need-driven movement only.</summary>
     public IReadOnlyList<TaskAnchor> Anchors { get; set; } = System.Array.Empty<TaskAnchor>();
 
+    /// <summary>
+    /// Where this agent has been. An avatar passes in one memory for all its fallback controllers:
+    /// it builds a fresh one after every Fusion intent, and a tour that forgot where it had been
+    /// would set off for the nearest anchor again each time.
+    /// </summary>
+    public TourMemory Visits { get; set; } = new();
+
     /// <summary>Anchor the agent is currently walking toward, or null when wandering.</summary>
     private TaskAnchor? _target;
 
-    /// <summary>The anchor last reached, passed over by the next choice while another is free.</summary>
-    private TaskAnchor? _lastReached;
-
     /// <summary>Distance at which an anchor counts as reached and the agent picks another.</summary>
     private const float ArrivalRadius = 2.5f;
+
+    /// <summary>
+    /// How long a walk may go without getting <see cref="ProgressStep"/> closer to its anchor
+    /// before the tour gives the anchor up as visited. There is no pathfinding, so a building in
+    /// the way can block a straight walk for good: three doors can't be reached straight from the plaza.
+    /// </summary>
+    public const float GiveUpSeconds = 8f;
+
+    private const float ProgressStep = 0.5f;
+
+    /// <summary>Closest the walk has come to the current target, and the tick it last got closer.</summary>
+    private float _closest;
+    private int _progressTick;
 
     /// <summary>Needs as <c>FeedVocabulary.Needs</c>: quiet, rest, social, stimulation.</summary>
     public float[] Thresholds { get; } = { 0.3f, 0.3f, 0.6f, 0.5f };
@@ -81,9 +98,9 @@ public sealed class UtilityAgentController : IAgentController
     }
 
     /// <summary>
-    /// Walk to the nearest anchor this agent is allowed to claim, then choose another on arrival.
-    /// This is the behaviour that makes an avatar traverse the world between Fusion decisions,
-    /// rather than standing where the last intent left it.
+    /// Walk to the anchor this agent reached longest ago, then choose another on arrival. This is
+    /// the behaviour that makes an avatar traverse the world between Fusion decisions, rather than
+    /// standing where the last intent left it.
     /// </summary>
     private AgentAction Tour(in AgentObservation observation)
     {
@@ -91,20 +108,24 @@ public sealed class UtilityAgentController : IAgentController
         {
             var toTarget = _target.Position - observation.Position;
             toTarget.Y = 0f;
-            if (toTarget.Length() > ArrivalRadius)
+            float distance = toTarget.Length();
+            if (distance > ArrivalRadius && !Stalled(distance, observation.Tick))
                 return AgentAction.Move(toTarget.Normalized(), 1f);
 
-            // Reached. Release the claim so a later cycle is free to revisit it, and re-decide.
+            // Reached, or blocked with no straight way to it: either way it counts as visited, so
+            // the tour moves on. Released so a later cycle is free to come back.
             _target.Release(observation.AgentId);
-            _lastReached = _target;
+            Visits.Reached(_target);
             _target = null;
         }
 
-        _target = NearestUnclaimed(observation);
+        _target = LeastRecentlyVisited(observation);
         if (_target == null)
             return Wander();
 
         _target.Reserve(observation.AgentId);
+        _closest = float.MaxValue;
+        _progressTick = observation.Tick;
         var direction = _target.Position - observation.Position;
         direction.Y = 0f;
         return direction.LengthSquared() > 0.0001f
@@ -112,33 +133,44 @@ public sealed class UtilityAgentController : IAgentController
             : Wander();
     }
 
-    /// <summary>
-    /// Closest anchor with room for this agent, excluding the one already held. The one just
-    /// reached is chosen only when nothing else is free: released on arrival, it is also the
-    /// nearest, and re-picking it parked the agent there for good.
-    /// </summary>
-    private TaskAnchor? NearestUnclaimed(in AgentObservation observation)
-        => Nearest(observation, _lastReached) ?? Nearest(observation, null);
+    /// <summary>True once the walk has gone <see cref="GiveUpSeconds"/> without getting closer.</summary>
+    private bool Stalled(float distance, int tick)
+    {
+        if (distance < _closest - ProgressStep)
+        {
+            _closest = distance;
+            _progressTick = tick;
+            return false;
+        }
+        return (tick - _progressTick) * WorldConstants.Tick > GiveUpSeconds;
+    }
 
-    private TaskAnchor? Nearest(in AgentObservation observation, TaskAnchor? skip)
+    /// <summary>
+    /// Of the anchors with room for this agent, the one it reached longest ago, never-reached ones
+    /// first; the nearest breaks a tie (Joshua, 2026-10-22). So the tour works through every anchor,
+    /// near ones first, before it revisits any: with nearest-only it alternated between the plaza
+    /// and the well, each the other's nearest, and never reached a door.
+    /// </summary>
+    private TaskAnchor? LeastRecentlyVisited(in AgentObservation observation)
     {
         TaskAnchor? best = null;
+        int bestVisit = int.MaxValue;
         var bestDistance = float.MaxValue;
         foreach (var anchor in Anchors)
         {
-            if (anchor == skip || anchor.IsOccupiedBy(observation.AgentId))
-                continue;
-            if (anchor.IsFull)
+            if (anchor.IsOccupiedBy(observation.AgentId) || anchor.IsFull)
                 continue;
 
             var delta = anchor.Position - observation.Position;
             delta.Y = 0f;
             var distance = delta.Length();
-            if (distance >= bestDistance)
+            int visit = Visits.LastReached(anchor);
+            if (visit > bestVisit || (visit == bestVisit && distance >= bestDistance))
                 continue;
 
-            bestDistance = distance;
             best = anchor;
+            bestVisit = visit;
+            bestDistance = distance;
         }
         return best;
     }
@@ -191,4 +223,20 @@ public sealed class UtilityAgentController : IAgentController
         var a = _rng.Range(0f, Mathf.Tau);
         return AgentAction.Move(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)), 0.5f);
     }
+}
+
+/// <summary>
+/// The order in which one agent last reached each anchor, for <see cref="UtilityAgentController"/>
+/// to pick the least recently visited. Kept outside the controller so an avatar's successive
+/// fallback controllers share it.
+/// </summary>
+public sealed class TourMemory
+{
+    private readonly Dictionary<TaskAnchor, int> _reached = new();
+    private int _count;
+
+    public void Reached(TaskAnchor anchor) => _reached[anchor] = ++_count;
+
+    /// <summary>When the anchor was last reached, as a running count; 0 if never.</summary>
+    public int LastReached(TaskAnchor anchor) => _reached.TryGetValue(anchor, out var n) ? n : 0;
 }
