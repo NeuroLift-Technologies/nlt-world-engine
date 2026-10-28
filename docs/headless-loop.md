@@ -50,7 +50,7 @@ Everything goes to the output folder:
 - `frames-software-rendered/` (`--frames` only).
 
 The summary shows:
-- how Godot ended;
+- how Godot ended (the script exits 1 if Godot exited by itself with a nonzero status);
 - the startup line (endpoint, agent id sent, anchor count);
 - the number of perceptions posted;
 - accepted and rejected intents by verb;
@@ -61,12 +61,20 @@ folder name says so. Use them to check where the avatar went and what it did. Th
 representative of GPU output, so do not use them for visual judgements (lighting, shadows,
 materials, performance). Tag any screenshot taken from them as software-rendered.
 
+**`--frames` also changes the loop's timing.** With `--write-movie` and `--fixed-fps 2`, each
+rendered frame advances simulated time by 0.5 s however long it took to render. The agent loop
+posts a perception every 2 s of simulated time (`DecisionCadenceSeconds`), so that is one every
+four frames. How many arrive per wall-clock second depends on how fast the software renderer is.
+Perception counts and cadence from a `--frames` run are therefore not comparable with a headless
+run.
+
 ## Process handling
 
 Each process runs in its own process group (`setsid`). Its PID goes to `fusion.pid` or `godot.pid`
 in the output folder, and the script stops it by signalling that group. It never matches process
 names (`pkill -f`): a name pattern can kill the shell that runs the script, or another run's
-processes. Any exit, including a failed start, stops both groups. Stopping the group also stops
+processes. The script refuses an output folder that already holds PID files, which another run
+may own. Any exit, including a failed start, stops both groups. Stopping the group also stops
 children: `xvfb-run` and Godot under `--frames`, uvicorn under Fusion's Python.
 
 ## Shutdown: Godot ignores SIGINT and SIGTERM

@@ -58,6 +58,9 @@ fail() { echo "headless-loop: $*" >&2; exit 1; }
 if (( FRAMES )); then command -v xvfb-run >/dev/null || fail "--frames needs xvfb-run (and Mesa)"; fi
 
 mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"  # Godot resolves --write-movie against the project, not this shell
+# PID files here would belong to another run; stopping them would stop that run.
+compgen -G "$OUT/*.pid" >/dev/null && fail "$OUT already holds PID files from another run; use another --out"
 echo "headless-loop: output in $OUT"
 
 # Whether any process is left in the group led by the PID in a PID file. The leader alone is not
@@ -102,8 +105,10 @@ if (( ! SKIP_BUILD )); then
 fi
 
 probe_port() {
-  curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
-    -d '{}' "http://127.0.0.1:$PORT/agent-loop/perception" || true
+  # Bounded: a listener that accepts but never answers must not hang the run. Prints 000 for
+  # both a refused connection and a timeout; either way nothing usable is on the port.
+  curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 -X POST \
+    -H 'content-type: application/json' -d '{}' "http://127.0.0.1:$PORT/agent-loop/perception" || true
 }
 
 # Something already answering on the port would take this run's perceptions (and this run's Fusion
@@ -121,14 +126,19 @@ echo "headless-loop: starting Fusion on port $PORT ($([[ -n "${FUSION_GGUF_MODEL
 echo $! > "$OUT/fusion.pid"
 disown  # stopped through its PID file; keeps the shell from reporting the kill
 
-# Fusion is up once it answers an empty body with its fail-closed 422.
+# Fusion is up once it answers an empty body with its fail-closed 422 and its own log says it bound
+# the port. The log check rules out a server another run started on the port in the meantime: this
+# run's uvicorn would then fail to bind and exit instead.
+ready=0
 for _ in $(seq 60); do
-  code="$(probe_port)"
-  [[ "$code" == "422" ]] && break
   group_alive "$OUT/fusion.pid" || fail "Fusion exited; see $OUT/fusion.log"
+  if grep -q "Uvicorn running on" "$OUT/fusion.log" && [[ "$(probe_port)" == "422" ]]; then
+    ready=1
+    break
+  fi
   sleep 1
 done
-[[ "${code:-}" == "422" ]] || fail "Fusion did not come up on port $PORT; see $OUT/fusion.log"
+(( ready )) || fail "Fusion did not come up on port $PORT; see $OUT/fusion.log"
 
 GODOT_ARGS=(--path "$PROJECT")
 [[ -n "$ITERATIONS" ]] && GODOT_ARGS+=(--quit-after "$ITERATIONS")
@@ -148,15 +158,27 @@ NLT_AGENT_LOOP_ENABLED=1 \
 NLT_AGENT_LOOP_AGENT_ID="$AGENT_ID" \
 NLT_AGENT_LOOP_ENDPOINT="http://127.0.0.1:$PORT/agent-loop/perception" \
   "${LAUNCH[@]}" "$GODOT" "${GODOT_ARGS[@]}" > "$OUT/godot.raw.log" 2>&1 &
-echo $! > "$OUT/godot.pid"
-disown
+GODOT_PID=$!  # kept as a job (not disowned) so its exit status can be read
+echo "$GODOT_PID" > "$OUT/godot.pid"
 
 GODOT_EXIT="stopped after ${SECONDS_TO_RUN}s"
+GODOT_FAILED=0
 for _ in $(seq "$SECONDS_TO_RUN"); do
-  group_alive "$OUT/godot.pid" || { GODOT_EXIT="exited by itself"; break; }
+  if ! group_alive "$OUT/godot.pid"; then
+    status=0
+    wait "$GODOT_PID" 2>/dev/null || status=$?
+    if (( status == 0 )); then
+      GODOT_EXIT="exited by itself (status 0)"
+    else
+      GODOT_EXIT="FAILED: exited by itself with status $status"
+      GODOT_FAILED=1
+    fi
+    break
+  fi
   sleep 1
 done
 cleanup
+wait "$GODOT_PID" 2>/dev/null || true  # reap after HUP/KILL; that status is the stop, not a failure
 trap - EXIT
 
 sed 's/\x1b\[[0-9;]*m//g' "$OUT/godot.raw.log" > "$OUT/godot.log"
@@ -173,3 +195,4 @@ if (( FRAMES )); then
   echo "frames (software-rendered): $(find "$OUT/frames-software-rendered" -name '*.png' | wc -l) in $OUT/frames-software-rendered"
 fi
 echo "logs: $LOG, $OUT/fusion.log"
+(( ! GODOT_FAILED )) || exit 1
