@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
     --frames) FRAMES=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --out) OUT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 0 ;;  # the header comment above
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -49,6 +49,10 @@ OUT="${OUT:-${TMPDIR:-/tmp}/nlt-headless-loop/$(date -u +%Y%m%dT%H%M%SZ)}"
 GRACE_SECONDS=5
 
 fail() { echo "headless-loop: $*" >&2; exit 1; }
+
+[[ "$SECONDS_TO_RUN" =~ ^[1-9][0-9]*$ ]] || fail "--seconds needs a positive whole number, got '$SECONDS_TO_RUN'"
+[[ -z "$ITERATIONS" || "$ITERATIONS" =~ ^[1-9][0-9]*$ ]] \
+  || fail "--iterations needs a positive whole number, got '$ITERATIONS'"
 
 [[ -n "${GODOT:-}" && -x "$GODOT" ]] || fail "set GODOT to the Godot 4.7.2 .NET binary"
 [[ -n "${FUSION_REPO:-}" && -f "$FUSION_REPO/src/fusion/agent_loop_http.py" ]] \
@@ -113,8 +117,9 @@ probe_port() {
 
 # Something already answering on the port would take this run's perceptions (and this run's Fusion
 # would fail to bind), so refuse to start rather than measure the wrong endpoint.
-[[ "$(probe_port)" == "000" ]] \
-  || fail "port $PORT is already in use; stop that server or set FUSION_AGENT_LOOP_PORT"
+code="$(probe_port)"
+[[ "$code" == "000" ]] \
+  || fail "port $PORT is already in use (it answered HTTP $code); stop that server or set FUSION_AGENT_LOOP_PORT"
 
 echo "headless-loop: starting Fusion on port $PORT ($([[ -n "${FUSION_GGUF_MODEL:-}" ]] && echo "model: $FUSION_GGUF_MODEL" || echo "rule-based fallback"))"
 (
