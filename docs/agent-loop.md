@@ -176,3 +176,7 @@ one-metre arrival radius. Stop with `Ctrl+C`; unset the environment variables af
 the default observer-only run. The local avatar and the single-avatar driver are created only when
 the opt-in flag is set. A headless GDA preflight can verify startup and HTTP communication but
 cannot establish visible movement or arrival.
+
+On Linux, `tools/headless-loop.sh` runs both processes with no GPU and prints a summary; see
+`docs/headless-loop.md`. It also records that Godot 4.7.2 .NET ignores SIGINT and SIGTERM there,
+so `Ctrl+C` does not stop a Linux Godot.

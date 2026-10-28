@@ -1,0 +1,34 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01UNjnjkYcUcHARjvG8hyVmE",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-28T23:00:00+00:00",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "ccr-0fc96101-9uxxrc",
+    "work_completed": [
+      "tools/headless-loop.sh: runs a local Fusion endpoint and Godot headless (or through Xvfb with --frames) for --seconds or --iterations, then summarises perceptions, intents by verb, and refusals. Processes are tracked by PID files and stopped by process group, never by name pattern. Refuses to start if the endpoint port already answers, or if asfdk-csharp is missing beside the repo.",
+      "Shutdown hang (Joshua's open item): Godot 4.7.2 .NET ignores SIGINT, SIGTERM and SIGQUIT for 40 s or more, with the agent loop and without it, so the loop driver is not the cause. SIGHUP terminates it at once; --quit-after exits with status 0. The script stops Godot with HUP, then KILL, and Fusion with INT, then KILL. --iterations gives a clean engine exit. The earlier note that SIGINT stops Godot came from a wrong-PID test and is corrected.",
+      "docs/headless-loop.md (prerequisites, usage, outputs, software-rendered frames, process handling, the shutdown measurements, known issues); pointer in docs/agent-loop.md; AGENT-LOOP-003 status and headless note in docs/active-threads.md."
+    ],
+    "work_in_progress": [
+      "nlt-ai-fusion#134 (F2) in review. F3-F5 open."
+    ],
+    "blockers": [],
+    "decisions_made": [
+      "Stop Godot with SIGHUP rather than waiting out INT and TERM, which it ignores: same outcome as KILL, no wasted grace periods."
+    ],
+    "decisions_pending": [
+      "Whether to find the root cause of the ignored signals (likely the embedded .NET runtime's handlers) or treat --quit-after as the supported clean exit."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Open: rate-limit FusionHttpLink's per-perception warning for an unregistered agentId. Verified 2026-10-28 with the rule-based fallback: --seconds 25 (10 approach accepted, stopped by HUP, no leftovers) and --iterations 1800 (7 approach accepted, exited by itself in ~20 s, no leftovers). Run from a tree that has asfdk-csharp beside it.",
+    "files_modified": [
+      "tools/headless-loop.sh",
+      "docs/headless-loop.md",
+      "docs/agent-loop.md",
+      "docs/active-threads.md",
+      "docs/agent-log/handoffs/2026-10-28-claude-headless-loop-script.json"
+    ]
+  }
+}
