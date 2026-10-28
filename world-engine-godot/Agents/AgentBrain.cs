@@ -46,6 +46,9 @@ public partial class AgentBrain : CharacterBody3D
 
     public string AgentId { get; private set; } = "";
 
+    /// <summary>The cognition currently attached, or null.</summary>
+    protected IAgentController? Controller => _controller;
+
     /// <summary>Scene the agent is currently deciding in. Set by Observe, read by ingress.</summary>
     public string SceneId => _observation.SceneId;
 

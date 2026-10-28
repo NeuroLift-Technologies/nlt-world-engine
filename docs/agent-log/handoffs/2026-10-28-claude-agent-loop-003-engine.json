@@ -11,7 +11,8 @@
       "F0 engine side: PerceptionBuilder.Build takes the roster id and WireAgentId puts it in the perception's agentId (blank falls back to the internal key). AgentLoopDriver.PerceptionAgentId is set in Main from NLT_AGENT_LOOP_AGENT_ID, with a startup warning when unset. The internal '__local_avatar__' key, occupancy, in-flight tracking and the observer are unchanged. FusionHttpLink reports a 404 as an agent Fusion does not serve.",
       "AgentHarness: new sections [roster agentId] and [wait with nothing in view].",
       "Docs: docs/agent-loop.md run steps and behaviour, world-engine-godot/AGENTS.md, docs/active-threads.md (new AGENT-LOOP-003 section; decision note under AGENT-LOOP-002).",
-      "GRAPH-001 (Joshua, 2026-10-28, overrides brief §3 C2): Resident.Sync plays the walk clip whenever the agent moves, reduced motion or not (Resident.IsWalking, speed > 0.05 m/s); an idle agent still holds the first frame. Facing follows the same flag. AGENTS.md, RENDERER-PLAN.md D.4, ART-PIPELINE.md G3 and docs/active-threads.md now say reduced motion gates only decorative motion (sky rotation, wind sway, camera easing). Harness section [walk cycle and reduced motion]."
+      "GRAPH-001 (Joshua, 2026-10-28, overrides brief §3 C2): Resident.Sync plays the walk clip whenever the agent moves, reduced motion or not (Resident.IsWalking, speed > 0.05 m/s); an idle agent still holds the first frame. Facing follows the same flag. AGENTS.md, RENDERER-PLAN.md D.4, ART-PIPELINE.md G3 and docs/active-threads.md now say reduced motion gates only decorative motion (sky rotation, wind sway, camera easing). Harness section [walk cycle and reduced motion].",
+      "CodeRabbit on #117: (1) a 'wait' with nothing in view no longer replaces an already running wander fallback (AvatarCharacter.KeepsCurrentWander; AgentBrain.Controller), which had restarted the tour's progress timer every 2 s so a blocked anchor was never given up; (2) FusionHttpLink keys in-flight and backoff by the avatar's internal id again (the roster id had split the keys, bypassing the 5 s backoff); (3) a 404 is named an unregistered agent only when Fusion's body says so, otherwise it points at NLT_AGENT_LOOP_ENDPOINT; (4) docs/agent-loop.md run-check paragraph no longer describes the removed test target."
     ],
     "work_in_progress": [
       "Fusion side in NeuroLift-Technologies/nlt-ai-fusion#132 (F0 registry, F1 memory). F2-F5 open."
@@ -29,6 +30,7 @@
     "escalations": [],
     "next_agent_notes": "Run with NLT_AGENT_LOOP_AGENT_ID=stay_alert_001 against a Fusion endpoint that includes nlt-ai-fusion#132; without it Fusion answers 404 and no intent is applied. In the 2026-10-22 run the 33 waits came after the wander had carried the avatar out of range of everything, which this change covers. Once something is back in view, 'wait' holds still again; repeated 'wait' with something in view is F3's (Fusion anti-repeat) to fix. Build tree used here: world-engine-godot copied beside a clone of asfdk-csharp so '..\\..\\asfdk-csharp' resolves. GRAPH-001: Resident.Sync keeps its reducedMotion parameter (documented as not gating the walk) so callers are unchanged; wind sway under reduced motion is still unimplemented (VegetationBuilder.cs).",
     "files_modified": [
+      "world-engine-godot/Agents/AgentBrain.cs",
       "world-engine-godot/Agents/AvatarCharacter.cs",
       "world-engine-godot/Agents/IntentIngress.cs",
       "world-engine-godot/Agents/PerceptionBuilder.cs",
@@ -47,7 +49,7 @@
     ],
     "tests_run": [
       "dotnet build world-engine-godot.csproj (.NET 8 SDK, Godot.NET.Sdk 4.7.2): succeeded, 0 errors, no new warnings (only the existing WorldView.cs nullable warnings and asfdk-csharp's).",
-      "AgentHarness: 153 passed, 0 failed (144 before this session; +9 new checks).",
+      "AgentHarness: 155 passed, 0 failed (144 before this session; +11 new checks).",
       "Not run: in-engine Godot runtime."
     ],
     "tests_passing": true

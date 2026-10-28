@@ -167,10 +167,12 @@ A `wait` holds the avatar still (Joshua, 2026-10-21) unless the perception it an
 entities; then the avatar resumes the wander fallback (Joshua, 2026-10-28), since `wait` was the
 only choice Fusion had.
 
-The Godot log should report the endpoint, the agent id sent, and visible test-target id. Fusion's deterministic
-fallback approaches the test target; the GGUF may choose `approach` or `wait`. Godot logs whether
-each intent was accepted or rejected. For an approach, verify the local avatar moves toward the
-marker under Jolt and idles within its one-metre arrival radius. Stop with `Ctrl+C`; unset the
-environment variables afterward to restore the default observer-only run. The test target and
-single-avatar driver are created only when the opt-in flag is set. A headless GDA preflight can
-verify startup and HTTP communication but cannot establish visible movement or target arrival.
+The Godot log should report the endpoint, the agent id sent and the number of world anchors
+(destinations); each perception line logs the agent id, scene, position and visible-entity count.
+Fusion's deterministic fallback approaches the first free visible anchor; a model may choose any
+verb the perception allows. Godot logs whether each intent was accepted or rejected. For an
+approach, verify the local avatar walks toward that anchor under Jolt and stops within its
+one-metre arrival radius. Stop with `Ctrl+C`; unset the environment variables afterward to restore
+the default observer-only run. The local avatar and the single-avatar driver are created only when
+the opt-in flag is set. A headless GDA preflight can verify startup and HTTP communication but
+cannot establish visible movement or arrival.

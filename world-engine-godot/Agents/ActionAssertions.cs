@@ -340,6 +340,12 @@ public static class ActionAssertions
         Check(!AvatarCharacter.HoldsStill("approach", hasTarget: false, nothingVisible: false)
             && !AvatarCharacter.HoldsStill("wait", hasTarget: true, nothingVisible: false),
             "other verbs, and anything with a target, are not held");
+        Check(AvatarCharacter.KeepsCurrentWander("wait", hasTarget: false, nothingVisible: true, wandering: true),
+            "a wait with nothing in view keeps a wander that is already running");
+        Check(!AvatarCharacter.KeepsCurrentWander("wait", hasTarget: false, nothingVisible: true, wandering: false)
+            && !AvatarCharacter.KeepsCurrentWander("wait", hasTarget: false, nothingVisible: false, wandering: true)
+            && !AvatarCharacter.KeepsCurrentWander("approach", hasTarget: true, nothingVisible: true, wandering: true),
+            "it starts one when none runs, and never overrides a hold or another intent");
     }
 
     /// <summary>

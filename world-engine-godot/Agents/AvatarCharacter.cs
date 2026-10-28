@@ -206,6 +206,12 @@ public partial class AvatarCharacter : AgentBrain
         // intent ends the interaction and frees what it held.
         if (verb == "wait" && (_heldAnchor != null || _facePoint != null || _enRoute))
             return;
+        // A 'wait' with nothing in view while the avatar already wanders keeps that tour: a fresh
+        // fallback every couple of seconds would restart its progress timer, so a tour stuck at a
+        // blocked anchor would never reach its give-up and pick another.
+        if (KeepsCurrentWander(verb, resolvedTargetPosition.HasValue, nothingVisible,
+                Controller is UtilityAgentController))
+            return;
         EndInteraction();
 
         // look_at: turn to face the target where the avatar stands, hold a moment, then carry on.
@@ -278,6 +284,13 @@ public partial class AvatarCharacter : AgentBrain
             return false;
         return verb == "rest" || (verb == "wait" && !nothingVisible);
     }
+
+    /// <summary>
+    /// Whether a <c>wait</c> with nothing in view leaves an already running wander fallback alone
+    /// rather than replacing it. Engine-free, so the harness checks it directly.
+    /// </summary>
+    public static bool KeepsCurrentWander(string verb, bool hasTarget, bool nothingVisible, bool wandering)
+        => wandering && verb == "wait" && !hasTarget && nothingVisible;
 
     /// <summary>
     /// After the engine places this avatar in a new scene: face <paramref name="facing"/> (away from
