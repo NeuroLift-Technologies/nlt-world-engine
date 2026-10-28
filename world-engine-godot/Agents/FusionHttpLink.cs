@@ -106,6 +106,13 @@ public partial class FusionHttpLink : Node
 					ReportInfo($"Fusion still deciding for {perception.AgentId}; request skipped.");
 					return;
 				}
+				// 404: Fusion has no pair registered under this agentId (AGENT-LOOP-003 F0).
+				if ((int)response.StatusCode == 404)
+				{
+					ReportWarning($"Fusion does not serve agent '{perception.AgentId}'; no intent applied. " +
+						"Set NLT_AGENT_LOOP_AGENT_ID to a roster id Fusion registered.");
+					return;
+				}
 				ReportWarning($"Fusion returned HTTP {(int)response.StatusCode} for {perception.AgentId}; no intent applied.");
 				return;
 			}

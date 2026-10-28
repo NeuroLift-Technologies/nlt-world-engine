@@ -32,6 +32,8 @@ public static class ActionAssertions
         GarbageDegradesToIdle();
         SemanticOnly();
         AgentLoopContract();
+        RosterAgentId();
+        WaitWithNothingInView();
         ControlConditionMoves();
         DecisionHeldBetweenPolls();
         SceneKinds();
@@ -302,6 +304,41 @@ public static class ActionAssertions
             "a second avatar's sit on it is rejected 'occupied'");
         chair.Release("avatar_1");
         Check(AnchorAffordances.Recheck(room, "chair_1", "sit", "avatar_2") == null, "once released, the chair is free again");
+    }
+
+    /// <summary>
+    /// The perception names the avatar by the roster id Fusion registered, not the engine's internal
+    /// key (AGENT-LOOP-003 F0). Unset falls back to the internal key, which Fusion refuses.
+    /// </summary>
+    private static void RosterAgentId()
+    {
+        Console.WriteLine("\n[roster agentId]");
+        Check(PerceptionBuilder.WireAgentId("__local_avatar__", "stay_alert_001") == "stay_alert_001",
+            "a configured roster id is what the perception carries");
+        Check(PerceptionBuilder.WireAgentId("__local_avatar__", " stay_alert_001 ") == "stay_alert_001",
+            "surrounding whitespace in the configured id is dropped");
+        Check(PerceptionBuilder.WireAgentId("__local_avatar__", null) == "__local_avatar__"
+            && PerceptionBuilder.WireAgentId("__local_avatar__", "  ") == "__local_avatar__",
+            "unset or blank falls back to the internal key");
+    }
+
+    /// <summary>
+    /// 'wait' holds still (Joshua, 2026-10-21) unless the perception it answered had nothing in it;
+    /// then it resumes the wander fallback (Joshua, 2026-10-28, AGENT-LOOP-003 §8).
+    /// </summary>
+    private static void WaitWithNothingInView()
+    {
+        Console.WriteLine("\n[wait with nothing in view]");
+        Check(AvatarCharacter.HoldsStill("wait", hasTarget: false, nothingVisible: false),
+            "wait with something in view holds still");
+        Check(!AvatarCharacter.HoldsStill("wait", hasTarget: false, nothingVisible: true),
+            "wait with nothing in view does not hold still: it wanders");
+        Check(AvatarCharacter.HoldsStill("rest", hasTarget: false, nothingVisible: true)
+            && AvatarCharacter.HoldsStill("rest", hasTarget: false, nothingVisible: false),
+            "rest with nothing to rest on holds still either way");
+        Check(!AvatarCharacter.HoldsStill("approach", hasTarget: false, nothingVisible: false)
+            && !AvatarCharacter.HoldsStill("wait", hasTarget: true, nothingVisible: false),
+            "other verbs, and anything with a target, are not held");
     }
 
     /// <summary>

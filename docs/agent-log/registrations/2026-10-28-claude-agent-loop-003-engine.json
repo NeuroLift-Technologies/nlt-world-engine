@@ -1,0 +1,22 @@
+{
+  "agent_registration": {
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "platform": "Claude Code",
+    "version": "not recorded",
+    "session_id": "claude-code-session_01UNjnjkYcUcHARjvG8hyVmE",
+    "entry_date": "2026-10-28T18:10:00+00:00",
+    "entry_point": "Joshua's AGENT-LOOP-003 decisions of 2026-10-28: narrow 'wait' to wander only when nothing is visible, and F0 agentId binding (Godot sends the roster id Fusion registered).",
+    "acknowledged_otoi": true,
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "working_repo": "NeuroLift-Technologies/nlt-world-engine",
+    "working_branch": "ccr-0fc96101-9uxxrc",
+    "capabilities_self_reported": [
+      "Godot C# changes in world-engine-godot/Agents and Main.cs",
+      "dotnet build of the Godot project and the out-of-engine AgentHarness (asfdk-csharp cloned alongside in a scratch build tree)"
+    ],
+    "known_limitations": [
+      "No Godot runtime here: nothing was run in-engine; the in-scene check and F5 are Joshua's dev-PC runs"
+    ],
+    "preferred_handoff_format": "Structured JSON handoff plus the PR description"
+  }
+}

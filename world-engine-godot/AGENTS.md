@@ -195,8 +195,9 @@ dotnet run --project AgentHarness/AgentHarness.csproj
 ```
 
 - **In-scene opt-in loop:** set `NLT_AGENT_LOOP_ENABLED=1` to run the local-avatar test path
-  (`NLT_AGENT_LOOP_ENDPOINT` overrides the endpoint). Default runs are unchanged. Never make the
-  loop enabled-by-default.
+  (`NLT_AGENT_LOOP_ENDPOINT` overrides the endpoint; `NLT_AGENT_LOOP_AGENT_ID` is the roster id
+  Fusion registered, e.g. `stay_alert_001`, without which Fusion refuses every decision). Default
+  runs are unchanged. Never make the loop enabled-by-default.
 - **Headless scene boot:** the GDA flow documented in `../docs/active-threads.md` boots the main
   scene and reports structured diagnostics — use it for startup regressions.
 - **Visual changes:** launch `Main.tscn` in the editor, capture a screenshot into
