@@ -2,7 +2,7 @@
   "handoff_record": {
     "session_id": "claude-code-session_01UNjnjkYcUcHARjvG8hyVmE",
     "agent_name": "Claude (Anthropic) via Claude Code session",
-    "date": "2026-10-28T18:20:00+00:00",
+    "date": "2026-10-28T18:00:00+00:00",
     "otoi_version": "ORG-DEV-OTOI-1.0.3",
     "repo": "NeuroLift-Technologies/nlt-world-engine",
     "branch": "ccr-0fc96101-9uxxrc",
@@ -10,7 +10,8 @@
       "Narrowed 'wait' (Joshua, 2026-10-28): AvatarCharacter.HoldsStill(verb, hasTarget, nothingVisible) decides whether an untargeted verb holds the avatar still. 'wait' holds still unless the perception it answered listed no entities, in which case it falls through to the wander fallback. Untargeted 'rest' still holds still. A 'wait' while something is under way still lets it carry on. IntentIngress passes nothingVisible = perception.VisibleEntities.Count == 0 into ApplyIntent.",
       "F0 engine side: PerceptionBuilder.Build takes the roster id and WireAgentId puts it in the perception's agentId (blank falls back to the internal key). AgentLoopDriver.PerceptionAgentId is set in Main from NLT_AGENT_LOOP_AGENT_ID, with a startup warning when unset. The internal '__local_avatar__' key, occupancy, in-flight tracking and the observer are unchanged. FusionHttpLink reports a 404 as an agent Fusion does not serve.",
       "AgentHarness: new sections [roster agentId] and [wait with nothing in view].",
-      "Docs: docs/agent-loop.md run steps and behaviour, world-engine-godot/AGENTS.md, docs/active-threads.md (new AGENT-LOOP-003 section; decision note under AGENT-LOOP-002)."
+      "Docs: docs/agent-loop.md run steps and behaviour, world-engine-godot/AGENTS.md, docs/active-threads.md (new AGENT-LOOP-003 section; decision note under AGENT-LOOP-002).",
+      "GRAPH-001 (Joshua, 2026-10-28, overrides brief §3 C2): Resident.Sync plays the walk clip whenever the agent moves, reduced motion or not (Resident.IsWalking, speed > 0.05 m/s); an idle agent still holds the first frame. Facing follows the same flag. AGENTS.md, RENDERER-PLAN.md D.4, ART-PIPELINE.md G3 and docs/active-threads.md now say reduced motion gates only decorative motion (sky rotation, wind sway, camera easing). Harness section [walk cycle and reduced motion]."
     ],
     "work_in_progress": [
       "Fusion side in NeuroLift-Technologies/nlt-ai-fusion#132 (F0 registry, F1 memory). F2-F5 open."
@@ -19,13 +20,14 @@
     "decisions_made": [
       "Joshua, 2026-10-28: 'wait' resumes wander only when nothing is visible; acceptance 4 split into 4a/4b and not met on 4a alone; F0 roster agentId via NLT_AGENT_LOOP_AGENT_ID, internal key unchanged.",
       "'Nothing visible' means the perception the intent answered had an empty visibleEntities list, not the live world at execution time: the rule is about Fusion having had no other choice.",
-      "The wander resumed by such a 'wait' uses the existing fallback path (activity 'active'); no new label."
+      "The wander resumed by such a 'wait' uses the existing fallback path (activity 'active'); no new label.",
+      "Joshua, 2026-10-28 (GRAPH-001): walk cycles always play while an agent moves; reduced motion gates only sky rotation, wind sway and camera easing."
     ],
     "decisions_pending": [
       "Thread id AGENT-LOOP-003 is the brief's proposal; Joshua assigns."
     ],
     "escalations": [],
-    "next_agent_notes": "Run with NLT_AGENT_LOOP_AGENT_ID=stay_alert_001 against a Fusion endpoint that includes nlt-ai-fusion#132; without it Fusion answers 404 and no intent is applied. In the 2026-10-22 run the 33 waits came after the wander had carried the avatar out of range of everything, which this change covers. Once something is back in view, 'wait' holds still again; repeated 'wait' with something in view is F3's (Fusion anti-repeat) to fix. Build tree used here: world-engine-godot copied beside a clone of asfdk-csharp so '..\\..\\asfdk-csharp' resolves.",
+    "next_agent_notes": "Run with NLT_AGENT_LOOP_AGENT_ID=stay_alert_001 against a Fusion endpoint that includes nlt-ai-fusion#132; without it Fusion answers 404 and no intent is applied. In the 2026-10-22 run the 33 waits came after the wander had carried the avatar out of range of everything, which this change covers. Once something is back in view, 'wait' holds still again; repeated 'wait' with something in view is F3's (Fusion anti-repeat) to fix. Build tree used here: world-engine-godot copied beside a clone of asfdk-csharp so '..\\..\\asfdk-csharp' resolves. GRAPH-001: Resident.Sync keeps its reducedMotion parameter (documented as not gating the walk) so callers are unchanged; wind sway under reduced motion is still unimplemented (VegetationBuilder.cs).",
     "files_modified": [
       "world-engine-godot/Agents/AvatarCharacter.cs",
       "world-engine-godot/Agents/IntentIngress.cs",
@@ -34,6 +36,9 @@
       "world-engine-godot/Agents/FusionHttpLink.cs",
       "world-engine-godot/Agents/ActionAssertions.cs",
       "world-engine-godot/Main.cs",
+      "world-engine-godot/ART-PIPELINE.md",
+      "world-engine-godot/RENDERER-PLAN.md",
+      "world-engine-godot/Resident.cs",
       "world-engine-godot/AGENTS.md",
       "docs/agent-loop.md",
       "docs/active-threads.md",
@@ -42,7 +47,7 @@
     ],
     "tests_run": [
       "dotnet build world-engine-godot.csproj (.NET 8 SDK, Godot.NET.Sdk 4.7.2): succeeded, 0 errors, no new warnings (only the existing WorldView.cs nullable warnings and asfdk-csharp's).",
-      "AgentHarness: 151 passed, 0 failed (144 before; +7 new checks).",
+      "AgentHarness: 153 passed, 0 failed (144 before this session; +9 new checks).",
       "Not run: in-engine Godot runtime."
     ],
     "tests_passing": true

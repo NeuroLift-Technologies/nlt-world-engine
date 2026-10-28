@@ -195,6 +195,7 @@ Treat this section as the Observer slice of that standard, not the whole of it.
   - Colour-safety, no-flashing and plain language are **properties of construction, not switches**: Okabe–Ito hues, a distinct shape per indicator, a word beside every colour.
   - Every control has a **keyboard shortcut** (`1`/`2`/`3`, `Space`, `←`/`→`, `End`, `R`, `O`, `F1`–`F4`), so nothing depends on hitting a small target.
   - Reduced motion snaps the timeline axis instead of easing it, and pauses the sky through PR #80's existing `WorldView.SkyPaused` seam. **The vegetation wind shader still runs regardless** — that part of the conflict is Phase B and remains open (GRAPH-001).
+  - **Scope of reduced motion (Joshua, 2026-10-28, GRAPH-001):** it gates **decorative** motion only — sky rotation, wind sway, camera easing. **Walk cycles always play while an agent moves**, because they show real simulation state; an idle agent stays still (`state-feed-v1.md` §4.4). `Resident.IsWalking` depends on speed alone.
 - [x] D.5 **Four-way reading of burnout**, phrased for a human. ✅ *Done 2026-10-03.* Resolution order: any open episode → *collapsed repeatedly*; else the most recent episode's recovery mode → *needed RRT* or *self-recovered*; else *never approached*.
 
   | | Reading |

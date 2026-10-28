@@ -48,7 +48,10 @@ it in three layers:
 - **Accessibility is a renderer constraint, not a later pass.** The observer audience is people
   with ADHD; colour is never the only channel (Okabe–Ito palette in `Observer/Ui.cs`, glyph
   shapes, three reading levels: Simple / Coach / Technical). Any new indicator ships colour +
-  shape + text. Respect the reduced-motion toggle (`SkyPaused`, `Resident` reduced-motion path).
+  shape + text. Respect the reduced-motion toggle: it gates **decorative** motion only — sky
+  rotation (`SkyPaused`), wind sway, camera easing. Walk cycles always play while an agent moves,
+  because they show real simulation state; an idle agent stays still (state-feed contract §4.4;
+  Joshua, 2026-10-28, GRAPH-001).
 - **Performance targets are inherited and fixed:** 60 FPS, <16 ms frame time, 10–20 animated
   characters (`ART-PIPELINE.md` §2).
 - **Screenshot evidence.** No graphics change is "done" without a captured screenshot compared
@@ -177,8 +180,8 @@ flashing indicators.
 - Frame-time capture at 20 animated residents (`ART-PIPELINE.md` G3.1).
 - Asset-manifest audit — no licence-incompatible asset committed (G3.2).
 - Full screenshot matrix: dashboard-matched camera angles × reading levels × high contrast.
-- Reduced-motion pass: sky rotation paused, wind sway honoured, walk cycles still driven by sim
-  state.
+- Reduced-motion pass: sky rotation paused, wind sway honoured, camera easing off; walk cycles
+  still play while agents move (they are sim state, not decoration).
 
 ---
 

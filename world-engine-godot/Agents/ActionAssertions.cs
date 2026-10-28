@@ -34,6 +34,7 @@ public static class ActionAssertions
         AgentLoopContract();
         RosterAgentId();
         WaitWithNothingInView();
+        WalkCycleIgnoresReducedMotion();
         ControlConditionMoves();
         DecisionHeldBetweenPolls();
         SceneKinds();
@@ -339,6 +340,17 @@ public static class ActionAssertions
         Check(!AvatarCharacter.HoldsStill("approach", hasTarget: false, nothingVisible: false)
             && !AvatarCharacter.HoldsStill("wait", hasTarget: true, nothingVisible: false),
             "other verbs, and anything with a target, are not held");
+    }
+
+    /// <summary>
+    /// Walk cycles show simulation state, so they play whenever an agent moves, reduced motion or
+    /// not (Joshua, 2026-10-28, GRAPH-001); a standing agent stays still (state-feed contract §4.4).
+    /// </summary>
+    private static void WalkCycleIgnoresReducedMotion()
+    {
+        Console.WriteLine("\n[walk cycle and reduced motion]");
+        Check(Resident.IsWalking(1.4f), "an agent moving at walking speed plays its walk cycle");
+        Check(!Resident.IsWalking(0f) && !Resident.IsWalking(0.05f), "an idle agent stands still");
     }
 
     /// <summary>

@@ -125,7 +125,7 @@ Being honest about the other direction — these are fine as procedural primitiv
 | **Accessibility is a renderer constraint, not a later pass** | `RENDERER-PLAN.md` §6 D.4 — reduced motion, colour-safe indicators, minimal flashing |
 | PR ≤100 changed files | `MIGRATION-PLAN.md` §10 — CodeRabbit skips review above it |
 
-**G3 note:** `RENDERER-PLAN.md` D.4's *reduced motion* requirement is in direct tension with animated walk cycles and wind sway. The wind shader in `VegetationBuilder.cs` is unconditional. That conflict needs resolving when G2.4 lands, not after.
+**G3 note:** `RENDERER-PLAN.md` D.4's *reduced motion* requirement is in direct tension with animated walk cycles and wind sway. The wind shader in `VegetationBuilder.cs` is unconditional. That conflict needs resolving when G2.4 lands, not after. **Walk cycles resolved (Joshua, 2026-10-28):** they always play while an agent moves (sim state, not decoration); reduced motion gates sky rotation, wind sway and camera easing. Wind sway remains open.
 
 ---
 
