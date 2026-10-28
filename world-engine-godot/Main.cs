@@ -576,9 +576,17 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		var endpoint = OS.GetEnvironment("NLT_AGENT_LOOP_ENDPOINT");
 		if (!string.IsNullOrWhiteSpace(endpoint))
 			_agentLoopDriver.FusionEndpoint = endpoint;
+		// Fusion decides only for roster ids it registered (AGENT-LOOP-003 F0). The internal
+		// LocalAvatarTargetId key stays; only the perception's agentId changes.
+		_agentLoopDriver.PerceptionAgentId = OS.GetEnvironment("NLT_AGENT_LOOP_AGENT_ID").Trim();
+		if (_agentLoopDriver.PerceptionAgentId.Length == 0)
+			GD.PushWarning("NLT_AGENT_LOOP_AGENT_ID is not set: perceptions carry the internal id " +
+				$"{LocalAvatarTargetId}, which Fusion does not serve, so no intent will be applied. " +
+				"Set it to a registered roster id, e.g. stay_alert_001.");
 		AddChild(_agentLoopDriver);
-		GD.Print($"Fusion agent loop enabled for {LocalAvatarTargetId}; endpoint: " +
-			$"{_agentLoopDriver.FusionEndpoint}; destinations: {_worldAnchors.Count} anchors");
+		GD.Print($"Fusion agent loop enabled for {LocalAvatarTargetId} as " +
+			$"'{PerceptionBuilder.WireAgentId(LocalAvatarTargetId, _agentLoopDriver.PerceptionAgentId)}'; " +
+			$"endpoint: {_agentLoopDriver.FusionEndpoint}; destinations: {_worldAnchors.Count} anchors");
 	}
 
 	/// <summary>

@@ -30,6 +30,13 @@ public partial class AgentLoopDriver : Node
     /// <summary>Only this avatar receives decisions; defaults to the dedicated local test avatar.</summary>
     [Export] public string TargetAgentId { get; set; } = "__local_avatar__";
 
+    /// <summary>
+    /// The roster id Fusion registered for <see cref="TargetAgentId"/>, sent as the perception's
+    /// <c>agentId</c> (AGENT-LOOP-003 F0; e.g. <c>stay_alert_001</c>). Empty sends the internal key,
+    /// which Fusion does not serve, so no intent is ever applied.
+    /// </summary>
+    [Export] public string PerceptionAgentId { get; set; } = "";
+
     /// <summary>Fusion endpoint; may be overridden from the composition root for local testing.</summary>
     [Export] public string FusionEndpoint
     {
@@ -121,8 +128,8 @@ public partial class AgentLoopDriver : Node
             }
             var perception = PerceptionBuilder.Build(
                 avatar, _tick, $"obs-{_tick}-{avatar.AgentId}-{_messageSeq++}",
-                AnchorsFor(avatar.SceneId), avatars);
-            GD.Print($"[AgentLoopDriver] perception tick={_tick}, agent={avatar.AgentId}, " +
+                AnchorsFor(avatar.SceneId), avatars, PerceptionAgentId);
+            GD.Print($"[AgentLoopDriver] perception tick={_tick}, agent={perception.AgentId}, " +
                 $"scene={perception.Scene.Id}/{perception.Scene.Kind}, " +
                 $"position={avatar.GlobalPosition}, visible={perception.VisibleEntities.Count}");
             _link.RequestDecision(avatar, perception, _ingress, _tick);

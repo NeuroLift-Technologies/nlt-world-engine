@@ -10,12 +10,16 @@ namespace NltWorldEngine.Agents;
 /// </summary>
 public static class PerceptionBuilder
 {
+    /// <param name="rosterAgentId">The id Fusion registered for this avatar, sent as the
+    /// perception's <c>agentId</c> (AGENT-LOOP-003 F0). Null or blank sends the avatar's internal
+    /// key. Occupancy and everything engine-side keep using the internal key.</param>
     public static AgentPerceptionSnapshot Build(
         AvatarCharacter avatar,
         int tick,
         string messageId,
         IReadOnlyList<TaskAnchor> anchors,
-        IReadOnlyList<AvatarCharacter> others)
+        IReadOnlyList<AvatarCharacter> others,
+        string? rosterAgentId = null)
     {
         var pos = avatar.GlobalPosition;
         var vel = avatar.Velocity;
@@ -47,7 +51,7 @@ public static class PerceptionBuilder
         return new AgentPerceptionSnapshot
         {
             MessageId = messageId,
-            AgentId = avatar.AgentId,
+            AgentId = WireAgentId(avatar.AgentId, rosterAgentId),
             Tick = tick,
             // Throws for an unknown scene id; AgentLoopDriver checks first and posts nothing.
             Scene = new AgentLoopScene { Id = avatar.SceneId, Kind = SceneCatalog.KindFor(avatar.SceneId) },
@@ -61,6 +65,14 @@ public static class PerceptionBuilder
     }
 
     public const float PerceptionRange = 25f;
+
+    /// <summary>
+    /// The <c>agentId</c> a perception carries: the configured roster id when there is one, else the
+    /// avatar's internal key. Fusion serves only roster ids it registered, so an unset roster id
+    /// makes Fusion refuse every decision for this avatar (fail closed).
+    /// </summary>
+    public static string WireAgentId(string internalId, string? rosterAgentId)
+        => string.IsNullOrWhiteSpace(rosterAgentId) ? internalId : rosterAgentId.Trim();
 
     /// <summary>
     /// The anchors an agent at <paramref name="position"/> can see: those within

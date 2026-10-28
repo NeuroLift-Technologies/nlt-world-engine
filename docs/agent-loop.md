@@ -153,13 +153,26 @@ Godot from another PowerShell window with the repository root as the current dir
 ```powershell
 $env:NLT_AGENT_LOOP_ENABLED = '1'
 $env:NLT_AGENT_LOOP_ENDPOINT = 'http://127.0.0.1:8001/agent-loop/perception'
+$env:NLT_AGENT_LOOP_AGENT_ID = 'stay_alert_001'
 & $env:GDA_GODOT --path .\world-engine-godot
 ```
 
-The Godot log should report the endpoint and visible test-target id. Fusion's deterministic
-fallback approaches the test target; the GGUF may choose `approach` or `wait`. Godot logs whether
-each intent was accepted or rejected. For an approach, verify the local avatar moves toward the
-marker under Jolt and idles within its one-metre arrival radius. Stop with `Ctrl+C`; unset the
-environment variables afterward to restore the default observer-only run. The test target and
-single-avatar driver are created only when the opt-in flag is set. A headless GDA preflight can
-verify startup and HTTP communication but cannot establish visible movement or target arrival.
+`NLT_AGENT_LOOP_AGENT_ID` is the roster id the perception carries as `agentId` (AGENT-LOOP-003
+F0). Fusion decides only for agents it registered (today `stay_alert_001`) and answers 404 with no
+intent for any other id, so leaving it unset sends the internal `__local_avatar__` key and no intent
+is ever applied; Godot warns at startup and on each refusal. The engine keeps `__local_avatar__` as
+its internal key.
+
+A `wait` holds the avatar still (Joshua, 2026-10-21) unless the perception it answered listed no
+entities; then the avatar resumes the wander fallback (Joshua, 2026-10-28), since `wait` was the
+only choice Fusion had.
+
+The Godot log should report the endpoint, the agent id sent and the number of world anchors
+(destinations); each perception line logs the agent id, scene, position and visible-entity count.
+Fusion's deterministic fallback approaches the first free visible anchor; a model may choose any
+verb the perception allows. Godot logs whether each intent was accepted or rejected. For an
+approach, verify the local avatar walks toward that anchor under Jolt and stops within its
+one-metre arrival radius. Stop with `Ctrl+C`; unset the environment variables afterward to restore
+the default observer-only run. The local avatar and the single-avatar driver are created only when
+the opt-in flag is set. A headless GDA preflight can verify startup and HTTP communication but
+cannot establish visible movement or arrival.

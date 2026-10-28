@@ -61,12 +61,15 @@ public partial class Resident : Node3D
     }
 
     /// <summary>Place and animate from the feed. <paramref name="world"/> is in the shown scene's space.</summary>
+    /// <param name="reducedMotion">Does not gate the walk clip: walking shows real simulation state,
+    /// so it plays whenever the agent moves. Reduced motion gates only decorative motion (sky
+    /// rotation, wind sway, camera easing), none of which lives here (Joshua, 2026-10-28, GRAPH-001).</param>
     public void Sync(Vector3 world, Vector3 velocity, string name, string stateWord, bool reducedMotion)
     {
         Position = world;
 
         float speed = new Vector2(velocity.X, velocity.Z).Length();
-        bool walking = speed > 0.05f && !reducedMotion;
+        bool walking = IsWalking(speed);
         if (walking)
             Rotation = new Vector3(0f, Mathf.Atan2(velocity.X, velocity.Z), 0f);
 
@@ -90,4 +93,11 @@ public partial class Resident : Node3D
             _anim.Seek(0.0, true);
         }
     }
+
+    /// <summary>
+    /// Whether an agent moving at <paramref name="horizontalSpeed"/> plays its walk cycle. Below the
+    /// threshold it is idle and stands still (state-feed contract §4.4). Independent of reduced
+    /// motion. Engine-free, so the harness checks it directly.
+    /// </summary>
+    public static bool IsWalking(float horizontalSpeed) => horizontalSpeed > 0.05f;
 }

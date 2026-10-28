@@ -90,6 +90,9 @@ public partial class FusionHttpLink : Node
 		int currentTick)
 	{
 		var _transportFailed = false;
+		// In-flight and backoff bookkeeping is keyed by the avatar's internal id, as RequestDecision
+		// reads it. The perception may carry a different roster id (AGENT-LOOP-003 F0).
+		var key = avatar.AgentId;
 		try
 		{
 			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(RequestTimeoutSeconds));
@@ -104,6 +107,18 @@ public partial class FusionHttpLink : Node
 				if ((int)response.StatusCode == 429)
 				{
 					ReportInfo($"Fusion still deciding for {perception.AgentId}; request skipped.");
+					return;
+				}
+				// 404 from Fusion's own route means no pair is registered under this agentId
+				// (AGENT-LOOP-003 F0); any other 404 is most likely a wrong endpoint path.
+				if ((int)response.StatusCode == 404)
+				{
+					var reason = await response.Content.ReadAsStringAsync(cts.Token);
+					ReportWarning(reason.Contains("agent is not registered", StringComparison.Ordinal)
+						? $"Fusion does not serve agent '{perception.AgentId}'; no intent applied. " +
+							"Set NLT_AGENT_LOOP_AGENT_ID to a roster id Fusion registered."
+						: $"Fusion returned HTTP 404 for {perception.AgentId}; no intent applied. " +
+							$"Check NLT_AGENT_LOOP_ENDPOINT ({FusionEndpoint}).");
 					return;
 				}
 				ReportWarning($"Fusion returned HTTP {(int)response.StatusCode} for {perception.AgentId}; no intent applied.");
@@ -135,7 +150,7 @@ public partial class FusionHttpLink : Node
 			_transportFailed = true;
 			lock (_lock)
 			{
-				_backoffUntil[perception.AgentId] =
+				_backoffUntil[key] =
 					Time.GetTicksMsec() / 1000.0 + TransportBackoffSeconds;
 			}
 			ReportWarning($"transport failed closed for {perception.AgentId}: {e.GetType().Name}. " +
@@ -150,12 +165,12 @@ public partial class FusionHttpLink : Node
 		{
 			lock (_lock)
 			{
-				_inFlight.Remove(perception.AgentId);
+				_inFlight.Remove(key);
 				// A completed round trip clears any penalty, so recovery is immediate rather than
 				// waiting out a backoff levied for a failure that no longer applies. Set by the
 				// catch above, so absence here means this request did not fail on transport.
 				if (!_transportFailed)
-					_backoffUntil.Remove(perception.AgentId);
+					_backoffUntil.Remove(key);
 			}
 		}
 	}

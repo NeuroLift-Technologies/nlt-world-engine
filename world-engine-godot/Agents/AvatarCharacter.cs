@@ -195,13 +195,22 @@ public partial class AvatarCharacter : AgentBrain
     /// </summary>
     /// <param name="onArrival">Run once when the avatar reaches the target — or at once if it is
     /// already standing there (AGENT-LOOP-002 T3: <c>use</c> on a doorway transitions on arrival).</param>
-    public void ApplyIntent(string verb, Vector3? resolvedTargetPosition = null, Action? onArrival = null)
+    /// <param name="nothingVisible">The perception this intent answered listed no entities. See
+    /// <see cref="HoldsStill"/>.</param>
+    public void ApplyIntent(
+        string verb, Vector3? resolvedTargetPosition = null, Action? onArrival = null, bool nothingVisible = false)
     {
         // 'wait' carries on with whatever is under way — walking to a target, or walking to a chair
         // and sitting on it. Fusion decides every couple of seconds, so a wait would otherwise stop
         // the avatar short of every target and stand it up almost as soon as it sat. Any other
         // intent ends the interaction and frees what it held.
         if (verb == "wait" && (_heldAnchor != null || _facePoint != null || _enRoute))
+            return;
+        // A 'wait' with nothing in view while the avatar already wanders keeps that tour: a fresh
+        // fallback every couple of seconds would restart its progress timer, so a tour stuck at a
+        // blocked anchor would never reach its give-up and pick another.
+        if (KeepsCurrentWander(verb, resolvedTargetPosition.HasValue, nothingVisible,
+                Controller is UtilityAgentController))
             return;
         EndInteraction();
 
@@ -246,7 +255,8 @@ public partial class AvatarCharacter : AgentBrain
         // 'wait', and 'rest' with nothing to rest on, hold still where the avatar stands until the
         // next intent (Joshua, 2026-10-21). Wandering here made a model-driven avatar look exactly
         // like one with no model: the model's "stay put" played out as a walk around the world.
-        if (verb is "wait" or "rest" && !resolvedTargetPosition.HasValue)
+        // A 'wait' with nothing in view falls through to the wander below (see HoldsStill).
+        if (HoldsStill(verb, resolvedTargetPosition.HasValue, nothingVisible))
         {
             _activity = verb == "rest" ? "resting" : "waiting";
             DropHeldDecision();
@@ -260,6 +270,27 @@ public partial class AvatarCharacter : AgentBrain
         if (resolvedTargetPosition.HasValue)
             onArrival?.Invoke();
     }
+
+    /// <summary>
+    /// Whether a non-targeted <paramref name="verb"/> holds the avatar still until the next intent.
+    /// <c>wait</c> and <c>rest</c> do (Joshua, 2026-10-21), except a <c>wait</c> answered to a
+    /// perception with nothing in it: there <c>wait</c> was the only choice Fusion had, so holding
+    /// still would strand the avatar for good. That one resumes the wander fallback instead
+    /// (Joshua, 2026-10-28, AGENT-LOOP-003 §8). Engine-free, so the harness checks it directly.
+    /// </summary>
+    public static bool HoldsStill(string verb, bool hasTarget, bool nothingVisible)
+    {
+        if (hasTarget)
+            return false;
+        return verb == "rest" || (verb == "wait" && !nothingVisible);
+    }
+
+    /// <summary>
+    /// Whether a <c>wait</c> with nothing in view leaves an already running wander fallback alone
+    /// rather than replacing it. Engine-free, so the harness checks it directly.
+    /// </summary>
+    public static bool KeepsCurrentWander(string verb, bool hasTarget, bool nothingVisible, bool wandering)
+        => wandering && verb == "wait" && !hasTarget && nothingVisible;
 
     /// <summary>
     /// After the engine places this avatar in a new scene: face <paramref name="facing"/> (away from
@@ -276,7 +307,8 @@ public partial class AvatarCharacter : AgentBrain
     /// <summary>
     /// The controller this avatar falls back to when Fusion's last intent is done: an interaction or
     /// a look has ended, a scene transition has placed it, or an intent was already satisfied where
-    /// it stands. 'wait' and 'rest' hold still instead, and a governance denial halts it.
+    /// it stands, or a 'wait' with nothing in view. Otherwise 'wait' and 'rest' hold still instead,
+    /// and a governance denial halts it.
     ///
     /// Given the world's destinations, this tours between them; with none, it degrades to the
     /// need-driven wander the avatar already shipped with. Built fresh each call so the tour

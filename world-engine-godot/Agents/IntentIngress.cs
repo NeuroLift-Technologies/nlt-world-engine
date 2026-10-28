@@ -175,7 +175,8 @@ public sealed class IntentIngress
             // look_at faces the object itself: an anchor's position is the approach point beside it.
             if (intent.Verb == "look_at" && SceneAnchor(avatar, intent.TargetId)?.FacePoint is { } face)
                 resolved = face;
-            avatar.ApplyIntent(intent.Verb, resolved, onArrival);
+            avatar.ApplyIntent(intent.Verb, resolved, onArrival,
+                nothingVisible: perception.VisibleEntities.Count == 0);
         }
 
         var accepted = new IntentExecutionResult
