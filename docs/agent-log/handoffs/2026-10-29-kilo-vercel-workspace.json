@@ -1,0 +1,7 @@
+{
+  "agent": "Kilo",
+  "date": "2026-10-29",
+  "branch": "feat/vercel-app-workspace",
+  "pr": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/119",
+  "summary": "Minimal vercel/ workspace scaffolding. Existing Vercel preview root remains web/; vercel/viewer intended for separate Vercel project. Contracts reused: state-feed-v1, agent-loop-v1."
+}
