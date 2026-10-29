@@ -19,6 +19,7 @@ RUN mkdir -p /opt/godot \
     && rm /tmp/godot.zip \
     && GODOT_BIN="$(find /opt/godot -maxdepth 1 -type f -name 'Godot*' | head -n 1)" \
     && test -n "$GODOT_BIN" \
+    && chmod +x "$GODOT_BIN" \
     && ln -s "$GODOT_BIN" /usr/local/bin/godot \
     && godot --version
 
@@ -55,6 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /opt/godot /opt/godot
 RUN GODOT_BIN="$(find /opt/godot -maxdepth 1 -type f -name 'Godot*' | head -n 1)" \
     && test -n "$GODOT_BIN" \
+    && chmod +x "$GODOT_BIN" \
     && ln -s "$GODOT_BIN" /usr/local/bin/godot
 
 WORKDIR /app
