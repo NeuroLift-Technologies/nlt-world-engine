@@ -2,7 +2,7 @@
 
 > This file tracks active work threads. Agents must read this at session start and update it during and at the end of each session.
 
-**Last updated:** 2026-10-28
+**Last updated:** 2026-10-29
 
 ---
 
@@ -681,8 +681,40 @@ Also uncommitted and unrelated to the observer: the `MIGRATE-PLAN.md` / `RENDERE
 | Fusion Studio research and replay contracts | Codex | 2026-06-04 | [#8](https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/8) | Adopted the supplied Claude Design Studio shell without overwriting the canonical World Engine, documented the Hugging Face and GitHub landscape, and added a draft v1 simulation/replay contract with a passing deterministic fixture. Visual browser smoke testing remains outstanding because the in-app browser runtime was unavailable. |
 | World Engine Phase 6: Asset & Build Validation | Poolside Agent | 2026-09-02 | N/A | Created 13 Scenario DataAssets (UScenarioDataAsset with TSoftObjectPtr<UWorld> LevelReference); created 4 .umap levels (Workplace, Personal, Social, Academic) with ≥10 PlayerStarts, NavMesh, and full lighting; verified all 13 DataAsset→Level bindings resolve correctly; cooking via RunUAT.sh completed with 0 errors; load times 0.1–0.2s (well under 30s target). Full report at `WorldEngine/Saved/Phase6ValidationReport.json`. |
 
-### VERCEL-001 — Vercel app workspace (proposed) — 2026-10-29
-- **Status:** scaffolding only (PR #119); not merged
-- **Owner:** Kilo
-- **Scope:** `vercel/` workspace; viewer framework TBD; Vercel root for existing project stays `web/`.
-- **Contracts reused:** `docs/contracts/state-feed-v1.md`, `docs/contracts/agent-loop-v1.md`.
+### VERCEL-001 — Vercel app workspace — 2026-10-29
+- **Status:** viewer built (Kilo, PRs #119/#120, merged) and now connected to the engine by file
+  traces (OBS-TRACE-001, below). The Vercel project is not created or deployed yet: that is Joshua's.
+- **Owner:** Kilo (scaffold, viewer); CLAUDE (engine connection, viewer fixes)
+- **Scope:** `vercel/` workspace. Vercel root for the existing project stays `web/`; the viewer's
+  candidate root is `vercel/viewer` (`vercel.json` added).
+- **Contracts:** `docs/contracts/observer-trace-v1.md` (viewer input), `state-feed-v1.md`,
+  `agent-loop-v1.md`.
+
+### 🔭 OBS-TRACE-001 — Godot → viewer connection, file-based (Phase 1) — 2026-10-29
+- **Status:** done on branch `ccr-997c14ca-p1mbps`, draft PR. **Owner:** CLAUDE.
+- **Decision (Joshua 2026-10-29):** file first, live later. Live transport is escalated, not built:
+  [`docs/escalations/2026-10-29-observer-live-transport.md`](escalations/2026-10-29-observer-live-transport.md).
+- **Contract:** [`docs/contracts/observer-trace-v1.md`](contracts/observer-trace-v1.md), promoted
+  from the viewer's draft. Additive only: `result` gains `agentId`/`tick`, and the header gains
+  `tickUnit` (`frame`) and `synthetic`.
+- **Engine:** `Observer/Trace/ObserverTrace.cs` (writer; plain C#, thread-safe, flush per line),
+  `ObserverTraceLauncher.cs` (`--trace [path]` / `NLT_OBSERVER_TRACE`). It hooks into
+  `AgentLoopDriver` (sampled ticks at 10 Hz, perceptions, scene transitions and entities),
+  `FusionHttpLink` (intents, failed decisions) and `IntentIngress` (results with the deciding stage:
+  protocol / governance / physical / accepted). Off by default. No change to agent-loop-v1, Fusion
+  or simulation behaviour.
+- **Headless:** `tools/headless-loop.sh --trace` writes, validates and summarises the trace. **Ran
+  here** (Godot 4.7.2 mono headless + Fusion rule-based fallback): 8000 iterations, 647 records,
+  1 scene transition; an unregistered id gives 6 × `decision_failed` 404; a SIGHUP-stopped run still
+  left 198 whole records.
+- **Checks:** AgentHarness 155/155 + new observer-trace suite 29/29;
+  `tools/validate_observer_trace.py` against the shared sample `fixtures/observer-trace/sample.jsonl`
+  (a real recording; the viewer's built-in demo).
+- **Viewer fixes found by loading real data** (all pre-existing): the plot never drew (ctx guard
+  before ctx creation); playback never advanced below 8× (per-frame time discarded); timeline
+  collapsed to 20 px; agent labels drawn at x=0; trails joined points across scenes; the legend
+  shape did not match the marker. Also: stepping/playback move between recorded ticks
+  (engine ticks are frames), drag-and-drop, `vercel.json` with CSP as real headers.
+- **Open:** Joshua: create the Vercel project (root `vercel/viewer`) and approve any deployment. Also
+  pre-existing: 93 files of `vercel/viewer/node_modules/` are committed on `main` (from #120) and
+  `.gitignore` does not cover them. Left untouched here (out of scope); worth a cleanup PR.
