@@ -1,0 +1,15 @@
+# The container needs the authoritative Godot runtime, not the frozen UE tree or web viewer.
+WorldEngine/
+_archive/
+vercel/
+docs/
+.git/
+.gitmodules
+.github/
+**/.git/
+**/bin/
+**/obj/
+**/.godot/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
