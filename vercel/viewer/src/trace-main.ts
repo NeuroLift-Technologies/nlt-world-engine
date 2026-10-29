@@ -630,9 +630,17 @@ export class ViewerApp {
       m.setAttribute('aria-label', `${ev.label} at tick ${ev.tick}`);
       m.style.left = `${place(ev.tick)}px`;
       m.title = `${ev.label} (tick ${ev.tick})`;
-      m.addEventListener('click', () => this.seek(ev.tick));
+      // Stop both events at the marker: a click would also reach the timeline track, which
+      // re-seeks to the pointer's x and lands beside the marker's tick; a Space keydown would
+      // also reach the window's Space shortcut and start playback.
+      m.addEventListener('click', (e: MouseEvent) => {
+        e.stopPropagation();
+        this.seek(ev.tick);
+      });
       m.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') this.seek(ev.tick);
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.stopPropagation();
+        this.seek(ev.tick);
       });
       el.appendChild(m);
     }
