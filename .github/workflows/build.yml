@@ -27,9 +27,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: cloud
-          endpoint: "jdub1216/neurolift-technologies"
 
       - name: Build and publish image
         uses: docker/build-push-action@v6
