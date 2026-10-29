@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
+using NltWorldEngine.Observer.Trace;
 
 namespace NltWorldEngine.Agents;
 
@@ -51,6 +52,13 @@ public partial class FusionHttpLink : Node
 	/// </summary>
 	[Export] public float RequestTimeoutSeconds { get; set; } = 30f;
 
+	/// <summary>Observer trace for intents and failed decisions (observer-trace-v1 §4.3, §4.5).</summary>
+	public ITraceSink Trace { get; set; } = NullTraceSink.Instance;
+
+	/// <summary>The driver's tick now, read when an intent arrives to report how far behind it is.
+	/// Called from a background task; the driver's tick is a plain int, so the read is atomic.</summary>
+	public Func<int> TickNow { get; set; } = () => 0;
+
 	/// <summary>Seconds to keep quiet after a transport failure, so one outage does not become a
 	/// warning on every cadence tick.</summary>
 	private const float TransportBackoffSeconds = 5f;
@@ -59,8 +67,9 @@ public partial class FusionHttpLink : Node
 	/// POST one perception; on correlated intent, run it through ingress.
 	/// Fire-and-forget safe: drops when one request per avatar is already in flight,
 	/// rejects stale ticks, fails closed (no movement) on any transport error.
+	/// Returns true when a request was sent, false when it was dropped.
 	/// </summary>
-	public void RequestDecision(
+	public bool RequestDecision(
 		AvatarCharacter avatar,
 		AgentPerceptionSnapshot perception,
 		IntentIngress ingress,
@@ -70,17 +79,30 @@ public partial class FusionHttpLink : Node
 		{
 			if (_inFlight.TryGetValue(avatar.AgentId, out var existing)
 				&& !existing.IsCompleted)
-				return;
+				return false;
 
 			// After a transport failure, stay quiet for a few seconds. Without this the loop
 			// re-attempts on every cadence tick, so a Fusion server that is simply not running
 			// produces a warning every two seconds and buries real diagnostics under its own.
 			if (_backoffUntil.TryGetValue(avatar.AgentId, out var until)
 				&& Time.GetTicksMsec() / 1000.0 < until)
-				return;
+				return false;
 
 			_inFlight[avatar.AgentId] = FetchAndApplyAsync(avatar, perception, ingress, currentTick);
+			return true;
 		}
+	}
+
+	private void TraceFailure(AgentPerceptionSnapshot perception, int? httpStatus, string error)
+	{
+		if (Trace.Enabled)
+			Trace.Write(new DecisionFailedRecord
+			{
+				AgentId = perception.AgentId,
+				Tick = perception.Tick,
+				HttpStatus = httpStatus,
+				Error = error,
+			});
 	}
 
 	private async Task FetchAndApplyAsync(
@@ -98,9 +120,14 @@ public partial class FusionHttpLink : Node
 			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(RequestTimeoutSeconds));
 			var body = JsonSerializer.Serialize(perception, JsonOptions);
 			using var content = new StringContent(body, Encoding.UTF8, "application/json");
-			using 			var response = await _http.PostAsync(FusionEndpoint, content, cts.Token);
+			var started = System.Diagnostics.Stopwatch.StartNew();
+			using var response = await _http.PostAsync(FusionEndpoint, content, cts.Token);
 			if (!response.IsSuccessStatusCode)
 			{
+				// Read once: the trace and the 404 diagnosis below both want Fusion's own words.
+				var errorBody = await response.Content.ReadAsStringAsync(cts.Token);
+				TraceFailure(perception, (int)response.StatusCode,
+					errorBody.Length == 0 ? response.ReasonPhrase ?? "" : errorBody[..Math.Min(errorBody.Length, 200)]);
 				// 429 is the server's one-in-flight-per-agent guard, i.e. our own previous request
 				// still decoding. That is a pacing signal, not a fault: log it and let the in-flight
 				// guard throttle us. Treating it as a warning produced an error every cadence tick.
@@ -113,8 +140,7 @@ public partial class FusionHttpLink : Node
 				// (AGENT-LOOP-003 F0); any other 404 is most likely a wrong endpoint path.
 				if ((int)response.StatusCode == 404)
 				{
-					var reason = await response.Content.ReadAsStringAsync(cts.Token);
-					ReportWarning(reason.Contains("agent is not registered", StringComparison.Ordinal)
+					ReportWarning(errorBody.Contains("agent is not registered", StringComparison.Ordinal)
 						? $"Fusion does not serve agent '{perception.AgentId}'; no intent applied. " +
 							"Set NLT_AGENT_LOOP_AGENT_ID to a roster id Fusion registered."
 						: $"Fusion returned HTTP 404 for {perception.AgentId}; no intent applied. " +
@@ -125,14 +151,29 @@ public partial class FusionHttpLink : Node
 				return;
 			}
 			var json = await response.Content.ReadAsStringAsync(cts.Token);
+			var decisionMs = started.ElapsedMilliseconds;
 			if (!AgentLoopProtocol.TryParseIntent(json, perception, out var intent, out var parseError)
 				|| intent == null)
 			{
+				TraceFailure(perception, (int)response.StatusCode, $"intent rejected: {parseError}");
 				ReportWarning($"Fusion intent rejected for {perception.AgentId}: {parseError}");
 				return;
 			}
+			if (Trace.Enabled)
+				Trace.Write(new IntentRecord
+				{
+					MessageId = intent.MessageId,
+					AgentId = intent.AgentId,
+					ObservedTick = intent.ObservedTick,
+					Verb = intent.Verb,
+					TargetId = intent.TargetId,
+					TicksBehind = Math.Max(0, TickNow() - intent.ObservedTick),
+					DecisionMs = decisionMs,
+				});
 			if (intent.ObservedTick != perception.Tick)
 			{
+				TraceFailure(perception, (int)response.StatusCode,
+					$"stale tick {intent.ObservedTick}, expected {perception.Tick}");
 				ReportWarning($"Fusion intent for {perception.AgentId} used stale tick {intent.ObservedTick}; " +
 					$"expected {perception.Tick}. No intent applied.");
 				return;
@@ -148,6 +189,7 @@ public partial class FusionHttpLink : Node
 			// A timeout or a refused connection both mean "Fusion is not answering yet". Back off
 			// and report once; the backoff above keeps the rest of the cadence quiet.
 			_transportFailed = true;
+			TraceFailure(perception, null, $"transport: {e.GetType().Name}");
 			lock (_lock)
 			{
 				_backoffUntil[key] =

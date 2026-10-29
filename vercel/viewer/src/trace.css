@@ -59,7 +59,7 @@ canvas#plot { display: block; width: 100%; height: 100%; background: #fafafa; fl
   padding: 6px 12px; border-top: 1px solid var(--border); font-size: 12px; background: #fafafa;
 }
 .legend-item { display: flex; align-items: center; gap: 6px; }
-.legend-shape { width: 14px; height: 14px; border: 1.5px solid var(--fg); }
+.legend-shape { display: inline-block; width: 14px; font-size: 14px; line-height: 1; text-align: center; color: var(--fg); }
 
 /* Side panel */
 .side-panel { border: 1px solid var(--border); border-radius: 6px; display: flex; flex-direction: column; background: #fff; }
@@ -120,7 +120,8 @@ canvas#plot { display: block; width: 100%; height: 100%; background: #fafafa; fl
 #tick-range { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 /* Timeline */
-.timeline { position: relative; height: 44px; padding: 8px 10px; cursor: crosshair; }
+/* width: inside the flex transport row it would otherwise shrink to its markers (~20px). */
+.timeline { position: relative; height: 44px; padding: 8px 10px; cursor: crosshair; width: 100%; box-sizing: border-box; }
 .timeline:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .timeline-line {
   position: absolute; top: 50%; left: 0; right: 0; height: 2px;
@@ -162,3 +163,6 @@ canvas#plot { display: block; width: 100%; height: 100%; background: #fafafa; fl
 .error-banner li { margin-bottom: 4px; font-size: 12.5px; }
 
 button { font: inherit; }
+
+/* Drag a trace file over the page: an outline, plus the text label set in main.ts. */
+#app.drop-target { outline: 3px dashed var(--accent); outline-offset: -6px; }

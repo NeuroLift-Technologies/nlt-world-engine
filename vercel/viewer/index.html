@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- frame-ancestors is ignored in a meta CSP; vercel.json sends it as a header. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: data:; img-src 'self' blob: data:; frame-ancestors 'none'; form-action 'none';"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: data:; img-src 'self' blob: data:; form-action 'none';"
     />
     <meta name="description" content="Spectator viewer for the NLT World Engine — an embodied multi-agent simulation of AI Avatars, Aides and Advocates." />
     <meta name="theme-color" content="#0e1116" />

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Godot;
+using NltWorldEngine.Observer.Trace;
 
 namespace NltWorldEngine.Agents;
 
@@ -35,6 +36,7 @@ public sealed class IntentIngress
     private readonly Func<string, IReadOnlyList<TaskAnchor>> _anchorsFor;
     private readonly Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>> _runOnMainThread;
     private readonly IPortalTransit? _transit;
+    private readonly ITraceSink _trace;
 
     /// <param name="gate">ASFDK-backed governance. Never null — pass
     /// <see cref="OpenGovernanceGate.Instance"/> only where the gate is unavailable.</param>
@@ -43,14 +45,18 @@ public sealed class IntentIngress
     /// <param name="runOnMainThread">Run scene-tree reads and avatar mutations on Godot's main thread.</param>
     /// <param name="transit">The engine's scene transition. Without one, <c>use</c> on a doorway is
     /// rejected (fail closed) rather than walked to with nothing happening on arrival.</param>
+    /// <param name="trace">Observer trace: every result is reported with the stage that decided it
+    /// (observer-trace-v1 §4.4). Report only; it never changes a decision.</param>
     public IntentIngress(
         IGovernanceGate gate,
         Func<string, Vector3?>? resolveTarget = null,
         Func<string, IReadOnlyList<TaskAnchor>>? anchorsFor = null,
         Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>>? runOnMainThread = null,
-        IPortalTransit? transit = null)
+        IPortalTransit? transit = null,
+        ITraceSink? trace = null)
     {
         _transit = transit;
+        _trace = trace ?? NullTraceSink.Instance;
         _gate = gate;
         _resolveTarget = resolveTarget ?? (_ => null);
         _anchorsFor = anchorsFor ?? (_ => Array.Empty<TaskAnchor>());
@@ -84,7 +90,7 @@ public sealed class IntentIngress
         // 1. Protocol validation: correlation, verb allowlist, target-in-perception.
         var problem = AgentLoopProtocol.ValidateIntent(perception, intent);
         if (problem != null)
-            return reject($"protocol: {problem}");
+            return Traced(reject($"protocol: {problem}"), ObserverTraceVocabulary.StageProtocol, null);
 
         // 2. Governance (ASFDK): explains denials with interventions, never bare-rejects.
         GovernanceDecision decision;
@@ -103,8 +109,39 @@ public sealed class IntentIngress
             };
         }
 
-        return await _runOnMainThread(() =>
-            ApplyDecisionOnMainThread(avatar, perception, intent, currentTick, decision, reject));
+        // Which layer refused is decided on the main thread; the box carries it back. Safe without
+        // a lock: the await below orders the write before the read.
+        var stage = new StageBox();
+        var result = await _runOnMainThread(() =>
+            ApplyDecisionOnMainThread(avatar, perception, intent, currentTick, decision, reject, stage));
+        return Traced(result,
+            result.Status == "accepted" ? ObserverTraceVocabulary.StageAccepted : stage.Value,
+            decision.Code);
+    }
+
+    /// <summary>Report <paramref name="result"/> to the observer trace and return it unchanged.</summary>
+    private IntentExecutionResult Traced(IntentExecutionResult result, string stage, string? governanceCode)
+    {
+        if (_trace.Enabled)
+            _trace.Write(new ResultRecord
+            {
+                IntentMessageId = result.IntentMessageId,
+                AgentId = result.AgentId,
+                Tick = result.Tick,
+                Status = result.Status,
+                Stage = stage,
+                GovernanceCode = string.IsNullOrEmpty(governanceCode) || governanceCode == "clean"
+                    ? null
+                    : governanceCode,
+                Reason = result.Reason,
+            });
+        return result;
+    }
+
+    /// <summary>The rejecting stage, set on the main thread. Anything not governance is physical.</summary>
+    private sealed class StageBox
+    {
+        public string Value = ObserverTraceVocabulary.StagePhysical;
     }
 
     private IntentExecutionResult ApplyDecisionOnMainThread(
@@ -113,7 +150,8 @@ public sealed class IntentIngress
         SemanticIntent intent,
         int currentTick,
         GovernanceDecision decision,
-        Func<string, IntentExecutionResult> reject)
+        Func<string, IntentExecutionResult> reject,
+        StageBox stage)
     {
         if (!GodotObject.IsInstanceValid(avatar))
             return reject("avatar is no longer in the scene");
@@ -122,6 +160,7 @@ public sealed class IntentIngress
 
         if (!decision.Allowed)
         {
+            stage.Value = ObserverTraceVocabulary.StageGovernance;
             avatar.Halt();
             var reason = string.IsNullOrEmpty(decision.Explanation)
                 ? $"governance denied ({decision.Code})"

@@ -17,7 +17,8 @@ npm run preview    # serve dist/ on :4173
 
 URL parameters (handy for demos and captures): `?replay=stayalert-day|open-world-day|rescue-only|collapse-only`,
 `&scene=open_world|workplace_7|…`, `&frame=N`, `&play=0`, `&about=1`.
-The earlier `nlt.observer-trace.v1` replay viewer is kept unchanged at `trace.html`.
+The `nlt.observer-trace.v1` replay viewer is at `trace.html`: it opens traces the Godot engine
+records (see §8).
 
 ---
 
@@ -126,8 +127,35 @@ instead of the invented demo trace. Decide which line continues before merging e
 `src/scene/world.ts` (renderer, camera, scenes, residents) · `src/scene/interiorStyle.ts` ·
 `src/scene/minimap.ts` · `src/world/{geometry,terrain,settlement,vegetation}.ts` (Godot ports) ·
 `src/feed/{types,source,replay,live,plain}.ts` · `scripts/sync-godot-assets.mjs` ·
-`trace.html` + `src/trace-main.ts` + `src/trace.css` + `src/trace/*` (previous viewer, unchanged).
+`trace.html` + `src/trace-main.ts` + `src/trace.css` + `src/trace/*` (observer-trace replay, §8).
 
 **Known limitations:** sky/day-night is a fixed noon stand-in for Sky3D; Label3D building words are
 drawn at twice Godot's size for legibility; no LOD (19 buildings, ~1,000 instanced plants — fine on
-desktop and recent phones); the old trace viewer's plot is as it was.
+desktop and recent phones).
+
+## 8. Observer traces (`trace.html`)
+
+`trace.html` replays an **observer trace** (`nlt.observer-trace.v1`, contract:
+[`docs/contracts/observer-trace-v1.md`](../../docs/contracts/observer-trace-v1.md)) recorded by the
+Godot engine. It shows each scene from above, the intent → result log with the stage that decided
+each one (protocol / governance / physical / accepted), a summary, and a timeline of scene
+transitions and failed decisions. Like the spectator, it only observes: a trace you open is read
+in the browser and sent nowhere (CSP `connect-src 'self'`).
+
+1. **Record.** Headless (Linux/WSL, no GPU), with a local Fusion:
+   `GODOT=… FUSION_REPO=… tools/headless-loop.sh --trace --iterations 8000`. This writes
+   `observer-trace.jsonl` to the run's output folder and validates it
+   ([`docs/headless-loop.md`](../../docs/headless-loop.md)). From a windowed or editor run, pass
+   `-- --trace [path]` or set `NLT_OBSERVER_TRACE=1` (needs `NLT_AGENT_LOOP_ENABLED=1`).
+2. **Check** (optional; the headless script already does):
+   `python3 tools/validate_observer_trace.py --summary <file>.jsonl`.
+3. **Open.** Use "Open trace…" or drop the file on the page. With no file loaded, it shows the
+   built-in sample: a real headless run imported from
+   [`fixtures/observer-trace/`](../../fixtures/observer-trace/README.md). `vite.config.ts` lets the
+   dev server read that one folder outside the app root.
+
+Controls: Space plays or pauses; ← and → step between ticks that have a record. The engine's tick
+is a frame and ticks are sampled at `cadenceHz`, so playback moves one recorded tick per
+1/`cadenceHz` at 1×. Agent identity is shape plus label, and stage is shape plus text, never colour
+alone. Live streaming is not built; the options are in
+[`docs/escalations/2026-10-29-observer-live-transport.md`](../../docs/escalations/2026-10-29-observer-live-transport.md).

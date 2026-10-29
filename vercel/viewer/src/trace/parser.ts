@@ -203,6 +203,8 @@ function parseRecord(line: string, lineNo: number): ParsedRecord {
         stage: (parsed.stage as Stage) ?? 'accepted',
         governanceCode:
           typeof parsed.governanceCode === 'string' ? parsed.governanceCode : undefined,
+        agentId: typeof parsed.agentId === 'string' ? parsed.agentId : undefined,
+        tick: typeof parsed.tick === 'number' ? parsed.tick : undefined,
       } as ResultRecord;
     }
     case 'decision_failed': {

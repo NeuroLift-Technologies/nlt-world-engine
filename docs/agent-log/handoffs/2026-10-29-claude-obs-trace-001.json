@@ -1,0 +1,62 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01UNjnjkhke38vHpY7qURrkt",
+    "agent_name": "Claude (Anthropic) via Claude Code",
+    "date": "2026-10-29",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "ccr-997c14ca-p1mbps",
+    "work_completed": [
+      "Contract docs/contracts/observer-trace-v1.md: the viewer's draft promoted to v1; additive only (result.agentId/tick, header tickUnit/synthetic); privacy and retention section.",
+      "Engine producer: world-engine-godot/Observer/Trace/ObserverTrace.cs (records + thread-safe writer, flush per line, never throws on I/O) and ObserverTraceLauncher.cs (--trace [path] / NLT_OBSERVER_TRACE). Hooks in AgentLoopDriver (sampled ticks, perception_sent, scene_transition, scene_entities), FusionHttpLink (intent, decision_failed incl. Fusion's error body) and IntentIngress (result + deciding stage). Wired in Main.StartFusionAgentLoop. Off by default.",
+      "tools/headless-loop.sh --trace: writes, validates and summarises the trace; docs/headless-loop.md updated.",
+      "tools/validate_observer_trace.py, and fixtures/observer-trace/sample.jsonl: a real headless recording (8000 iterations, 647 records, 1 scene transition).",
+      "AgentHarness: new ObserverTraceAssertions suite (29 checks), run alongside ActionAssertions (155).",
+      "Viewer (vercel/viewer): built-in demo is now the shared real sample; result.agentId/tick parsed; stepping/playback move between recorded ticks; drag-and-drop; vercel.json with CSP as headers. Pre-existing bugs fixed after loading real data: plot never drew, playback never advanced below 8x, timeline collapsed to 20px, agent labels drawn at x=0, trails joined across scenes, legend shape did not match the marker.",
+      "Escalation docs/escalations/2026-10-29-observer-live-transport.md (Phase 2 options); active-threads OBS-TRACE-001 + VERCEL-001 updated; registration filed."
+    ],
+    "work_in_progress": [],
+    "blockers": [],
+    "decisions_made": [
+      "Joshua (2026-10-29): file first, live later.",
+      "Ticks stay engine frames (header tickUnit 'frame') so intent.observedTick lines up with perception and tick records; the viewer steps between recorded ticks instead.",
+      "Results carry the deciding stage via an internal holder in IntentIngress; the agent-loop-v1 result DTO is unchanged, so Fusion is untouched.",
+      "Trace agentId is the wire id (PerceptionBuilder.WireAgentId), matching intents.",
+      "A trace write error disables tracing rather than throwing, so tracing can never change a decision."
+    ],
+    "decisions_pending": [
+      "Joshua: create the Vercel project (Root Directory vercel/viewer) and approve any deployment.",
+      "Joshua: live transport (escalation 2026-10-29-observer-live-transport).",
+      "Pre-existing, not touched: 93 files of vercel/viewer/node_modules are committed on main (from #120) and not gitignored; worth a separate cleanup PR."
+    ],
+    "escalations": ["docs/escalations/2026-10-29-observer-live-transport.md"],
+    "next_agent_notes": "Record: GODOT=... FUSION_REPO=... tools/headless-loop.sh --trace --iterations 8000. Open the resulting observer-trace.jsonl in vercel/viewer (npm run dev, then drop the file). The rule-based fallback never gets refused, so the sample has no rejections; --agent-id __local_avatar__ exercises decision_failed (404). Windowed/editor --trace is not yet checked on Joshua's PC.",
+    "files_modified": [
+      "docs/contracts/observer-trace-v1.md",
+      "world-engine-godot/Observer/Trace/ObserverTrace.cs",
+      "world-engine-godot/Observer/Trace/ObserverTraceLauncher.cs",
+      "world-engine-godot/Observer/Trace/ObserverTraceAssertions.cs",
+      "world-engine-godot/Agents/AgentLoopDriver.cs",
+      "world-engine-godot/Agents/FusionHttpLink.cs",
+      "world-engine-godot/Agents/IntentIngress.cs",
+      "world-engine-godot/Main.cs",
+      "world-engine-godot/AgentHarness/Program.cs",
+      "tools/headless-loop.sh",
+      "tools/validate_observer_trace.py",
+      "fixtures/observer-trace/sample.jsonl",
+      "vercel/viewer/src/main.ts",
+      "vercel/viewer/src/trace/types.ts",
+      "vercel/viewer/src/trace/parser.ts",
+      "vercel/viewer/vercel.json"
+    ],
+    "tests_run": [
+      "dotnet build world-engine-godot.csproj --no-incremental: 0 errors, 8 pre-existing warnings",
+      "AgentHarness: 155/155 action + 29/29 observer-trace",
+      "tools/headless-loop.sh --trace (Godot 4.7.2 mono headless + Fusion rule-based): 8000-iteration clean exit, 1500-iteration unregistered-id run, 25 s SIGHUP-stopped run; all traces PASS the validator",
+      "vercel/viewer: npx tsc --noEmit, npm run build; Playwright smoke test (sample renders per scene, stepping, playback, file-picker load of the fail-closed trace, no console errors, no off-origin requests)",
+      "validate-governance.sh: 29/29"
+    ],
+    "tests_passing": true,
+    "pr_url": ""
+  }
+}

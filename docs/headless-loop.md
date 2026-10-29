@@ -26,6 +26,7 @@ tools/headless-loop.sh --seconds 120                    # rule-based fallback, 2
 FUSION_GGUF_MODEL=/models/Qwen3-0.6B-Q8_0.gguf \
   tools/headless-loop.sh --iterations 6000 --seconds 600  # model, clean exit after 6000 iterations
 tools/headless-loop.sh --frames --seconds 60            # also write software-rendered frames
+tools/headless-loop.sh --trace --iterations 8000        # also record an observer trace for the viewer
 ```
 
 | Option | Meaning |
@@ -34,6 +35,7 @@ tools/headless-loop.sh --frames --seconds 60            # also write software-re
 | `--iterations N` | Godot quits by itself after N main-loop iterations (`--quit-after`). This is the only clean engine exit; see the shutdown section below. |
 | `--agent-id ID` | Roster id sent as the perception's `agentId` (default `stay_alert_001`). Any id Fusion did not register is refused with 404, so `__local_avatar__` here shows the fail-closed path. |
 | `--frames` | Render through Xvfb with the Compatibility renderer and write two PNGs per second. |
+| `--trace` | Record an observer trace (`nlt.observer-trace.v1`) to `observer-trace.jsonl` in the output folder, validate it, and print record counts. Open it in the World Engine Viewer (`vercel/viewer`). Contract: `docs/contracts/observer-trace-v1.md`. |
 | `--skip-build` | Skip `dotnet build` and the asset import, for a second run on the same tree. |
 | `--out DIR` | Output folder (default `${TMPDIR:-/tmp}/nlt-headless-loop/<UTC timestamp>`). |
 
@@ -48,11 +50,17 @@ Everything goes to the output folder:
 - `fusion.log`.
 - `build.log` and `import.log`, unless `--skip-build` was given.
 - `frames-software-rendered/` (`--frames` only).
+- `observer-trace.jsonl` (`--trace` only). The writer flushes after every line, so a run stopped
+  with SIGHUP still leaves a complete trace up to its last record. Only the final line can be cut,
+  and the validator reports that as a warning. Measured 2026-10-29: a 25 s SIGHUP-stopped run left
+  198 whole records.
 
 The summary shows:
 - how Godot ended (the script exits 1 if Godot exited by itself with a nonzero status);
 - the startup line (endpoint, agent id sent, anchor count);
 - the number of perceptions posted;
+- with `--trace`, the trace's record counts by type and the validator's verdict (the script exits 1
+  if the trace is missing or invalid);
 - accepted and rejected intents by verb;
 - refusal and transport warnings.
 

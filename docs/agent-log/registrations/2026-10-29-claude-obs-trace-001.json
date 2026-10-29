@@ -1,0 +1,24 @@
+{
+  "agent_registration": {
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "platform": "Claude Code",
+    "version": "not recorded",
+    "session_id": "claude-code-session_01UNjnjkhke38vHpY7qURrkt",
+    "entry_date": "2026-10-29T13:00:00+00:00",
+    "entry_point": "Joshua: connect the Godot engine to the Vercel viewer. Plan approved with 'file first, live later'; Joshua asked whether it can run on headless Godot.",
+    "acknowledged_otoi": true,
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "working_repo": "NeuroLift-Technologies/nlt-world-engine",
+    "working_branch": "ccr-997c14ca-p1mbps",
+    "capabilities_self_reported": [
+      "Godot C# changes in world-engine-godot (Agents/, Observer/Trace/, Main.cs) and the AgentHarness",
+      "Godot 4.7.2 .NET headless runs in the session container via tools/headless-loop.sh, with nlt-ai-fusion's rule-based fallback",
+      "Viewer (Vite + TypeScript) changes, build and Playwright smoke tests"
+    ],
+    "known_limitations": [
+      "Headless only: no GPU or windowed run here; the editor/windowed --trace path is Joshua's dev-PC check",
+      "No Vercel project creation or deployment (escalation-required)"
+    ],
+    "preferred_handoff_format": "Structured JSON handoff plus the PR description"
+  }
+}
