@@ -8,6 +8,8 @@
 
 The image imports and builds the authoritative `world-engine-godot/` project, smoke-tests startup in headless mode, and runs the Godot main scene as a long-lived process. It fetches the `asfdk-csharp` dependency at a pinned commit because the Godot project references that repository by a sibling-relative path in the local development layout.
 
+The container build removes the Fennara game-capture autoload and its unavailable Linux editor extension manifest, plus the optional OpenXR vendor extension manifest. These changes apply only to the image's build-stage copy; the repository's desktop project is unchanged. A headless cloud process has no XR device, and the referenced Fennara Linux editor binary is not present in the repository.
+
 The image is built for Linux x86_64 and targets the project's pinned Godot 4.7.2 .NET and .NET 8 toolchain.
 
 ## GitHub Actions configuration
