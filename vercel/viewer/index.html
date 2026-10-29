@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- frame-ancestors is ignored in a meta CSP; vercel.json sends the full policy as a header. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'none';"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; form-action 'none';"
     />
     <meta name="description" content="Read-only replay viewer for nlt.observer-trace.v1 simulation traces." />
     <title>NLT World Engine — Replay Viewer</title>

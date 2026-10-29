@@ -3,30 +3,14 @@ import { reduce } from './trace/reducer.js';
 import type { ParsedTrace, SliceState, Stage, IntentRecord, ResultRecord, DecisionFailedRecord, SceneTransitionRecord } from './trace/types.js';
 
 // ---------------------------------------------------------------------------
-// Default embedded trace (no network). Exercises every record kind so the
-// viewer can be demonstrated without a file. CC owns the real contract.
+// Built-in trace: a real headless engine run, the same file the contract's validator checks
+// (fixtures/observer-trace/README.md). Bundled at build time, so there is still no network.
 // ---------------------------------------------------------------------------
-const DEFAULT_TRACE = `{"schemaVersion":"nlt.observer-trace.v1","runId":"run-demo-001","engineCommit":"abc1234","godotVersion":"4.7.2","startTime":"2026-10-02T07:00:00Z","agentRoster":["agent_alfa","agent_bravo"],"cadenceHz":10}
-{"type":"tick","tick":0,"agentId":"agent_alfa","scene":{"id":"plaza","kind":"open_world"},"position":{"x":0,"y":0,"z":0},"velocity":{"x":1,"y":0,"z":0}}
-{"type":"tick","tick":0,"agentId":"agent_bravo","scene":{"id":"plaza","kind":"open_world"},"position":{"x":5,"y":0,"z":2},"velocity":{"x":0,"y":0,"z":0}}
-{"type":"perception_sent","tick":0,"agentId":"agent_alfa"}
-{"type":"intent","messageId":"m1","agentId":"agent_alfa","observedTick":0,"verb":"approach","targetId":"well_1"}
-{"type":"result","intentMessageId":"m1","status":"accepted","stage":"accepted"}
-{"type":"tick","tick":10,"agentId":"agent_alfa","scene":{"id":"plaza","kind":"open_world"},"position":{"x":10,"y":0,"z":0},"velocity":{"x":1,"y":0,"z":0}}
-{"type":"tick","tick":10,"agentId":"agent_bravo","scene":{"id":"plaza","kind":"open_world"},"position":{"x":5,"y":0,"z":2},"velocity":{"x":0,"y":0,"z":0}}
-{"type":"tick","tick":20,"agentId":"agent_alfa","scene":{"id":"office_1","kind":"interior"},"position":{"x":2,"y":0,"z":1},"velocity":{"x":0,"y":0,"z":0}}
-{"type":"scene_transition","agentId":"agent_alfa","from":"plaza","to":"office_1","tick":20}
-{"type":"intent","messageId":"m2","agentId":"agent_bravo","observedTick":10,"verb":"sit","targetId":"chair_3","ticksBehind":2,"decisionMs":420}
-{"type":"result","intentMessageId":"m2","status":"rejected","reason":"occupied","stage":"governance","governanceCode":"G-04"}
-{"type":"decision_failed","agentId":"agent_alfa","tick":30,"httpStatus":504,"error":"gateway timeout"}
-{"type":"scene_entities","scene":"plaza","entities":[{"id":"well_1","kind":"well","position":{"x":12,"y":0,"z":0},"affordances":["approach","use"]},{"id":"plaza_light","kind":"lamp","position":{"x":-3,"y":0,"z":4},"affordances":[]}]}
-{"type":"tick","tick":30,"agentId":"agent_alfa","scene":{"id":"office_1","kind":"interior"},"position":{"x":2,"y":0,"z":1},"velocity":{"x":0,"y":0,"z":0}}
-{"type":"tick","tick":30,"agentId":"agent_bravo","scene":{"id":"plaza","kind":"open_world"},"position":{"x":5,"y":0,"z":2},"velocity":{"x":0,"y":0,"z":0}}
-{"type":"weird_record","tick":99,"agentId":"nope","foo":"bar"}
-`;
+import DEFAULT_TRACE from '../../../fixtures/observer-trace/sample.jsonl?raw';
 
 // Marker shapes (identity channel 1 — colour is never the sole channel).
 const SHAPES = ['circle', 'square', 'triangle', 'diamond', 'pentagon', 'hexagon'] as const;
+const SHAPE_GLYPHS = ['○', '□', '△', '◇', '⬠', '⬡'] as const;
 function agentShapeIndex(agentId: string): number {
   let h = 0;
   for (let i = 0; i < agentId.length; i++) h = (h * 31 + agentId.charCodeAt(i)) | 0;
@@ -97,20 +81,25 @@ function drawMarker(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.fillStyle = '#1a1a1a';
-  ctx.fillText(label, 0, y - r - 5);
+  ctx.fillText(label, x, y - r - 5);
   ctx.restore();
 }
 
 function drawTrail(
   ctx: CanvasRenderingContext2D,
-  pts: { x: number; z: number }[],
+  pts: { x: number; z: number; scene: string }[],
   mx: (x: number) => number,
   mz: (z: number) => number,
 ) {
   if (pts.length < 2) return;
   ctx.beginPath();
   ctx.moveTo(mx(pts[0].x), mz(pts[0].z));
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(mx(pts[i].x), mz(pts[i].z));
+  // Each scene has its own coordinate frame: start a new segment at a scene change rather than
+  // drawing a line from a doorway outside to a point inside a room.
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].scene !== pts[i - 1].scene) ctx.moveTo(mx(pts[i].x), mz(pts[i].z));
+    else ctx.lineTo(mx(pts[i].x), mz(pts[i].z));
+  }
   ctx.strokeStyle = '#9aa0a6';
   ctx.lineWidth = 1.4;
   ctx.globalAlpha = 0.55;
@@ -123,15 +112,22 @@ function drawTrail(
 // ---------------------------------------------------------------------------
 export class ViewerApp {
   private trace: ParsedTrace | null = null;
-  private ticks: Array<{ tick: number; agentId: string; position: { x: number; y: number; z: number } }> = [];
+  private ticks: Array<{ tick: number; agentId: string; scene: string; position: { x: number; y: number; z: number } }> = [];
   private minTick = 0;
   private maxTick = 0;
+  // Every tick some record happened at, ascending. The engine's tick is a frame
+  // (header.tickUnit) and ticks are sampled at cadenceHz, so most integers are empty: stepping
+  // and playback move between these stops, one per 1/cadenceHz at 1×.
+  private tickStops: number[] = [];
   private currentTick = 0;
   private sceneFilter = 'all';
 
   private isPlaying = false;
   private speed = 1;
   private lastFrame = 0;
+  // Time owed to playback, carried across animation frames: a 100 ms tick interval is longer
+  // than any one ~16 ms frame, so per-frame time alone would never be enough to advance.
+  private pending = 0;
   private rafId: number | null = null;
 
   private canvas: HTMLCanvasElement;
@@ -146,7 +142,6 @@ export class ViewerApp {
     this.bindEvents();
     this.loadText(DEFAULT_TRACE);
     window.addEventListener('resize', () => this.render());
-    this.tickIntervalMs = 1000 / Math.max(this.trace?.header.cadenceHz ?? 10, 1);
   }
 
   // --- loading -----------------------------------------------------------
@@ -171,6 +166,7 @@ export class ViewerApp {
     }
 
     this.trace = parsed;
+    this.tickIntervalMs = 1000 / Math.max(parsed.header.cadenceHz || 10, 1);
     this.buildTickIndex();
     this.refreshHeaderMeta();
     this.refreshUnrecognized();
@@ -184,13 +180,32 @@ export class ViewerApp {
     this.ticks = [];
     for (const r of this.trace!.records) {
       if (r.kind === 'tick') {
-        this.ticks.push({ tick: r.tick, agentId: r.agentId, position: r.position });
+        this.ticks.push({ tick: r.tick, agentId: r.agentId, scene: r.scene.id, position: r.position });
       }
     }
-    const tickValues = this.ticks.map((t) => t.tick);
-    this.minTick = tickValues.length ? Math.min(...tickValues) : 0;
-    this.maxTick = tickValues.length ? Math.max(...tickValues) : 0;
+    const stops = new Set<number>();
+    for (const r of this.trace!.records) {
+      const t = r.kind === 'intent' ? r.observedTick
+        : r.kind === 'tick' || r.kind === 'perception_sent' || r.kind === 'decision_failed' || r.kind === 'scene_transition' ? r.tick
+        : r.kind === 'result' ? r.tick
+        : undefined;
+      if (typeof t === 'number' && Number.isFinite(t) && t >= 0) stops.add(t);
+    }
+    this.tickStops = [...stops].sort((a, b) => a - b);
+    this.minTick = this.tickStops.length ? this.tickStops[0] : 0;
+    this.maxTick = this.tickStops.length ? this.tickStops[this.tickStops.length - 1] : 0;
     this.currentTick = this.minTick;
+  }
+
+  /** The next (direction 1) or previous (-1) tick a record happened at. */
+  private stopFrom(tick: number, direction: 1 | -1): number {
+    const stops = this.tickStops;
+    if (direction === 1) {
+      for (const s of stops) if (s > tick) return s;
+      return this.maxTick;
+    }
+    for (let i = stops.length - 1; i >= 0; i--) if (stops[i] < tick) return stops[i];
+    return this.minTick;
   }
 
   private clearError() {
@@ -265,7 +280,9 @@ export class ViewerApp {
   }
 
   private renderPlot(state: SliceState) {
-    if (!this.trace || !this.ctx) return;
+    // No ctx guard here: the context is created below, so checking it first meant the plot
+    // never drew at all.
+    if (!this.trace) return;
     const canvas = this.canvas;
     if (!canvas) return;
     const dpr = (this.dpr = window.devicePixelRatio || 1);
@@ -287,13 +304,14 @@ export class ViewerApp {
     }
 
     // Build per-agent position history (<= current tick).
-    const history = new Map<string, { x: number; z: number }[]>();
+    // Filtered to the selected scene, so bounds and trails stay in one coordinate frame.
+    const history = new Map<string, { x: number; z: number; scene: string }[]>();
     const pts: { x: number; z: number }[] = [];
     for (const t of this.ticks) {
-      if (t.tick > this.currentTick) continue;
+      if (t.tick > this.currentTick || !this.tickValueOfScene(t.scene)) continue;
       let arr = history.get(t.agentId);
       if (!arr) { arr = []; history.set(t.agentId, arr); }
-      arr.push({ x: t.position.x, z: t.position.z });
+      arr.push({ x: t.position.x, z: t.position.z, scene: t.scene });
       pts.push({ x: t.position.x, z: t.position.z });
     }
 
@@ -329,18 +347,8 @@ export class ViewerApp {
     ctx.textBaseline = 'top';
     ctx.fillText('z', mx(0) + 4, mz(maxZ) + 4);
 
-    // Determine latest scene per agent (for scene filter).
-    const latestSceneByAgent = new Map<string, string>();
-    for (const r of this.trace.records) {
-      if (r.kind !== 'tick' || r.tick > this.currentTick) continue;
-      latestSceneByAgent.set(r.agentId, r.scene.id);
-    }
-
-    // Trails first (behind markers).
-    for (const [agentId, hist] of history) {
-      if (!this.tickValueOfScene(latestSceneByAgent.get(agentId) ?? '')) continue;
-      drawTrail(ctx, hist, mx, mz);
-    }
+    // Trails first (behind markers). History is already filtered to the selected scene.
+    for (const [, hist] of history) drawTrail(ctx, hist, mx, mz);
 
     // Current markers from reducer state.
     for (const [agentId, st] of state.agents) {
@@ -402,8 +410,11 @@ export class ViewerApp {
       item.setAttribute('aria-label', `Agent ${agentId}`);
       const shape = document.createElement('span');
       shape.className = 'legend-shape';
-      const cls = ['circle','square','triangle','diamond','pentagon','hexagon'][agentShapeIndex(agentId)];
-      shape.classList.add(cls);
+      const index = agentShapeIndex(agentId);
+      shape.classList.add(SHAPES[index]);
+      // The same shape the plot draws for this agent: shape is the identity channel.
+      shape.textContent = SHAPE_GLYPHS[index];
+      shape.setAttribute('aria-hidden', 'true');
       const name = document.createElement('span');
       name.textContent = agentId;
       item.appendChild(shape);
@@ -664,8 +675,8 @@ export class ViewerApp {
 
     play.addEventListener('click', () => this.setPlaying(true));
     pause.addEventListener('click', () => this.setPlaying(false));
-    back.addEventListener('click', () => this.seek(this.currentTick - 1));
-    fwd.addEventListener('click', () => this.seek(this.currentTick + 1));
+    back.addEventListener('click', () => this.seek(this.stopFrom(this.currentTick, -1)));
+    fwd.addEventListener('click', () => this.seek(this.stopFrom(this.currentTick, 1)));
     speed.addEventListener('change', () => { this.speed = Number(speed.value || 1); });
     scrub.addEventListener('input', () => this.seek(Number(scrub.value)));
     scrub.addEventListener('change', () => this.seek(Number(scrub.value)));
@@ -694,16 +705,39 @@ export class ViewerApp {
     fileInput.addEventListener('change', (e) => {
       const f = (e.target as HTMLInputElement).files?.[0];
       if (!f) return;
+      this.setPlaying(false);
       f.text().then((text) => this.loadText(text));
     });
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
     openBtn.textContent = 'Open trace…';
-    openBtn.setAttribute('aria-label', 'Open a trace file');
+    openBtn.title = 'Choose a .jsonl trace, or drop one anywhere on the page';
+    openBtn.setAttribute('aria-label', 'Open a trace file (or drop one on the page)');
     openBtn.className = 'tp-button';
     openBtn.addEventListener('click', () => fileInput.click());
     const firstRow = document.querySelector('.transport-row')!;
     firstRow.insertBefore(openBtn, firstRow.firstChild);
+
+    // Drop a trace anywhere on the page. Read client-side, like the file picker: the file is
+    // never uploaded (CSP connect-src 'self').
+    const app = document.getElementById('app')!;
+    window.addEventListener('dragover', (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      app.classList.add('drop-target');
+    });
+    window.addEventListener('dragleave', (e: DragEvent) => {
+      if (e.relatedTarget === null) app.classList.remove('drop-target');
+    });
+    window.addEventListener('drop', (e: DragEvent) => {
+      app.classList.remove('drop-target');
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      e.preventDefault();
+      this.setPlaying(false);
+      f.text().then((text) => this.loadText(text));
+    });
 
     // Keyboard: Space play/pause, arrows step (when no input focused).
     window.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -714,8 +748,8 @@ export class ViewerApp {
         this.setPlaying(!this.isPlaying);
         return;
       }
-      if (e.key === 'ArrowLeft' && !isInput) { e.preventDefault(); this.seek(this.currentTick - 1); return; }
-      if (e.key === 'ArrowRight' && !isInput) { e.preventDefault(); this.seek(this.currentTick + 1); return; }
+      if (e.key === 'ArrowLeft' && !isInput) { e.preventDefault(); this.seek(this.stopFrom(this.currentTick, -1)); return; }
+      if (e.key === 'ArrowRight' && !isInput) { e.preventDefault(); this.seek(this.stopFrom(this.currentTick, 1)); return; }
     });
   }
 
@@ -731,6 +765,7 @@ export class ViewerApp {
     pause.setAttribute('aria-pressed', String(!playing));
     if (playing) {
       this.lastFrame = performance.now();
+      this.pending = 0;
       this.loop();
     } else {
       this.stopLoop();
@@ -747,15 +782,17 @@ export class ViewerApp {
   private loop = () => {
     if (!this.isPlaying) { this.rafId = null; return; }
     const now = performance.now();
-    let dt = now - this.lastFrame;
+    this.pending += now - this.lastFrame;
     this.lastFrame = now;
     const interval = this.tickIntervalMs / this.speed;
     let advanced = 0;
-    while (dt >= interval && advanced < 10) {
-      this.seek(this.currentTick + 1);
-      dt -= interval;
+    while (this.pending >= interval && advanced < 10) {
+      this.seek(this.stopFrom(this.currentTick, 1));
+      this.pending -= interval;
       advanced++;
     }
+    // A long stall (hidden tab) must not replay as a burst later.
+    if (advanced === 10) this.pending = 0;
     if (this.currentTick >= this.maxTick) {
       this.setPlaying(false);
     } else {

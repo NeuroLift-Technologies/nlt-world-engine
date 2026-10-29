@@ -1,6 +1,6 @@
-// Trace data model for nlt.observer-trace.v1 (DRAFT).
-// Single source of truth for the wire format. CC owns the contract; this
-// mirrors the DRAFT so the viewer can be proven against real-shaped traces.
+// Trace data model for nlt.observer-trace.v1.
+// Mirrors docs/contracts/observer-trace-v1.md, which is the source of truth. The
+// producer is world-engine-godot/Observer/Trace/ObserverTrace.cs.
 
 export const SCHEMA_VERSION = 'nlt.observer-trace.v1';
 
@@ -72,6 +72,9 @@ export interface ResultRecord {
   reason?: string;
   stage: Stage;
   governanceCode?: string;
+  // Added in v1 over the draft; absent in older traces.
+  agentId?: string;
+  tick?: number;
 }
 
 export interface DecisionFailedRecord {
