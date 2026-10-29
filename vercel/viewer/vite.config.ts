@@ -7,7 +7,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
-    minify: 'oxc',
+    minify: 'esbuild',
   },
   server: {
     port: 5173,
