@@ -7,6 +7,7 @@
   "required": ["type"],
   "oneOf": [
     { "$ref": "#/$defs/header" },
+    { "$ref": "#/$defs/scene_entities" },
     { "$ref": "#/$defs/tick" },
     { "$ref": "#/$defs/perception_sent" },
     { "$ref": "#/$defs/intent" },
@@ -88,7 +89,36 @@
         "observedTick": { "$ref": "#/$defs/tickNumber" },
         "verb": { "enum": ["approach", "look_at", "use", "sit", "rest", "communicate", "wait"] },
         "targetId": { "type": ["string", "null"] },
-        "atTick": { "$ref": "#/$defs/tickNumber" }
+        "atTick": { "$ref": "#/$defs/tickNumber" },
+        "ticksBehind": { "type": "integer", "minimum": 0 },
+        "decisionMs": { "type": "number", "minimum": 0 },
+        "perceptionsDropped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "scene_entities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "agentId", "sceneId", "sceneKind", "tick", "entities"],
+      "properties": {
+        "type": { "const": "scene_entities" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "sceneId": { "type": "string" },
+        "sceneKind": { "enum": ["open_world", "interior", "unknown"] },
+        "tick": { "$ref": "#/$defs/tickNumber" },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "position", "affordances"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "kind": { "enum": ["agent", "object", "place"] },
+              "position": { "$ref": "#/$defs/vector" },
+              "affordances": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+            }
+          }
+        }
       }
     },
     "result": {

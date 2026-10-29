@@ -260,7 +260,7 @@ TRACE_FAILED=0
 if (( TRACE )); then
   echo
   echo "== observer trace =="
-  expect="header,tick,perception_sent,intent,result"
+  expect="header,scene_entities,tick,perception_sent,intent,result"
   (( SCENARIO )) && expect="$expect,decision_failed,scene_transition"
   python3 "$REPO_ROOT/tools/check_observer_trace.py" "$OUT/trace.jsonl" --truth "$OUT/truth.jsonl" \
     --expect "$expect" --json "$OUT/trace-check.json" || TRACE_FAILED=1

@@ -373,6 +373,8 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 			// The room's furniture, built once its collision is live (AGENT-LOOP-002 T5).
 			if (indoor && !_sceneAnchors.HasFurniture(target))
 				BuildRoomFurniture(target, avatar);
+			// After the furniture exists, so the record lists what perception can now offer.
+			_trace?.SceneEntities(avatar, target, _sceneAnchors.For(target));
 			GD.Print($"[SceneTransit] {avatar.AgentId}: {from} -> {target}, placed at {landing}");
 			WarnStrandedAvatars(avatar, target);
 		}
@@ -609,6 +611,9 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 				LocalAvatarTargetId, "Local Model", "fusion-agent-loop"),
 		});
 		_agentLoopDriver.Trace = _trace;
+		if (_trace != null && _avatars.TryGetValue(LocalAvatarTargetId, out AvatarCharacter? traced)
+			&& IsInstanceValid(traced))
+			_trace.SceneEntities(traced, LoopAvatarScene, _sceneAnchors.For(LoopAvatarScene));
 		AddChild(_agentLoopDriver);
 		GD.Print($"Fusion agent loop enabled for {LocalAvatarTargetId} as " +
 			$"'{PerceptionBuilder.WireAgentId(LocalAvatarTargetId, _agentLoopDriver.PerceptionAgentId)}'; " +

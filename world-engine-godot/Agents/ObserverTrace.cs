@@ -20,8 +20,11 @@ public interface IAgentLoopTrace
     /// <summary>A perception was actually POSTed (not dropped by the in-flight or backoff guard).</summary>
     void PerceptionSent(AgentPerceptionSnapshot perception);
 
-    /// <summary>Fusion answered with an intent that parsed and correlated with its perception.</summary>
-    void IntentReceived(SemanticIntent intent);
+    /// <summary>Fusion answered with an intent that parsed and correlated with its perception.
+    /// <paramref name="decisionMs"/> is the wall time from POST to parsed answer;
+    /// <paramref name="perceptionsDropped"/> counts perceptions the one-in-flight guard dropped for
+    /// this agent while the request was pending. Both are measurements only.</summary>
+    void IntentReceived(SemanticIntent intent, double? decisionMs, int? perceptionsDropped);
 
     /// <summary>The decision exchange produced no intent: an HTTP status, a transport error, or an
     /// answer the engine could not accept as an intent.</summary>
@@ -32,6 +35,9 @@ public interface IAgentLoopTrace
     /// governance did not run (a protocol rejection).</summary>
     void IntentResult(IntentExecutionResult result, string stage, string? governanceCode);
 }
+
+/// <summary>One engine-owned entity in a <c>scene_entities</c> record.</summary>
+public sealed record TraceEntity(string Id, string Kind, float X, float Y, float Z, IReadOnlyList<string> Affordances);
 
 /// <summary>One roster entry in a trace header.</summary>
 public sealed record TraceAgent(string AgentId, string EngineId, string DisplayName, string Driver);
@@ -113,8 +119,10 @@ public static class ObserverTraceFormat
         w.WriteString("messageId", messageId);
     });
 
+    /// <summary>The optional measurements are omitted when null (observer-trace-v1 §4.5).</summary>
     public static string Intent(string messageId, string agentId, int observedTick, string verb,
-        string? targetId, int atTick) => Line(w =>
+        string? targetId, int atTick, int? ticksBehind = null, double? decisionMs = null,
+        int? perceptionsDropped = null) => Line(w =>
     {
         w.WriteString("type", "intent");
         w.WriteString("messageId", messageId);
@@ -123,6 +131,37 @@ public static class ObserverTraceFormat
         w.WriteString("verb", verb);
         NullableString(w, "targetId", targetId);
         w.WriteNumber("atTick", atTick);
+        if (ticksBehind is int behind)
+            w.WriteNumber("ticksBehind", behind);
+        if (decisionMs is double ms && double.IsFinite(ms))
+            w.WriteNumber("decisionMs", Math.Round(ms, 1));
+        if (perceptionsDropped is int dropped)
+            w.WriteNumber("perceptionsDropped", dropped);
+    });
+
+    /// <summary>The engine-owned entities of the scene an agent has just entered.</summary>
+    public static string SceneEntities(string agentId, string sceneId, string sceneKind, int tick,
+        IReadOnlyList<TraceEntity> entities) => Line(w =>
+    {
+        w.WriteString("type", "scene_entities");
+        w.WriteString("agentId", agentId);
+        w.WriteString("sceneId", sceneId);
+        w.WriteString("sceneKind", sceneKind);
+        w.WriteNumber("tick", tick);
+        w.WriteStartArray("entities");
+        foreach (var e in entities)
+        {
+            w.WriteStartObject();
+            w.WriteString("id", e.Id);
+            w.WriteString("kind", e.Kind);
+            Vector(w, "position", e.X, e.Y, e.Z);
+            w.WriteStartArray("affordances");
+            foreach (var a in e.Affordances)
+                w.WriteStringValue(a);
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
+        w.WriteEndArray();
     });
 
     public static string Result(string intentMessageId, string agentId, int tick, string status,

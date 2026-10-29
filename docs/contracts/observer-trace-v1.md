@@ -17,7 +17,7 @@ the input for a read-only replay viewer. It is **not** a control channel and add
   contract.
 - **Separate from the other two contracts.** [`state-feed-v1`](state-feed-v1.md) runs Fusion → Godot
   and is fixture data. It is neither reversed nor extended here. [`agent-loop-v1`](agent-loop-v1.md)
-  is unchanged. The `stage` and `governanceCode` of a `result` record (§4.5) exist only in this trace.
+  is unchanged. The `stage` and `governanceCode` of a `result` record (§4.6) exist only in this trace.
 - **Opt-in and inert by default.** With no trace configured, the engine runs exactly as before. With
   a trace configured, it records what the loop does and changes none of it (§8).
 
@@ -25,7 +25,8 @@ the input for a read-only replay viewer. It is **not** a control channel and add
 
 - UTF-8 JSON Lines: one JSON object per line, each ending in `\n`. Keys appear in the order shown in
   this document. Every record starts with `"type"`.
-- **Line 1 is the `header`**, and no other line is a header.
+- **Line 1 is the `header`**, and no other line is a header. Line 2 is the first `scene_entities`
+  record (§4.2).
 - **Numbers.** Positions and velocities are metres and metres/second in the Godot world frame (y up).
   They are the engine's 32-bit floats written in shortest round-trip form; compare them as 32-bit
   floats. If the engine holds a non-finite value (NaN or infinity), the component is written as
@@ -72,7 +73,27 @@ the input for a read-only replay viewer. It is **not** a control channel and add
 | `maxBytes` | the size cap (§7) |
 | `agents` | the roster this trace records. `agentId` is the id on the wire (the roster id Fusion registered, e.g. `stay_alert_001`); `engineId` is the engine's node name for it (`__local_avatar__`) |
 
-### 4.2 `tick` — sampled physical state
+### 4.2 `scene_entities` — what is in the scene an agent entered
+
+```json
+{"type":"scene_entities","agentId":"stay_alert_001","sceneId":"workplace_2","sceneKind":"interior","tick":2741,
+ "entities":[{"id":"exit_2_office","kind":"place","position":{"x":0,"y":0.05,"z":-9.2},"affordances":["use","approach","look_at"]},
+             {"id":"desk_chair_2","kind":"object","position":{"x":1.5,"y":0.05,"z":2},"affordances":["sit","approach","look_at"]}]}
+```
+
+Engine-owned. One record when the trace starts (the scene the agent spawns in, `tick` 0, before
+its first `tick` record), and one after each `scene_transition`, for the scene entered. It lists
+every task anchor of that scene: doors and exits, places, and furniture, which is built when the
+room is first entered. They are listed in the engine's order and described the way agent-loop
+perception describes them: `id`, `kind` (`place` or `object`), `position` (the anchor's approach
+point, the same point perception reports) and `affordances` (`AnchorAffordances.For`, the same
+list). Unlike perception, the list is **not filtered by range or visibility**. It is the scene's
+inventory, so a viewer can draw it.
+
+It does not carry occupancy, which changes while the agent is in the scene. Agents are not entities
+here: their positions are in `tick` records.
+
+### 4.3 `tick` — sampled physical state
 
 ```json
 {"type":"tick","tick":1,"agentId":"stay_alert_001","scene":{"id":"open_world","kind":"open_world"},
@@ -84,7 +105,7 @@ from the avatar's `GlobalPosition`, `Velocity` and `SceneId` in the same frame t
 the tick. `scene.kind` is `open_world` or `interior` from `SceneCatalog`, or `unknown` for an id the
 catalog does not name.
 
-### 4.3 `perception_sent`
+### 4.4 `perception_sent`
 
 ```json
 {"type":"perception_sent","tick":1,"agentId":"stay_alert_001","messageId":"obs-1-__local_avatar__-0"}
@@ -94,17 +115,27 @@ A perception was actually POSTed to Fusion. A perception the driver built but di
 a request was already in flight or the link was backing off after a transport error, has no record.
 `messageId` is the perception's agent-loop `messageId`.
 
-### 4.4 `intent`
+### 4.5 `intent`
 
 ```json
 {"type":"intent","messageId":"intent-1-stay_alert_001","agentId":"stay_alert_001","observedTick":1,
- "verb":"approach","targetId":"plaza","atTick":4}
+ "verb":"approach","targetId":"plaza","atTick":4,"ticksBehind":3,"decisionMs":41.3,"perceptionsDropped":0}
 ```
 
 Fusion answered with an intent that parsed and correlated with its perception. `targetId` is `null`
-when the verb has none. These are the agent-loop intent's own fields, copied as received.
+when the verb has none. `messageId` through `targetId` are the agent-loop intent's own fields,
+copied as received.
 
-### 4.5 `result` — where the engine decided
+Three **optional** measurements follow. They are omitted, never `null`, when not measured. They are
+records only: the engine enforces nothing on them, and agent-loop-v1 is unchanged.
+
+| Field | Meaning |
+|---|---|
+| `ticksBehind` | `atTick − observedTick`: how many engine ticks passed between the perception and the moment its intent was received |
+| `decisionMs` | wall time in ms (0.1 ms) from just before the POST to the parsed, correlated answer, measured by `FusionHttpLink` |
+| `perceptionsDropped` | perceptions the driver built for this agent but `FusionHttpLink`'s one-in-flight guard dropped while this request was pending. Before this trace, the engine did not count these: the guard returned silently. The count runs only when a trace is attached. Drops during a transport backoff are not counted, because no request was in flight |
+
+### 4.6 `result` — where the engine decided
 
 ```json
 {"type":"result","intentMessageId":"intent-9-stay_alert_001","agentId":"stay_alert_001","tick":9,
@@ -130,7 +161,7 @@ its perception before ingress, and an answer that fails that check becomes a `de
 with `error: "invalid_intent"`, not a `result`. The stage is defined for completeness, in case ingress
 is called from another path.
 
-### 4.6 `decision_failed`
+### 4.7 `decision_failed`
 
 ```json
 {"type":"decision_failed","agentId":"stay_alert_001","tick":17,"httpStatus":429,"error":"http_status","detail":null,"atTick":18}
@@ -147,7 +178,7 @@ The exchange for the perception at `tick` produced no intent, and no physical ac
 | `invalid_response` | `null` | the response could not be read as JSON at the transport level |
 | `engine_error` | `null` | an unexpected engine exception while processing the decision |
 
-### 4.7 `scene_transition`
+### 4.8 `scene_transition`
 
 ```json
 {"type":"scene_transition","agentId":"stay_alert_001","from":"open_world","to":"workplace_2","tick":2741}
@@ -157,7 +188,7 @@ Written when the engine has placed the avatar in the destination scene (`Main.Ru
 `AvatarCharacter.TransitionTo`). `tick` is the driver tick at that moment. A transit that fails and
 leaves the avatar where it was has no record.
 
-### 4.8 `truncated` (last line, only when the writer stopped early)
+### 4.9 `truncated` (last line, only when the writer stopped early)
 
 ```json
 {"type":"truncated","reason":"size_cap","bytesWritten":67108608,"recordsWritten":300417}
@@ -169,7 +200,8 @@ record. `recordsWritten` counts every line in the file, this one included.
 ## 5. What the trace does not contain
 
 - No Fusion state (§1). No coordinates that came from Fusion: the agent loop has none.
-- No perception bodies: `visibleEntities` is not copied.
+- No perception bodies: `visibleEntities` is not copied. `scene_entities` is the scene's full anchor
+  inventory at entry, not what any one perception showed.
 - No `state-feed-v1` documents and no replay-fixture ghosts.
 - Only the agents on the header roster. Today that is the one loop avatar.
 
@@ -178,7 +210,7 @@ record. `recordsWritten` counts every line in the file, this one included.
 | Key | Records |
 |---|---|
 | `agentId` | every record except `header` and `truncated`; the header maps it to `engineId` |
-| `tick` (= perception `tick` = intent `observedTick`) | `tick`, `perception_sent`, `intent.observedTick`, `result`, `decision_failed`, `scene_transition` |
+| `tick` (= perception `tick` = intent `observedTick`) | `tick`, `perception_sent`, `intent.observedTick`, `result`, `decision_failed`, `scene_transition`, `scene_entities` |
 | `messageId` | `perception_sent.messageId` (perception), `intent.messageId` = `result.intentMessageId` |
 
 ## 7. Writer: opt-in, bounded, never blocks
@@ -229,7 +261,7 @@ Passed after a bare `--` on the Godot command line:
 `--trace-scenario` puts `tools/observer_trace_standin.py` between Godot and Fusion. The stand-in
 answers with a scripted accepted intent, an intent on the occupied plaza, an intent whose target is
 not in view, a 429 and a 503, then forwards to Fusion's goal baseline. That baseline walks through a
-door, so the run contains every record type. The format is pinned by
+door, so the run contains every record type, including a second `scene_entities` record. The format is pinned by
 `world-engine-godot/fixtures/observer-trace/golden-v1.jsonl`, checked byte for byte by
 `ObserverTraceAssertions` in the AgentHarness.
 

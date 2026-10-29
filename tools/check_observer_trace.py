@@ -10,7 +10,9 @@ Usage:
 Checks every line against docs/contracts/observer-trace-v1.schema.json (needs `jsonschema`) and the
 file-level rules the schema cannot express: the header is line 1 and only line 1, a truncated record
 is last if present, tick records never go back in time per agent, every agent in a record is on the
-header roster, and every result answers an intent recorded before it.
+header roster, every result answers an intent recorded before it, a scene_entities record precedes an
+agent's first tick record and follows each of its scene transitions, and ticksBehind (when present)
+is atTick - observedTick.
 
 With --truth (written by the engine's --trace-truth sampler), every tick record is compared with the
 position, velocity and scene the sampler read from the scene tree at the same tick, as 32-bit floats,
@@ -73,6 +75,8 @@ def check_trace(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     roster = {a["agentId"] for a in records[0].get("agents", [])} if records[0].get("type") == "header" else set()
     last_tick: dict[str, int] = {}
     intents: set[str] = set()
+    entered: dict[str, str] = {}  # agent -> scene of its latest scene_entities record
+    awaiting_entities: dict[str, str] = {}  # agent -> scene a transition entered, not yet listed
     for record in records[1:]:
         kind = record.get("type")
         where = f"line {record['_line']}"
@@ -88,10 +92,23 @@ def check_trace(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
             if record["tick"] <= previous:
                 problems.append(f"{where}: tick {record['tick']} does not advance past {previous} for {agent}")
             last_tick[agent] = record["tick"]
+        if kind == "scene_entities":
+            entered[agent] = record["sceneId"]
+            awaiting_entities.pop(agent, None)
+        if kind == "scene_transition":
+            awaiting_entities[agent] = record["to"]
+        if kind == "tick" and agent not in entered:
+            problems.append(f"{where}: tick record before any scene_entities for {agent}")
         if kind == "intent":
             intents.add(record["messageId"])
+            if "ticksBehind" in record and record["ticksBehind"] != record["atTick"] - record["observedTick"]:
+                problems.append(f"{where}: ticksBehind is not atTick - observedTick")
         if kind == "result" and record["intentMessageId"] not in intents and record.get("stage") != "protocol":
             problems.append(f"{where}: result for '{record['intentMessageId']}' has no intent before it")
+    truncated = records[-1].get("type") == "truncated"
+    for agent, scene in awaiting_entities.items():
+        if not truncated:
+            problems.append(f"{agent} entered {scene} but no scene_entities record followed")
     return records, problems
 
 

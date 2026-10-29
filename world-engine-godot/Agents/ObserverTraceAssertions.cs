@@ -44,21 +44,33 @@ public static class ObserverTraceAssertions
             "4.7.2.stable.mono.official", new DateTime(2026, 10, 29, 0, 0, 0, 125, DateTimeKind.Utc),
             10, 64L * 1024 * 1024,
             new[] { new TraceAgent("stay_alert_001", "__local_avatar__", "Local Model", "fusion-agent-loop") })),
+        ObserverTraceFormat.SceneEntities("stay_alert_001", "open_world", "open_world", 0, new[]
+        {
+            new TraceEntity("plaza", "place", 0f, 7.25f, 0f, new[] { "use", "approach", "look_at" }),
+            new TraceEntity("door_1_office", "place", -24.5f, 6.875f, 3.5f, new[] { "use", "approach", "look_at" }),
+        }),
         ObserverTraceFormat.Tick(1, "stay_alert_001", "open_world", "open_world",
             2.5f, 7.375f, -1.25f, 0f, -0.5f, 0f),
         ObserverTraceFormat.PerceptionSent(1, "stay_alert_001", "obs-1-__local_avatar__-0"),
-        ObserverTraceFormat.Intent("intent-1-stay_alert_001", "stay_alert_001", 1, "approach", "plaza", 4),
+        ObserverTraceFormat.Intent("intent-1-stay_alert_001", "stay_alert_001", 1, "approach", "plaza", 4,
+            ticksBehind: 3, decisionMs: 41.25, perceptionsDropped: 0),
         ObserverTraceFormat.Result("intent-1-stay_alert_001", "stay_alert_001", 1, "accepted", "accepted",
             "clean", null, 5),
-        ObserverTraceFormat.Intent("intent-9-stay_alert_001", "stay_alert_001", 9, "sit", "well", 11),
+        ObserverTraceFormat.Intent("intent-9-stay_alert_001", "stay_alert_001", 9, "sit", "well", 211,
+            ticksBehind: 202, decisionMs: 3912.5, perceptionsDropped: 1),
         ObserverTraceFormat.Result("intent-9-stay_alert_001", "stay_alert_001", 9, "rejected", "physical",
-            "clean", "target 'well' is occupied", 12),
+            "clean", "target 'well' is occupied", 212),
         ObserverTraceFormat.Intent("intent-13-stay_alert_001", "stay_alert_001", 13, "wait", null, 14),
         ObserverTraceFormat.Result("intent-13-stay_alert_001", "stay_alert_001", 13, "rejected", "protocol",
             null, "protocol: intent observedTick is stale or does not match observation", 14),
         ObserverTraceFormat.DecisionFailed("stay_alert_001", 17, 429, "http_status", null, 18),
         ObserverTraceFormat.DecisionFailed("stay_alert_001", 21, null, "timeout", "TaskCanceledException", 40),
         ObserverTraceFormat.SceneTransition("stay_alert_001", "open_world", "workplace_2", 60),
+        ObserverTraceFormat.SceneEntities("stay_alert_001", "workplace_2", "interior", 60, new[]
+        {
+            new TraceEntity("exit_2_office", "place", 0f, 0.05f, -9.2f, new[] { "use", "approach", "look_at" }),
+            new TraceEntity("desk_chair_2", "object", 1.5f, 0.05f, 2f, new[] { "sit", "approach", "look_at" }),
+        }),
         ObserverTraceFormat.Truncated("size_cap", 1048320, 9001),
     };
 
@@ -107,9 +119,20 @@ public static class ObserverTraceAssertions
         }
         Check(allObjects && noNewlines, "every record is one JSON object on one line");
         Check(typeFirst, "every record starts with its type");
-        foreach (var t in new[] { "header", "tick", "perception_sent", "intent", "result", "decision_failed",
-                     "scene_transition", "truncated" })
+        foreach (var t in new[] { "header", "scene_entities", "tick", "perception_sent", "intent", "result",
+                     "decision_failed", "scene_transition", "truncated" })
             Check(types.Contains(t), $"the golden file has a '{t}' record");
+
+        using var measured = JsonDocument.Parse(ObserverTraceFormat.Intent("i", "a", 1, "wait", null, 5, 4, 12.34, 2));
+        using var bare = JsonDocument.Parse(ObserverTraceFormat.Intent("i", "a", 1, "wait", null, 5));
+        Check(measured.RootElement.GetProperty("ticksBehind").GetInt32() == 4
+            && measured.RootElement.GetProperty("decisionMs").GetDouble() == 12.3
+            && measured.RootElement.GetProperty("perceptionsDropped").GetInt32() == 2,
+            "intent carries ticksBehind, decisionMs (0.1 ms) and perceptionsDropped when measured");
+        Check(!bare.RootElement.TryGetProperty("ticksBehind", out _)
+            && !bare.RootElement.TryGetProperty("decisionMs", out _)
+            && !bare.RootElement.TryGetProperty("perceptionsDropped", out _),
+            "and omits them when not measured (optional, never null)");
 
         using var tick = JsonDocument.Parse(ObserverTraceFormat.Tick(3, "a", "open_world", "open_world",
             0.1f, 7.3812f, -64.40001f, 0f, 0f, 0f));

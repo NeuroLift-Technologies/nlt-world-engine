@@ -27,6 +27,9 @@ public partial class FusionHttpLink : Node
 	};
 	private readonly Dictionary<string, Task> _inFlight = new();
 	private readonly Dictionary<string, double> _backoffUntil = new();
+	/// <summary>Per avatar: perceptions the in-flight guard dropped since its current request
+	/// started. Counted only with a trace attached; read by the trace, never acted on.</summary>
+	private readonly Dictionary<string, int> _droppedWhileInFlight = new();
 	private readonly object _lock = new();
 
 	/// <summary>Fusion endpoint, e.g. http://127.0.0.1:8001/agent-loop/perception (matches
@@ -74,7 +77,12 @@ public partial class FusionHttpLink : Node
 		{
 			if (_inFlight.TryGetValue(avatar.AgentId, out var existing)
 				&& !existing.IsCompleted)
+			{
+				if (Trace != null)
+					_droppedWhileInFlight[avatar.AgentId] =
+						_droppedWhileInFlight.GetValueOrDefault(avatar.AgentId) + 1;
 				return;
+			}
 
 			// After a transport failure, stay quiet for a few seconds. Without this the loop
 			// re-attempts on every cadence tick, so a Fusion server that is simply not running
@@ -85,6 +93,7 @@ public partial class FusionHttpLink : Node
 
 			// Recorded before the request starts: a refused connection can fail it synchronously.
 			Traced(t => t.PerceptionSent(perception));
+			_droppedWhileInFlight.Remove(avatar.AgentId);
 			_inFlight[avatar.AgentId] = FetchAndApplyAsync(avatar, perception, ingress, currentTick);
 		}
 	}
@@ -102,6 +111,7 @@ public partial class FusionHttpLink : Node
 		try
 		{
 			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(RequestTimeoutSeconds));
+			var started = System.Diagnostics.Stopwatch.StartNew();
 			var body = JsonSerializer.Serialize(perception, JsonOptions);
 			using var content = new StringContent(body, Encoding.UTF8, "application/json");
 			using 			var response = await _http.PostAsync(FusionEndpoint, content, cts.Token);
@@ -148,7 +158,11 @@ public partial class FusionHttpLink : Node
 					$"expected {perception.Tick}. No intent applied.");
 				return;
 			}
-			Traced(t => t.IntentReceived(intent));
+			var decisionMs = started.Elapsed.TotalMilliseconds;
+			int dropped;
+			lock (_lock)
+				dropped = _droppedWhileInFlight.GetValueOrDefault(key);
+			Traced(t => t.IntentReceived(intent, decisionMs, dropped));
 			var result = await ingress.SubmitAsync(avatar, perception, intent, currentTick);
 			var status = result.Status == "accepted" ? "accepted" : "rejected";
 			var detail = string.IsNullOrWhiteSpace(result.Reason) ? "" : $": {result.Reason}";

@@ -145,11 +145,28 @@ public sealed class ObserverTraceRecorder : IAgentLoopTrace, IDisposable
     public void PerceptionSent(AgentPerceptionSnapshot perception)
         => Write(() => ObserverTraceFormat.PerceptionSent(perception.Tick, perception.AgentId, perception.MessageId));
 
-    public void IntentReceived(SemanticIntent intent)
+    public void IntentReceived(SemanticIntent intent, double? decisionMs, int? perceptionsDropped)
     {
         int at = Volatile.Read(ref _tick);
         Write(() => ObserverTraceFormat.Intent(intent.MessageId, intent.AgentId, intent.ObservedTick,
-            intent.Verb, intent.TargetId, at));
+            intent.Verb, intent.TargetId, at, at - intent.ObservedTick, decisionMs, perceptionsDropped));
+    }
+
+    /// <summary>
+    /// The avatar is now in <paramref name="sceneId"/>: record that scene's engine-owned entities as
+    /// perception would describe them (id, kind, approach position, affordances), unfiltered by range.
+    /// Main thread, at the start of the trace and after each transition once the scene's anchors exist.
+    /// </summary>
+    public void SceneEntities(AvatarCharacter avatar, string sceneId, IReadOnlyList<TaskAnchor> anchors)
+    {
+        string agentId = WireIdFor(avatar.AgentId);
+        string kind = SceneCatalog.TryKindFor(sceneId, out string k) ? k : "unknown";
+        int tick = Volatile.Read(ref _tick);
+        var entities = new List<TraceEntity>(anchors.Count);
+        foreach (var a in anchors)
+            entities.Add(new TraceEntity(a.Id, a.Kind, a.Position.X, a.Position.Y, a.Position.Z,
+                new List<string>(AnchorAffordances.For(a))));
+        Write(() => ObserverTraceFormat.SceneEntities(agentId, sceneId, kind, tick, entities));
     }
 
     public void DecisionFailed(string agentId, int tick, int? httpStatus, string error, string? detail)
