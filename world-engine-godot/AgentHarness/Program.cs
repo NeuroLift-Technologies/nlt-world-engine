@@ -1,5 +1,6 @@
 using System;
 using NltWorldEngine.Agents;
+using NltWorldEngine.Observer.Trace;
 
 // Out-of-engine driver for the action-interface assertions. ActionAssertions is a plain static
 // class precisely so it can be driven from here rather than only from inside a Godot instance.
@@ -13,12 +14,14 @@ using NltWorldEngine.Agents;
 internal static class Program
 {
 	/// <summary>
-	/// Runs ActionAssertions.RunAll() and writes the result.
+	/// Runs ActionAssertions.RunAll() and ObserverTraceAssertions.RunAll() and writes the result.
 	/// Returns 0 when all assertions pass, 1 when any fail.
 	/// </summary>
 	private static int Main()
 	{
 		var ok = ActionAssertions.RunAll();
+		// Run both suites whatever the first returned, so one failure does not hide the other's.
+		ok &= ObserverTraceAssertions.RunAll();
 		Console.WriteLine(ok ? "RESULT: all assertions passed" : "RESULT: FAILURES present");
 		return ok ? 0 : 1;
 	}

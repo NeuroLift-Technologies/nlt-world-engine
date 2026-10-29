@@ -3,11 +3,13 @@
 # short summary of what the loop did. Linux (or WSL). See docs/headless-loop.md.
 #
 # Usage: tools/headless-loop.sh [--seconds N] [--iterations N] [--agent-id ID] [--frames]
-#                               [--skip-build] [--out DIR]
+#                               [--trace] [--skip-build] [--out DIR]
 #
 #   --seconds N     stop Godot after N seconds (default 120); with --iterations, the upper bound
 #   --iterations N  let Godot quit by itself after N main-loop iterations (--quit-after): the only
 #                   clean engine exit, since Godot ignores SIGINT and SIGTERM
+#   --trace         write an observer trace (nlt.observer-trace.v1) to observer-trace.jsonl in the
+#                   output folder and validate it; open it in the viewer (vercel/viewer)
 #
 # Environment:
 #   GODOT              Godot 4.7.2 .NET (mono) editor binary                       (required)
@@ -27,6 +29,7 @@ ITERATIONS=""
 AGENT_ID="stay_alert_001"
 FRAMES=0
 SKIP_BUILD=0
+TRACE=0
 OUT=""
 
 while [[ $# -gt 0 ]]; do
@@ -35,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --iterations) ITERATIONS="$2"; shift 2 ;;
     --agent-id) AGENT_ID="$2"; shift 2 ;;
     --frames) FRAMES=1; shift ;;
+    --trace) TRACE=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --out) OUT="$2"; shift 2 ;;
     -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 0 ;;  # the header comment above
@@ -157,11 +161,15 @@ if (( FRAMES )); then
 else
   GODOT_ARGS=(--headless "${GODOT_ARGS[@]}")
 fi
+# User args go after Godot's bare `--`; ObserverTraceLauncher reads them from there.
+(( TRACE )) && GODOT_ARGS+=(-- --trace "$OUT/observer-trace.jsonl")
+ENGINE_COMMIT="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 echo "headless-loop: running Godot as agent '$AGENT_ID' for ${ITERATIONS:+$ITERATIONS iterations, at most }${SECONDS_TO_RUN}s"
 NLT_AGENT_LOOP_ENABLED=1 \
 NLT_AGENT_LOOP_AGENT_ID="$AGENT_ID" \
 NLT_AGENT_LOOP_ENDPOINT="http://127.0.0.1:$PORT/agent-loop/perception" \
+NLT_ENGINE_COMMIT="$ENGINE_COMMIT" \
   "${LAUNCH[@]}" "$GODOT" "${GODOT_ARGS[@]}" > "$OUT/godot.raw.log" 2>&1 &
 GODOT_PID=$!  # kept as a job (not disowned) so its exit status can be read
 echo "$GODOT_PID" > "$OUT/godot.pid"
@@ -196,8 +204,20 @@ echo "perceptions posted: $(grep -c '\[AgentLoopDriver\] perception' "$LOG" || t
 echo "intents:"
 grep -oE 'Intent [a-z_]+ for [^ ]+ (accepted|rejected)' "$LOG" | awk '{print "  " $2, $5}' | sort | uniq -c || true
 echo "refusals and transport warnings: $(grep -cE 'does not serve agent|HTTP [0-9]{3}|transport failed' "$LOG" || true)"
+TRACE_FAILED=0
+if (( TRACE )); then
+  if [[ -f "$OUT/observer-trace.jsonl" ]]; then
+    # SIGHUP can cut the last line; the validator reports that as a warning, not a failure.
+    echo "observer trace: $OUT/observer-trace.jsonl"
+    python3 "$REPO_ROOT/tools/validate_observer_trace.py" --summary "$OUT/observer-trace.jsonl" \
+      | sed 's/^/  /' || TRACE_FAILED=1
+  else
+    echo "observer trace: FAILED: none written (see $LOG)"
+    TRACE_FAILED=1
+  fi
+fi
 if (( FRAMES )); then
   echo "frames (software-rendered): $(find "$OUT/frames-software-rendered" -name '*.png' | wc -l) in $OUT/frames-software-rendered"
 fi
 echo "logs: $LOG, $OUT/fusion.log"
-(( ! GODOT_FAILED )) || exit 1
+(( ! GODOT_FAILED && ! TRACE_FAILED )) || exit 1

@@ -44,3 +44,8 @@ export_presets.cfg
 # Generated
 src/gen/
 gen/
+
+# Observer traces written inside the project (OBS-TRACE-001). The default path is user://traces/,
+# outside the repo; these catch a --trace path given inside it. Traces are run records, not source.
+traces/
+*.trace.jsonl

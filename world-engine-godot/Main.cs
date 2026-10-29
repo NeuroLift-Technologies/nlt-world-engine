@@ -583,6 +583,11 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 			GD.PushWarning("NLT_AGENT_LOOP_AGENT_ID is not set: perceptions carry the internal id " +
 				$"{LocalAvatarTargetId}, which Fusion does not serve, so no intent will be applied. " +
 				"Set it to a registered roster id, e.g. stay_alert_001.");
+		// Observer trace (OBS-TRACE-001): off unless --trace or NLT_OBSERVER_TRACE asks for it. Set
+		// before AddChild so the driver hands it to the link and ingress in _Ready.
+		_agentLoopDriver.Trace = NltWorldEngine.Observer.Trace.ObserverTraceLauncher.FromCommandLine(
+			new[] { PerceptionBuilder.WireAgentId(LocalAvatarTargetId, _agentLoopDriver.PerceptionAgentId) },
+			_agentLoopDriver.TraceCadenceHz);
 		AddChild(_agentLoopDriver);
 		GD.Print($"Fusion agent loop enabled for {LocalAvatarTargetId} as " +
 			$"'{PerceptionBuilder.WireAgentId(LocalAvatarTargetId, _agentLoopDriver.PerceptionAgentId)}'; " +

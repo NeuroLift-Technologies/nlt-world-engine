@@ -219,3 +219,6 @@ world-engine-godot/.poolside/
 world-engine-godot/screenshots/
 world-engine-godot/script_templates/
 world-engine-godot/sample map/
+
+# Observer traces (OBS-TRACE-001): run records, never committed except fixtures/observer-trace/.
+*.trace.jsonl
