@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'none';"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; form-action 'none';"
     />
-    <meta name="description" content="Read-only replay viewer for nlt.observer-trace.v1 simulation traces." />
-    <title>NLT World Engine — Replay Viewer</title>
+    <meta name="description" content="NLT World Engine Observer Viewer - Immersive browser-based observer for the Godot simulation." />
+    <title>NLT World Engine — Observer Viewer</title>
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
@@ -16,79 +16,153 @@
       <header class="shell-header" role="banner">
         <div class="shell-brand">
           <span class="brand-mark">NLT</span>
-          <span class="brand-name">World Engine · Replay Viewer</span>
+          <span class="brand-name">World Engine · Observer Viewer</span>
         </div>
-        <div class="shell-meta" id="shell-meta" aria-live="polite"></div>
+        <div class="provenance-bar" id="provenance-bar" aria-live="polite">
+          <span class="prov-item" id="prov-visual">VISUAL SOURCE: Loading...</span>
+          <span class="prov-sep">|</span>
+          <span class="prov-item" id="prov-data">DATA SOURCE: None</span>
+          <span class="prov-sep">|</span>
+          <span class="prov-item" id="prov-live">LIVE GODOT CONNECTION: Unavailable</span>
+        </div>
       </header>
 
-      <main class="shell-main" role="main">
-        <section class="plot-panel" aria-label="Top-down scene plot">
-          <div class="plot-toolbar">
-            <label class="plot-filter" for="plot-scene">
-              Scene
-              <select id="plot-scene" aria-label="Select scene to plot"></select>
-            </label>
-            <span class="plot-mode" id="plot-mode" aria-live="polite"></span>
+      <div class="mode-toolbar">
+        <div class="mode-group">
+          <span class="mode-label">Mode:</span>
+          <button id="btn-mode-trace" class="mode-btn active" data-mode="trace">Trace Replay (nlt.observer-trace.v1)</button>
+          <button id="btn-mode-snapshot" class="mode-btn" data-mode="snapshot">State Snapshot (nlt.state-feed.v1)</button>
+        </div>
+        <div class="mode-actions">
+          <button id="btn-load-trace" class="action-btn">Load Trace (.jsonl)</button>
+          <button id="btn-load-snapshot" class="action-btn">Load Snapshot (.json)</button>
+        </div>
+      </div>
+
+      <main class="shell-main viewport-layout" role="main">
+        <section class="viewport-panel" aria-label="World viewport">
+          <div class="viewport-header">
+            <h2>World Viewport</h2>
+            <span class="viewport-scene" id="viewport-scene">Scene: Unknown</span>
           </div>
-          <canvas id="plot" role="img" aria-label="Agent positions in the horizontal (x, z) plane" aria-describedby="plot-hint"></canvas>
-          <p id="plot-hint" class="visually-hidden">Horizontal plane (x, z). Height (y) is not movement. Markers use shape + label, never colour alone, for agent identity.</p>
-          <div class="plot-legend" id="plot-legend"></div>
+          <div class="viewport-container" id="viewport-container">
+            <img id="world-screenshot" class="world-screenshot" src="" alt="Verified Godot simulation environment screenshot" />
+            <div class="viewport-overlay" id="viewport-overlay">
+              <div class="viewport-notice" id="viewport-notice">
+                Using verified Godot screenshots as visual baseline. No live rendering.
+              </div>
+            </div>
+          </div>
+          <div class="viewport-controls">
+            <label>
+              Visual Baseline:
+              <select id="screenshot-select" aria-label="Select Godot screenshot">
+                <option value="gp1-openworld-simple.png">Open World (gp1-openworld-simple)</option>
+                <option value="home-interior-1.png">Interior - Home (home-interior-1)</option>
+                <option value="spectator-peek-inside.png">Interior - Spectator View</option>
+              </select>
+            </label>
+            <span class="viewport-hint">Screenshot-based presentation - not a live-rendered Godot scene</span>
+          </div>
         </section>
 
-        <section class="side-panel" aria-label="Intent and result log">
-          <div class="side-header">
-            <h2 id="log-heading">Intents &amp; results</h2>
-            <span class="side-count" id="log-count"></span>
+        <aside class="inspector-panel" aria-label="Agent and state inspector">
+          <div class="inspector-section">
+            <h3>Scene Information</h3>
+            <div id="scene-info" class="inspector-content">
+              <div class="info-row"><span class="info-label">Scene:</span> <span id="scene-id">-</span></div>
+              <div class="info-row"><span class="info-label">Kind:</span> <span id="scene-kind">-</span></div>
+              <div class="info-row"><span class="info-label">Sim Time:</span> <span id="sim-time">-</span></div>
+              <div class="info-row"><span class="info-label">Tick:</span> <span id="inspector-tick">-</span></div>
+            </div>
           </div>
-          <div class="log-list" id="log-list" role="log" aria-live="polite"></div>
-          <p class="log-empty" id="log-empty" hidden>No intents or results at this tick.</p>
-        </section>
+
+          <div class="inspector-section">
+            <h3>Agents</h3>
+            <div id="agents-list" class="inspector-content agents-list">
+              <p class="inspector-empty">No agent data available</p>
+            </div>
+          </div>
+
+          <div class="inspector-section" id="snapshot-details" style="display:none">
+            <h3>Snapshot Details (nlt.state-feed.v1)</h3>
+            <div class="inspector-content">
+              <div class="info-row"><span class="info-label">Pairs:</span> <span id="pairs-count">-</span></div>
+              <div class="info-row"><span class="info-label">Events:</span> <span id="events-count">-</span></div>
+              <div class="info-row"><span class="info-label">Burnout Episodes:</span> <span id="burnout-count">-</span></div>
+            </div>
+            <div id="pairs-details" class="pairs-details"></div>
+          </div>
+
+          <div class="inspector-section" id="trace-details">
+            <h3>Trace Info</h3>
+            <div class="inspector-content">
+              <div class="info-row"><span class="info-label">Run ID:</span> <span id="trace-runid">-</span></div>
+              <div class="info-row"><span class="info-label">Agents:</span> <span id="trace-agents">-</span></div>
+              <div class="info-row"><span class="info-label">Cadence:</span> <span id="trace-cadence">-</span></div>
+            </div>
+          </div>
+        </aside>
       </main>
 
-      <section class="summary-strip" aria-label="Trace summary">
-        <h2 class="visually-hidden">Trace summary</h2>
-        <div class="summary-grid" id="summary-grid"></div>
-      </section>
-
-      <section class="transport" aria-label="Playback controls">
-        <div class="transport-row">
-          <button id="btn-play" class="tp-button" aria-pressed="false" aria-label="Play">▶ Play</button>
-          <button id="btn-pause" class="tp-button" aria-pressed="true" aria-label="Pause" hidden>⏸ Pause</button>
-          <button id="btn-step-back" class="tp-button" aria-label="Step back one tick">⏮ Step back</button>
-          <button id="btn-step-fwd" class="tp-button" aria-label="Step forward one tick">Step forward ⏭</button>
-          <label class="tp-speed">
-            Speed
-            <select id="sel-speed" aria-label="Playback speed">
-              <option value="0.25">0.25×</option>
-              <option value="0.5">0.5×</option>
-              <option value="1" selected>1×</option>
-              <option value="2">2×</option>
-              <option value="4">4×</option>
-              <option value="8">8×</option>
-            </select>
-          </label>
+      <section class="replay-section" id="replay-section" aria-label="Trace replay controls">
+        <div class="replay-header">
+          <h2>Trace Replay</h2>
+          <span class="replay-status" id="replay-status">No trace loaded</span>
         </div>
-        <div class="transport-row">
-          <div class="scrubber-group">
-            <span class="scrubber-label" id="tick-label">Tick <span id="tick-value">0</span></span>
-            <input
-              id="scrubber"
-              type="range"
-              min="0"
-              max="100"
-              value="0"
-              step="1"
-              class="tp-scrubber"
-              aria-label="Scrub to a tick"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow="0"
-            />
-            <span id="tick-range">/ 0</span>
+        
+        <div class="transport">
+          <div class="transport-row">
+            <button id="btn-play" class="tp-button" aria-pressed="false" aria-label="Play">▶ Play</button>
+            <button id="btn-pause" class="tp-button" aria-pressed="true" aria-label="Pause" hidden>⏸ Pause</button>
+            <button id="btn-step-back" class="tp-button" aria-label="Step back one tick">⏮ Step back</button>
+            <button id="btn-step-fwd" class="tp-button" aria-label="Step forward one tick">Step forward ⏭</button>
+            <label class="tp-speed">
+              Speed
+              <select id="sel-speed" aria-label="Playback speed">
+                <option value="0.25">0.25×</option>
+                <option value="0.5">0.5×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+                <option value="8">8×</option>
+              </select>
+            </label>
+          </div>
+          <div class="transport-row">
+            <div class="scrubber-group">
+              <span class="scrubber-label" id="tick-label">Tick <span id="tick-value">0</span></span>
+              <input
+                id="scrubber"
+                type="range"
+                min="0"
+                max="100"
+                value="0"
+                step="1"
+                class="tp-scrubber"
+                aria-label="Scrub to a tick"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              />
+              <span id="tick-range">/ 0</span>
+            </div>
+          </div>
+          <div class="transport-row">
+            <div class="timeline" id="timeline" role="region" aria-label="Event timeline (scene transitions and decision failures)"></div>
           </div>
         </div>
-        <div class="transport-row">
-          <div class="timeline" id="timeline" role="region" aria-label="Event timeline (scene transitions and decision failures)"></div>
+
+        <div class="replay-details">
+          <div class="replay-column">
+            <h3>Intents &amp; Results</h3>
+            <div class="log-list" id="log-list" role="log" aria-live="polite"></div>
+            <p class="log-empty" id="log-empty" hidden>No intents or results at this tick.</p>
+          </div>
+          <div class="replay-column">
+            <h3>Trace Summary</h3>
+            <div class="summary-grid" id="summary-grid"></div>
+          </div>
         </div>
       </section>
 
