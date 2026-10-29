@@ -1,4 +1,5 @@
 import { parseTrace } from './trace/parser.js';
+import { World3DView } from './world3d.js';
 import { reduce } from './trace/reducer.js';
 import type { ParsedTrace, SliceState, Stage, IntentRecord, ResultRecord, DecisionFailedRecord, SceneTransitionRecord } from './trace/types.js';
 
@@ -134,6 +135,7 @@ export class ViewerApp {
   private lastFrame = 0;
   private rafId: number | null = null;
 
+  private worldView: World3DView;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D | null = null;
   private dpr = 1;
@@ -142,6 +144,7 @@ export class ViewerApp {
 
   constructor() {
     this.canvas = document.getElementById('plot') as HTMLCanvasElement;
+    this.worldView = new World3DView(document.getElementById('world3d') as HTMLCanvasElement);
     this.bindElements();
     this.bindEvents();
     this.loadText(DEFAULT_TRACE);
@@ -257,6 +260,7 @@ export class ViewerApp {
   private render() {
     if (!this.trace) return;
     const state = reduce(this.trace.records, this.currentTick);
+    this.worldView.update(state.agents, state.entitiesByScene);
     this.renderPlot(state);
     this.renderLog(state);
     this.renderSummary(state);
