@@ -31,7 +31,7 @@ function clearOfSettlement(x: number, z: number, plans: Plan[], pad = 0): boolea
 /** Uniforms shared by every wind material, so one write per frame drives them all. */
 export const windUniforms = { u_time: { value: 0 }, u_wind: { value: 1 } };
 
-function windMat(albedo: number, sway: number): THREE.MeshStandardMaterial {
+function windMat(albedo: number, sway: number, halfH = 1.4): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHex(albedo, THREE.SRGBColorSpace), roughness: 1, metalness: 0 });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.u_time = windUniforms.u_time;
@@ -47,7 +47,14 @@ function windMat(albedo: number, sway: number): THREE.MeshStandardMaterial {
         float ph = ip.x * 0.35 + ip.z * 0.41;
         float wv = sin(u_time * 1.6 + ph) + 0.6 * sin(u_time * 2.7 + ph * 1.7);
         float hh = clamp(position.y, 0.0, 4.0) / 4.0;
-        transformed += vec3(wv, 0.0, wv * 0.6) * u_sway * hh * u_wind;`);
+        transformed += vec3(wv, 0.0, wv * 0.6) * u_sway * hh * u_wind;
+        vShade = clamp(position.y / max(u_halfH, 0.001) * 0.5 + 0.5, 0.0, 1.0);`)
+      .replace('#include <common>', '#include <common>\nvarying float vShade;\nuniform float u_halfH;');
+    // Self-shadowing stand-in: darker at the base of each canopy layer and trunk, brighter at tips.
+    shader.uniforms.u_halfH = { value: halfH };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vShade;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.62, 1.12, vShade);');
   };
   return m;
 }
@@ -86,7 +93,7 @@ export function buildVegetation(plans: Plan[]): THREE.Group {
   root.name = 'Vegetation';
   const trees = seededPlacement(620, (x, z) => heightAt(x, z) > WATER + 1.6 && slopeAt(x, z) < 0.42 && clearOfSettlement(x, z, plans, 1.5));
 
-  root.add(instanced(new THREE.CylinderGeometry(0.16, 0.3, 2.6, 6), windMat(0x5a4534, 0.03), trees, (t) => {
+  root.add(instanced(new THREE.CylinderGeometry(0.16, 0.3, 2.6, 6), windMat(0x5a4534, 0.03, 1.3), trees, (t) => {
     const sc = 0.72 + t.scale * 0.85;
     return godotXf(0, t.rot * Math.PI * 2, 0, sc, sc * (0.85 + t.tint * 0.4), sc, t.x, t.y - 0.2 + 1.3 * sc, t.z);
   }, true));
@@ -94,9 +101,9 @@ export function buildVegetation(plans: Plan[]): THREE.Group {
     const sc = 0.72 + t.scale * 0.85;
     return godotXf(0, t.rot * Math.PI * 2, 0, sc, sc * (0.85 + t.tint * 0.4), sc, t.x, t.y - 0.2 + yOff, t.z);
   };
-  root.add(instanced(cone(1.35, 2.9, 8), windMat(0x3d5c36, 0.1), trees, layer(3.2), true));
-  root.add(instanced(cone(1.05, 2.4, 8), windMat(0x4a7038, 0.13), trees, layer(4.5), true));
-  root.add(instanced(cone(0.68, 1.8, 8), windMat(0x5c8440, 0.16), trees, layer(5.7), true));
+  root.add(instanced(cone(1.35, 2.9, 8), windMat(0x3d5c36, 0.1, 1.45), trees, layer(3.2), true));
+  root.add(instanced(cone(1.05, 2.4, 8), windMat(0x4a7038, 0.13, 1.2), trees, layer(4.5), true));
+  root.add(instanced(cone(0.68, 1.8, 8), windMat(0x5c8440, 0.16, 0.9), trees, layer(5.7), true));
 
   const rocks = seededPlacement(190, (x, z) => heightAt(x, z) > WATER + 0.6 && slopeAt(x, z) > 0.16 && clearOfSettlement(x, z, plans, 0.5));
   const rockMat = new THREE.MeshLambertMaterial({ color: new THREE.Color().setHex(0x7d776c, THREE.SRGBColorSpace), flatShading: true });
@@ -110,7 +117,7 @@ export function buildVegetation(plans: Plan[]): THREE.Group {
     if (dPlaza < 14 && r.next() < 0.85) return false;
     return heightAt(x, z) > WATER + 0.9 && slopeAt(x, z) < 0.45;
   });
-  const g = instanced(cone(0.075, 0.62, 3), windMat(0x7d9c4e, 0.22), grass, (t) => {
+  const g = instanced(cone(0.075, 0.62, 3), windMat(0x7d9c4e, 0.22, 0.31), grass, (t) => {
     const sc = 0.7 + t.scale * 0.9;
     return godotXf(0, t.rot * Math.PI * 2, 0, sc, sc * (0.7 + t.tint * 0.8), sc, t.x, t.y - 0.05, t.z);
   }, true);

@@ -91,6 +91,25 @@ observer looks at a scene with no feed agents in it. Nothing is labelled live th
 - **CSP** stays strict on scripts (`script-src 'self'`); `style-src` allows inline style attributes
   (bar widths, label positions) and `img-src`/`connect-src` allow `blob:` for loader textures.
 
+### Look and render quality (`src/scene/look.ts`)
+
+Presentation only: these settings change how the same world is lit and finished, never its
+geometry, positions or state, and they add nothing the engine doesn't have.
+
+- **Looks** (switch in the transport bar, or `?look=golden|midday`): *Golden hour* (default) puts a
+  low warm sun to the left of the default camera, with a matching sky dome (sun disc and glow),
+  haze, and image-based light from that sky; *Midday* is close to the original noon stand-in.
+  Neither is Godot's Sky3D model, and neither drives time from the feed.
+- **Quality** (`?quality=high|fast`): *High* adds ground-truth ambient occlusion, subtle bloom
+  (lit windows, sun glint), tone mapping and SMAA edge smoothing, with 4096² soft shadows. *Fast*
+  renders directly with 2048² shadows. Touch devices start in Fast.
+- **Surface detail:** fine world-space noise on the terrain and a base-to-tip shading gradient on
+  trees and grass, so the 2.2 m terrain grid and flat-coloured cones don't read as flat patches.
+  Palette colours stay Godot's.
+- **Layout:** compact agent list (top left), selected-agent card (bottom left), events (bottom
+  right), island map (corner), role-coloured map pins on agent labels (Avatar green, Aide blue,
+  Advocate purple; the role word is always shown too).
+
 ## 4. Verification (run 2026-10-29)
 
 | Command | Result |
@@ -132,7 +151,7 @@ instead of the invented demo trace. Decide which line continues before merging e
 `src/feed/{types,source,replay,live,plain}.ts` · `scripts/sync-godot-assets.mjs` ·
 `trace.html` + `src/trace-main.ts` + `src/trace.css` + `src/trace/*` (observer-trace replay, §8).
 
-**Known limitations:** sky/day-night is a fixed noon stand-in for Sky3D; Label3D building words are
+**Known limitations:** sky/day-night is a fixed stand-in for Sky3D (two looks, no clock); Label3D building words are
 drawn at twice Godot's size for legibility; no LOD (19 buildings, ~1,000 instanced plants — fine on
 desktop and recent phones).
 

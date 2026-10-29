@@ -222,9 +222,9 @@ world.onFrame = () => {
     el.style.left = `${pr.x}px`;
     el.style.top = `${pr.y}px`;
     el.classList.toggle('sel', it.agent.id === state.selected);
-    // A recorded engine run carries no named state, so its label has no state line.
-    const html = `<div class="n">${esc(it.agent.name)} <span class="muted">${esc(P.roleWord(it.agent.role))}</span></div>` +
-      (physicalOnly() ? '' : `<div class="s" style="color:${P.stateColour(it.agent.state)}">${P.stateGlyph(it.agent.state)} ${esc(P.stateWord(it.agent.state))}</div>`);
+    el.dataset.role = it.agent.role;
+    const html = `<div class="n">${esc(it.agent.name)} <span class="r">${esc(P.roleWord(it.agent.role))}</span></div>` +
+      `<div class="s" style="color:${P.stateColour(it.agent.state)}">${P.stateGlyph(it.agent.state)} ${esc(P.stateWord(it.agent.state))}</div>`;
     if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; }
   }
 
@@ -296,8 +296,8 @@ function renderRoster(doc: StateFeedDoc) {
       const here = sceneKeyFor(a.scene) === shown;
       return `<li><button class="agent-btn${here ? '' : ' elsewhere'}" data-id="${esc(a.id)}" aria-pressed="${a.id === state.selected}">
         <span class="role-badge" data-role="${esc(a.role)}"><span>${esc(P.roleWord(a.role)[0])}</span></span>
-        <span><span class="agent-name">${esc(a.name)}</span><br><span class="agent-sub">${esc(P.roleWord(a.role))} · ${esc(P.sceneName(a.scene))}</span></span>
-        ${physicalOnly() ? '' : `<span class="state-pill" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateWord(a.state))}</span>`}
+        <span class="agent-text"><span class="agent-name">${esc(a.name)}</span> <span class="agent-sub">${esc(P.roleWord(a.role))} · ${esc(P.sceneName(a.scene))}</span><br>
+        <span class="state-pill" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateWord(a.state))}</span></span>
       </button></li>`;
     })
     .join('');
@@ -315,7 +315,10 @@ let detailsOpen = !window.matchMedia('(max-width: 700px)').matches;
 function renderInspector(doc: StateFeedDoc) {
   const el = $('inspector');
   $('roster-toggle').setAttribute('aria-expanded', String(detailsOpen));
+  const panel = $('inspector-panel');
   const a = doc.agents.find((x) => x.id === state.selected);
+  if (!a || !detailsOpen) { panel.hidden = true; return; }
+  panel.hidden = false;
   if (!a || !detailsOpen) { el.hidden = true; return; }
   el.hidden = false;
   if (physicalOnly()) {
@@ -344,17 +347,25 @@ function renderInspector(doc: StateFeedDoc) {
       (pair.blockingDimensions.length ? `<div class="gate-note">Still building: ${pair.blockingDimensions.map((d) => esc(d.toLowerCase().replace(/_/g, ' '))).join(', ')}</div>` : '') +
       `<div class="gate-note">Readiness is computed by AI-Fusion and shown as received.</div>`
     : '';
+  const moreOpen = (el.querySelector('details.more') as HTMLDetailsElement | null)?.open ?? false;
   el.innerHTML = `
-    <div class="insp-title"><h3>${esc(a.name)}</h3><span class="muted">${esc(P.roleWord(a.role))} · ${esc(a.id)}</span></div>
-    <div class="insp-state" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateReading(a.state))}</div>
-    <div class="insp-since">${esc(P.duration(doc.tick - a.stateSince))}${a.burnout ? ' · <strong style="color:var(--alert)">▲ in burnout</strong>' : ''}</div>
-    <div class="insp-section"><h4>Working on</h4><dl class="kv"><dt>Goal</dt><dd>${esc(a.currentGoal || '—')}</dd><dt>Now</dt><dd>${esc(a.currentTask || '—')}</dd></dl></div>
-    <div class="insp-section"><h4>Needs · ${met} of 4 met</h4><div class="bars">${needs}</div></div>
-    ${a.struggleSignals.length ? `<div class="insp-section"><h4>Signals Fusion is seeing</h4><div class="tags">${a.struggleSignals.map((s) => `<span class="tag">${esc(P.signalName(s))}</span>`).join('')}</div></div>` : ''}
-    ${a.learnedStrategies.length ? `<div class="insp-section"><h4>Strategies kept</h4><div class="tags">${a.learnedStrategies.map((s) => `<span class="tag">${esc(P.strategyName(s))}</span>`).join('')}</div></div>` : ''}
-    <div class="insp-section"><h4>Levels</h4><div class="bars">${levels}</div></div>
-    ${gate ? `<div class="insp-section"><h4>Fusion gate</h4>${gate}</div>` : ''}
-    <div class="insp-section muted">Position ${a.position.x.toFixed(1)}, ${a.position.y.toFixed(1)}, ${a.position.z.toFixed(1)} m in ${esc(P.sceneName(a.scene))}</div>`;
+    <div class="card-col">
+      <div class="insp-title"><h3>${esc(a.name)}</h3><span class="role-tag" data-role="${esc(a.role)}">${esc(P.roleWord(a.role))}</span></div>
+      <div class="insp-state" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateReading(a.state))}</div>
+      <div class="insp-since">${esc(P.duration(doc.tick - a.stateSince))}${a.burnout ? ' · <strong style="color:var(--alert)">▲ in burnout</strong>' : ''}</div>
+      <div class="insp-section"><h4>Working on</h4><dl class="kv"><dt>Goal</dt><dd>${esc(a.currentGoal || '—')}</dd><dt>Now</dt><dd>${esc(a.currentTask || '—')}</dd></dl></div>
+      ${a.struggleSignals.length ? `<div class="insp-section"><h4>Signals Fusion is seeing</h4><div class="tags">${a.struggleSignals.map((s) => `<span class="tag">${esc(P.signalName(s))}</span>`).join('')}</div></div>` : ''}
+      ${a.learnedStrategies.length ? `<div class="insp-section"><h4>Strategies kept</h4><div class="tags">${a.learnedStrategies.map((s) => `<span class="tag">${esc(P.strategyName(s))}</span>`).join('')}</div></div>` : ''}
+    </div>
+    <div class="card-col">
+      <div class="insp-section first"><h4>Needs · ${met} of 4 met</h4><div class="bars">${needs}</div></div>
+      ${gate ? `<div class="insp-section"><h4>Fusion gate</h4>${gate}</div>` : ''}
+      <details class="insp-section more"><summary>Levels &amp; position</summary>
+        <div class="bars">${levels}</div>
+        <div class="muted pos">${a.position.x.toFixed(1)}, ${a.position.y.toFixed(1)}, ${a.position.z.toFixed(1)} m in ${esc(P.sceneName(a.scene))}</div>
+      </details>
+    </div>`;
+  if (moreOpen) (el.querySelector('details.more') as HTMLDetailsElement).open = true;
 }
 
 // ------------------------------------------------------------------ events
@@ -544,6 +555,15 @@ followBtn.addEventListener('click', () => {
 });
 setInterval(() => followBtn.setAttribute('aria-pressed', String(!!world.followId)), 500);
 $('btn-reset').addEventListener('click', () => { world.followId = null; world.resetCamera(); });
+const lookSel = $('look') as HTMLSelectElement;
+lookSel.addEventListener('change', () => world.setLook(lookSel.value as 'golden' | 'midday'));
+const qualitySel = $('quality') as HTMLSelectElement;
+const qParam = params.get('quality');
+if (qParam === 'fast' || qParam === 'high') world.setQuality(qParam);
+const lParam = params.get('look');
+if (lParam === 'golden' || lParam === 'midday') { world.setLook(lParam); lookSel.value = lParam; }
+qualitySel.value = world.quality;
+qualitySel.addEventListener('change', () => world.setQuality(qualitySel.value as 'high' | 'fast'));
 const rm = $('reduced-motion') as HTMLInputElement;
 rm.checked = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 world.reducedMotion = rm.checked;

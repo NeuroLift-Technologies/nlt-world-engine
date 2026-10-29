@@ -11,6 +11,7 @@ import { buildPlans, buildSettlement, type Building } from '../world/settlement'
 import { buildVegetation, windUniforms } from '../world/vegetation';
 import type { Agent } from '../feed/types';
 import { applyInteriorStyle, frameBounds } from './interiorStyle';
+import { Finisher, LOOKS, addTerrainDetail, buildSkyDome, srgb, type LookId, type Quality } from './look';
 
 export type SceneKey = 'open_world' | 'personal' | 'workplace' | 'social' | 'academic';
 export const INTERIORS: Record<Exclude<SceneKey, 'open_world'>, string> = {
@@ -24,7 +25,6 @@ export const sceneKeyFor = (sceneId: string): SceneKey =>
 
 // WorldView.cs camera constants.
 const OPEN_WORLD_DIST = 78, OPEN_WORLD_PITCH = 0.42, INTERIOR_PITCH = 0.95, PAN_SPEED = 24, MAX_DIST = 340;
-const FOG = new THREE.Color().setHex(0x9fb6c4, THREE.SRGBColorSpace);
 
 export interface Resident {
   id: string;
@@ -50,6 +50,11 @@ export class WorldView {
   private indoor: THREE.Group;
   private waterUniforms: Record<string, THREE.IUniform>;
   private sky: THREE.Mesh;
+  private skyUniforms: Record<string, THREE.IUniform>;
+  private finisher: Finisher | null = null;
+  private envTarget: THREE.WebGLRenderTarget | null = null;
+  look: LookId = 'golden';
+  quality: Quality = 'high';
   private residentTemplate?: { scene: THREE.Object3D; clip?: THREE.AnimationClip };
   private residents = new Map<string, Resident>();
   private clock = new THREE.Clock();
@@ -71,13 +76,15 @@ export class WorldView {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     // --- open world: the ported Godot builders, same seed and order as WorldView._Ready
     this.grid = sampleGrid();
-    this.openWorld.add(buildTerrain(this.grid));
+    const terrain = buildTerrain(this.grid);
+    addTerrainDetail(terrain.material as THREE.MeshStandardMaterial);
+    this.openWorld.add(terrain);
     const water = buildWater();
     this.waterUniforms = water.uniforms;
     this.openWorld.add(water.mesh);
@@ -86,21 +93,23 @@ export class WorldView {
     this.buildings = settlement.buildings;
     this.openWorld.add(settlement.root);
     this.openWorld.add(buildVegetation(plans));
-    this.sky = this.buildSky();
+    const sky = buildSkyDome();
+    this.sky = sky.mesh;
+    this.skyUniforms = sky.uniforms;
     this.openWorld.add(this.sky);
     this.scene.add(this.openWorld, this.interiorRoot, this.residentsRoot);
 
-    // Noon light. Sky3D owns the sun in Godot; this is a fixed stand-in, not its model.
-    this.sun = new THREE.DirectionalLight(0xfff0d8, 2.2);
-    this.sun.position.set(SETTLE_X + 60, SETTLE_Y + 110, SETTLE_Z + 45);
+    // Sky3D owns the sun in Godot; this is a presentation stand-in set by the chosen look.
+    this.sun = new THREE.DirectionalLight(0xffffff, 1);
     this.sun.target.position.set(SETTLE_X, SETTLE_Y, SETTLE_Z);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(4096, 4096);
     const sc = this.sun.shadow.camera;
-    sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 10; sc.far = 300;
-    this.sun.shadow.bias = -0.0005;
-    this.sun.shadow.normalBias = 0.04;
-    this.hemi = new THREE.HemisphereLight(0xd6e2ea, 0x8a8670, 1.55);
+    sc.left = -95; sc.right = 95; sc.top = 95; sc.bottom = -95; sc.near = 10; sc.far = 420;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.05;
+    this.sun.shadow.radius = 3;
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
     this.openWorld.add(this.sun, this.sun.target, this.hemi);
 
     // WorldView.GetOrCreateIndoorEnvironment: warm ambient fill, dark background.
@@ -109,7 +118,8 @@ export class WorldView {
     this.interiorRoot.add(this.indoor);
     this.interiorRoot.visible = false;
 
-    this.applyEnvironment();
+    this.setLook('golden');
+    this.setQuality(window.matchMedia('(pointer: coarse)').matches ? 'fast' : 'high');
     this.updateCamera();
     this.bindInput();
     this.resize();
@@ -118,39 +128,72 @@ export class WorldView {
   }
 
   // ----------------------------------------------------------- environment
-  private buildSky(): THREE.Mesh {
-    const mat = new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-      uniforms: {
-        top: { value: new THREE.Color().setHex(0x6f8aa3, THREE.SRGBColorSpace) },
-        horizon: { value: new THREE.Color().setHex(0xc3d4dd, THREE.SRGBColorSpace) },
-        ground: { value: FOG.clone() },
-      },
-      vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: `uniform vec3 top, horizon, ground; varying vec3 vDir;
-        void main(){ float h = vDir.y; vec3 c = h > 0.0 ? mix(horizon, top, pow(clamp(h,0.0,1.0), 0.55)) : ground;
-        gl_FragColor = vec4(c, 1.0);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-        }`,
-    });
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1800, 32, 16), mat);
-    m.name = 'Sky';
-    m.renderOrder = -1;
-    m.onBeforeRender = (_r, _s, cam) => m.position.copy(cam.position);
-    return m;
+  /** Apply a lighting look: sun, sky dome, haze, image-based light and the water's sun glint. */
+  setLook(id: LookId) {
+    this.look = id;
+    const L = LOOKS[id];
+    const dir = L.sunDir.clone().normalize();
+    this.sun.color = srgb(L.sunColor);
+    this.sun.intensity = L.sunIntensity;
+    this.sun.position.copy(this.sun.target.position).addScaledVector(dir, 220);
+    this.hemi.color = srgb(L.hemiSky);
+    this.hemi.groundColor = srgb(L.hemiGround);
+    this.hemi.intensity = L.hemiIntensity;
+    this.skyUniforms.top.value = srgb(L.skyTop);
+    this.skyUniforms.horizon.value = srgb(L.skyHorizon);
+    this.skyUniforms.ground.value = srgb(L.fog);
+    this.skyUniforms.glow.value = srgb(L.sunGlow);
+    this.skyUniforms.sunDir.value = dir;
+    this.waterUniforms.u_sun_dir.value = dir;
+    this.waterUniforms.u_sun_color.value = srgb(L.waterSun);
+    // The water mirrors the sky above the horizon more than the horizon band itself.
+    this.waterUniforms.u_sky.value = srgb(L.skyHorizon).lerp(srgb(L.skyTop), 0.55);
+    // Distant water hazes toward a bluer tone than the land fog, so the sea still reads as sea.
+    this.waterUniforms.u_fog_color.value = srgb(L.fog).lerp(srgb(L.skyTop), 0.3);
+    this.renderer.toneMappingExposure = L.exposure;
+    // Image-based light from the sky dome alone, so PBR surfaces pick up the sky's colour.
+    const pm = new THREE.PMREMGenerator(this.renderer);
+    const skyScene = new THREE.Scene();
+    const dome = buildSkyDome();
+    for (const k of Object.keys(dome.uniforms)) dome.uniforms[k].value = this.skyUniforms[k].value;
+    dome.mesh.onBeforeRender = () => {};
+    skyScene.add(dome.mesh);
+    this.envTarget?.dispose();
+    this.envTarget = pm.fromScene(skyScene, 0, 0.1, 4000);
+    pm.dispose();
+    this.applyEnvironment();
+  }
+
+  setQuality(q: Quality) {
+    this.quality = q;
+    this.renderer.shadowMap.type = q === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    this.sun.shadow.mapSize.set(q === 'high' ? 4096 : 2048, q === 'high' ? 4096 : 2048);
+    this.sun.shadow.map?.dispose();
+    this.sun.shadow.map = null;
+    if (q === 'high' && !this.finisher) {
+      this.finisher = new Finisher(this.renderer, this.scene, this.camera);
+      this.finisher.setInterior(this.current !== 'open_world');
+    } else if (q !== 'high') {
+      this.finisher?.dispose();
+      this.finisher = null;
+    }
+    this.resize();
   }
 
   private applyEnvironment() {
+    const L = LOOKS[this.look];
     if (this.current === 'open_world') {
-      this.scene.background = FOG;
-      this.scene.fog = new THREE.FogExp2(FOG, 0.0032);
+      this.scene.background = srgb(L.fog);
+      this.scene.fog = new THREE.FogExp2(srgb(L.fog), L.fogDensity);
+      this.scene.environment = this.envTarget?.texture ?? null;
+      this.scene.environmentIntensity = L.envIntensity;
     } else {
       this.scene.background = new THREE.Color(0.05, 0.05, 0.07);
       this.scene.fog = null;
+      this.scene.environment = this.envTarget?.texture ?? null;
+      this.scene.environmentIntensity = 0.25;
     }
+    this.finisher?.setInterior(this.current !== 'open_world');
   }
 
   // ----------------------------------------------------------- scenes
@@ -444,6 +487,7 @@ export class WorldView {
   resize() {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
+    this.finisher?.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
     this.camera.updateProjectionMatrix();
   }
@@ -472,6 +516,7 @@ export class WorldView {
     this.waterUniforms.u_time.value = this.t;
     for (const r of this.residents.values()) r.mixer?.update(dt);
     this.onFrame?.();
-    this.renderer.render(this.scene, this.camera);
+    if (this.quality === 'high' && this.finisher) this.finisher.render(dt);
+    else this.renderer.render(this.scene, this.camera);
   }
 }

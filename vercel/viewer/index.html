@@ -56,12 +56,15 @@
       </div>
 
       <aside id="roster-panel" class="panel roster" aria-label="Agents">
-        <button class="panel-head panel-toggle" id="roster-toggle" aria-expanded="true" aria-controls="inspector">
+        <button class="panel-head panel-toggle" id="roster-toggle" aria-expanded="true" aria-controls="inspector-panel">
           <h2>Agents</h2>
           <span id="roster-count" class="muted"></span><span class="chev" aria-hidden="true">▾</span>
         </button>
         <ul id="roster" class="roster-list"></ul>
-        <section id="inspector" class="inspector" aria-live="polite" hidden></section>
+      </aside>
+
+      <aside id="inspector-panel" class="panel agent-card" aria-label="Selected agent" hidden>
+        <section id="inspector" class="inspector" aria-live="polite"></section>
       </aside>
 
       <aside id="events-panel" class="panel events" aria-label="Simulation events">
@@ -90,6 +93,16 @@
           </label>
           <button id="btn-follow" class="tp tp-text" aria-pressed="false" title="Keep the camera on the selected agent">Follow</button>
           <button id="btn-reset" class="tp tp-text" title="Reset the camera">Reset view</button>
+          <label class="speed look-sel"><span class="visually-hidden">Lighting</span>
+            <select id="look" aria-label="Lighting">
+              <option value="golden" selected>Golden hour</option><option value="midday">Midday</option>
+            </select>
+          </label>
+          <label class="speed look-sel"><span class="visually-hidden">Render quality</span>
+            <select id="quality" aria-label="Render quality">
+              <option value="high">High quality</option><option value="fast">Fast</option>
+            </select>
+          </label>
           <label class="tp-check"><input id="reduced-motion" type="checkbox" /> Reduced motion</label>
         </div>
       </section>
