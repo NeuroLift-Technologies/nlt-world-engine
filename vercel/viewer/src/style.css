@@ -249,3 +249,6 @@ select {
   .ev.new { animation: none; }
   .spinner { animation-duration: 3s; }
 }
+
+/* Dragging a recorded engine run (.jsonl) over the view. */
+.app.drop-target { outline: 3px dashed var(--accent); outline-offset: -8px; }

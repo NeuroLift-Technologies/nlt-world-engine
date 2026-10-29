@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { WorldView, sceneKeyFor } from './scene/world';
 import { Minimap } from './scene/minimap';
 import { ReplaySource, REPLAYS } from './feed/replay';
+import { TraceSource, TRACE_SAMPLE } from './feed/trace';
 import { LiveRelaySource } from './feed/live';
 import type { FeedSource } from './feed/source';
 import type { Agent, FeedEvent, StateFeedDoc } from './feed/types';
@@ -70,14 +71,22 @@ const labels = new Map<string, HTMLDivElement>();
 // ------------------------------------------------------------------ feed
 async function openReplay(id: string) {
   const entry = REPLAYS.find((r) => r.id === id) ?? REPLAYS[0];
-  setStatus(`Loading recording “${entry.label}”…`);
+  await openSource(new ReplaySource(entry), entry.label, `?replay=${entry.id}`);
+}
+
+/** True when the shown recording has positions and decisions only (feed/trace.ts). */
+const physicalOnly = () => state.source?.info.content === 'physical-trace';
+
+/** Open any source: the authored replays and recorded engine runs share one path. Returns false
+ *  when it could not be opened; what was shown stays shown and the reason is on screen. */
+async function openSource(src: FeedSource, label: string, query: string | null): Promise<boolean> {
+  setStatus(`Loading recording “${label}”…`);
   state.playing = false;
-  const src = new ReplaySource(entry);
   try {
     await src.open();
   } catch (e) {
     setStatus(`Could not load this recording: ${e instanceof Error ? e.message : e}`, 'error');
-    return;
+    return false;
   }
   state.source = src;
   state.pos = 0;
@@ -101,13 +110,18 @@ async function openReplay(id: string) {
   keep.set('replay', entry.id);
   for (const k of ['frame', 'play', 'scene', 'about', 'debug']) keep.delete(k);
   history.replaceState(null, '', `?${keep}`);
+  // A local file has no URL of its own; leave the address as it was rather than point at nothing.
+  if (query !== null && location.search !== query) history.replaceState(null, '', query);
+  return true;
 }
 
 function updateSourceBadge() {
   const s = state.source;
   const badge = $('source-badge');
   badge.dataset.kind = s?.info.kind ?? 'replay';
-  $('source-badge-text').textContent = s?.info.kind === 'live' ? 'Live simulation' : 'Replay · authored fixture · not live';
+  // A recorded engine run is real engine output, so it is not labelled authored; neither is live.
+  $('source-badge-text').textContent =
+    s?.info.kind === 'live' ? 'Live simulation' : physicalOnly() ? 'Recording · engine run · not live' : 'Replay · authored fixture · not live';
 }
 
 function frameAt(i: number): StateFeedDoc {
@@ -172,8 +186,9 @@ world.onFrame = () => {
   if (!src) return;
   const n = src.frameCount();
   if (state.playing && !state.switching) {
-    // Bundles replay at ~1 frame per second (fixtures/README.md), scaled by the speed control.
-    state.pos = Math.min(n - 1, state.pos + dt * state.speed);
+    // Bundles replay at ~1 frame per second (fixtures/README.md); a recorded engine run at its
+    // sampling rate (cadenceHz). Both are scaled by the speed control.
+    state.pos = Math.min(n - 1, state.pos + dt * state.speed * (src.framesPerSecond?.() ?? 1));
     if (state.pos >= n - 1) { state.playing = false; updatePlayButton(); }
     ($('scrubber') as HTMLInputElement).value = String(state.pos);
   }
@@ -308,6 +323,18 @@ function renderInspector(doc: StateFeedDoc) {
   const a = doc.agents.find((x) => x.id === state.selected);
   if (!a || !detailsOpen) { panel.hidden = true; return; }
   panel.hidden = false;
+  if (!a || !detailsOpen) { el.hidden = true; return; }
+  el.hidden = false;
+  if (physicalOnly()) {
+    // No needs, state or readiness in a recorded run: say so, never fill them in.
+    const speed = Math.hypot(a.velocity.x, a.velocity.z);
+    el.innerHTML = `
+      <div class="insp-title"><h3>${esc(a.name)}</h3><span class="muted">${esc(P.roleWord(a.role))} · recorded engine run</span></div>
+      <div class="insp-section"><h4>Where</h4><dl class="kv"><dt>Scene</dt><dd>${esc(P.sceneName(a.scene))}</dd><dt>Moving</dt><dd>${speed > 0.05 ? `${speed.toFixed(1)} m/s` : 'standing'}</dd></dl></div>
+      <div class="insp-section muted">Physical recording: this file has positions and decisions only. Needs, state and readiness are Fusion's and aren't recorded in it.</div>
+      <div class="insp-section muted">Position ${a.position.x.toFixed(1)}, ${a.position.y.toFixed(1)}, ${a.position.z.toFixed(1)} m in ${esc(P.sceneName(a.scene))}</div>`;
+    return;
+  }
   const needs = ['quiet', 'rest', 'social', 'stimulation']
     .map((k) => {
       const v = a.needs[k] ?? 0;
@@ -349,8 +376,10 @@ function renderInspector(doc: StateFeedDoc) {
 const EVENT_GLYPH: Record<string, string> = {
   burnout_entered: '▲', burnout_recovered: '❯', self_recognition: '◆', aide_intervention: '⬢', strategy_internalised: '●',
   task_failed: '□', task_complete: '●', task_start: '▏', scene_enter: '→', scene_exit: '←', struggle_detected: '■', fusion_ready: '★',
+  // Recorded engine runs (feed/trace.ts): the agent loop's decisions as the engine logged them.
+  decision: '◇', decision_failed: '✕',
 };
-const EVENT_COLOUR: Record<string, string> = { burnout_entered: '#d55e00', burnout_recovered: '#009e73', self_recognition: '#cc79a7', aide_intervention: '#ebc62a', struggle_detected: '#e69f00', fusion_ready: '#009e73' };
+const EVENT_COLOUR: Record<string, string> = { burnout_entered: '#d55e00', burnout_recovered: '#009e73', self_recognition: '#cc79a7', aide_intervention: '#ebc62a', struggle_detected: '#e69f00', fusion_ready: '#009e73', decision: '#56b4e9', decision_failed: '#d55e00' };
 const evKey = (e: FeedEvent) => `${e.tick}|${e.agentId}|${e.kind}`;
 
 function renderEvents(doc: StateFeedDoc) {
@@ -451,11 +480,77 @@ $('btn-fwd').addEventListener('click', () => step(1));
 ($('speed') as HTMLSelectElement).addEventListener('change', (e) => (state.speed = Number((e.target as HTMLSelectElement).value)));
 ($('scene-select') as HTMLSelectElement).addEventListener('change', (e) => setSceneMode((e.target as HTMLSelectElement).value));
 const replaySel = $('replay-select') as HTMLSelectElement;
-replaySel.innerHTML = REPLAYS.map((r) => `<option value="${r.id}">${esc(r.label)}</option>`).join('');
-replaySel.addEventListener('change', () => {
+const TRACE_OPT = 'trace:sample';
+const FILE_OPT = 'trace:file';
+const LOCAL_OPT = 'trace:local';
+replaySel.innerHTML =
+  `<optgroup label="Authored fixtures">${REPLAYS.map((r) => `<option value="${r.id}">${esc(r.label)}</option>`).join('')}</optgroup>` +
+  `<optgroup label="Recorded engine runs"><option value="${TRACE_OPT}">${esc(TRACE_SAMPLE.label)}</option><option value="${FILE_OPT}">Open a recording file…</option></optgroup>`;
+
+// A recording file (nlt.observer-trace.v1 .jsonl) is read in the browser and sent nowhere.
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = '.jsonl,.json,.txt';
+fileInput.hidden = true;
+fileInput.setAttribute('aria-label', 'Open a recorded engine run (.jsonl)');
+document.body.appendChild(fileInput);
+let lastChoice = replaySel.value;
+// The last file opened, kept so its menu entry can reopen it after another recording was shown.
+let localFile: { name: string; text: string } | null = null;
+function showLocalChoice(name: string) {
+  let opt = replaySel.querySelector<HTMLOptionElement>(`option[value="${LOCAL_OPT}"]`);
+  if (!opt) {
+    opt = new Option('', LOCAL_OPT);
+    replaySel.querySelector('optgroup:last-of-type')!.insertBefore(opt, replaySel.querySelector(`option[value="${FILE_OPT}"]`));
+  }
+  opt.textContent = `File: ${name}`;
+  replaySel.value = lastChoice = LOCAL_OPT;
+}
+async function openLocal(name: string, text: string) {
   state.sceneMode = 'follow';
   ($('scene-select') as HTMLSelectElement).value = 'follow';
-  void openReplay(replaySel.value);
+  if (!(await openSource(new TraceSource({ kind: 'text', text, name }, name), name, null))) return;
+  localFile = { name, text };
+  showLocalChoice(name);
+}
+async function openTraceFile(f: File) {
+  await openLocal(f.name, await f.text());
+}
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files?.[0];
+  fileInput.value = '';
+  if (f) void openTraceFile(f);
+});
+replaySel.addEventListener('change', () => {
+  if (replaySel.value === FILE_OPT) {
+    replaySel.value = lastChoice; // stay on what is shown until a file is actually chosen
+    fileInput.click();
+    return;
+  }
+  if (replaySel.value === LOCAL_OPT) {
+    if (localFile) void openLocal(localFile.name, localFile.text);
+    return;
+  }
+  lastChoice = replaySel.value;
+  state.sceneMode = 'follow';
+  ($('scene-select') as HTMLSelectElement).value = 'follow';
+  if (replaySel.value === TRACE_OPT) void openSource(new TraceSource({ kind: 'url', url: TRACE_SAMPLE.url }, TRACE_SAMPLE.label), TRACE_SAMPLE.label, '?trace=sample');
+  else void openReplay(replaySel.value);
+});
+// Drop a recording anywhere on the view to open it.
+window.addEventListener('dragover', (e) => {
+  if (!e.dataTransfer?.types.includes('Files')) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  app.classList.add('drop-target');
+});
+window.addEventListener('dragleave', (e) => { if (e.relatedTarget === null) app.classList.remove('drop-target'); });
+window.addEventListener('drop', (e) => {
+  app.classList.remove('drop-target');
+  const f = e.dataTransfer?.files?.[0];
+  if (!f) return;
+  e.preventDefault();
+  void openTraceFile(f);
 });
 const followBtn = $('btn-follow');
 followBtn.addEventListener('click', () => {
@@ -506,7 +601,11 @@ function openAbout() {
     <table>
       <tr><td>Island, settlement, trees</td><td><strong>Static scene data.</strong> Rebuilt in your browser from the World Engine's own builders (WorldGeometry, TerrainBuilder, SettlementBuilder, BuildingArchetypes, VegetationBuilder), same seed ${SEED}. Not rendered by Godot. Sky and lighting are an approximation of Godot's Sky3D.</td></tr>
       <tr><td>Interiors</td><td><strong>Static scene data.</strong> The project-owned level files Godot loads (assets/levels/*.fbx). Per-building colour schemes (InteriorStyle) are not ported.</td></tr>
-      <tr><td>Agents, states, events</td><td><strong>${esc(s?.info.provenance ?? '—')}.</strong> ${esc(s?.info.title ?? '')} — nlt.state-feed.v1 frames from world-engine-godot/fixtures/replay. ${esc(s?.info.detail ?? '')}</td></tr>
+      ${
+        s?.info.content === 'physical-trace'
+          ? `<tr><td>Agents and decisions</td><td><strong>${esc(s.info.provenance)}.</strong> ${esc(s.info.title)}. ${esc(s.info.detail ?? '')} The panels show no needs, states or readiness for this recording.</td></tr>`
+          : `<tr><td>Agents, states, events</td><td><strong>${esc(s?.info.provenance ?? '—')}.</strong> ${esc(s?.info.title ?? '')} — nlt.state-feed.v1 frames from world-engine-godot/fixtures/replay. ${esc(s?.info.detail ?? '')}</td></tr>`
+      }
       <tr><td>Resident figure</td><td>The self-authored pipeline-probe character Godot uses (deliberately primitive), with its walk cycle. It plays only while the feed says the agent is moving.</td></tr>
       <tr><td>Live simulation</td><td><strong>Unavailable.</strong> ${esc(live.info.detail ?? '')}</td></tr>
     </table>
@@ -515,7 +614,7 @@ function openAbout() {
     <h3>Controls</h3>
     <p>Drag to orbit · scroll or pinch to zoom · W A S D / arrows to pan · click a building for its doorway · Space plays and pauses · , and . step frames.</p>
     ${diag.length ? `<h3>Feed diagnostics</h3><div class="diag">${diag.map(esc).join('<br>')}</div>` : ''}
-    <p class="muted">The earlier trace-replay viewer (nlt.observer-trace.v1) is still available at <a href="./trace.html" style="color:var(--accent)">trace.html</a>.</p>`;
+    <p class="muted">Recorded engine runs (nlt.observer-trace.v1) can be opened here from the Recording menu or by dropping the .jsonl file on the view; <a href="./trace.html" style="color:var(--accent)">trace.html</a> shows the same file as a top-down plot with every decision.</p>`;
   about.showModal();
 }
 ['about-btn', 'source-badge', 'live-btn'].forEach((id) => $(id).addEventListener('click', openAbout));
@@ -531,6 +630,12 @@ const initial = params.get('replay') ?? 'open-world-day';
 replaySel.value = REPLAYS.some((r) => r.id === initial) ? initial : REPLAYS[0].id;
 const sceneParam = params.get('scene');
 if (sceneParam && /^(open_world|(personal|workplace|social|academic)_\d+)$/.test(sceneParam)) setSceneMode(sceneParam);
-await openReplay(replaySel.value);
+if (params.get('trace') === 'sample') {
+  replaySel.value = lastChoice = TRACE_OPT;
+  await openSource(new TraceSource({ kind: 'url', url: TRACE_SAMPLE.url }, TRACE_SAMPLE.label), TRACE_SAMPLE.label, null);
+} else {
+  lastChoice = replaySel.value;
+  await openReplay(replaySel.value);
+}
 if (params.get('about') === '1') openAbout();
 if (params.has('debug')) (window as unknown as Record<string, unknown>).__nlt = { world, state };

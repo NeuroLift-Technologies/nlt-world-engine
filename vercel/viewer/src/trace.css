@@ -166,3 +166,7 @@ button { font: inherit; }
 
 /* Drag a trace file over the page: an outline, plus the text label set in main.ts. */
 #app.drop-target { outline: 3px dashed var(--accent); outline-offset: -6px; }
+
+/* Link to the 3D island view, which replays the same recordings. */
+.view-3d { white-space: nowrap; font-size: 12px; font-weight: 700; color: var(--accent); text-decoration: none; margin-left: 12px; }
+.view-3d:hover, .view-3d:focus-visible { text-decoration: underline; }
