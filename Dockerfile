@@ -40,8 +40,8 @@ WORKDIR /src/nlt-world-engine/world-engine-godot
 # The headless server has no XR device and the repository does not include the
 # Fennara Linux editor GDExtension binary. Keep those optional integrations out
 # of this container-only project copy; the desktop project remains unchanged.
-RUN sed -i '/^_fennara_game_capture=/d' project.godot \\
-    && rm -f addons/fennara/fennara.gdextension addons/fennara/fennara.gdextension.uid \\
+RUN sed -i '/^_fennara_game_capture=/d' project.godot \
+    && rm -f addons/fennara/fennara.gdextension addons/fennara/fennara.gdextension.uid \
               addons/godotopenxrvendors/plugin.gdextension addons/godotopenxrvendors/plugin.gdextension.uid
 
 # Import assets and generate GodotSharp build support before compiling the C# project.
