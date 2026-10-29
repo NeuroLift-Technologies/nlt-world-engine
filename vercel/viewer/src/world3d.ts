@@ -1,12 +1,17 @@
 import type { AgentState, SceneEntity } from './trace/types.js';
 
 // ---------------------------------------------------------------------------
-// Godot-style 3D world view for the observer. A canvas port of the native
-// app's open-world frame (world-engine-godot): same orbit camera defaults
-// (FOV 52, yaw 0.6, pitch 0.42, distance 78 m on the settlement), same island
-// constants (460 m world, lake at 82/-58 r34, settlement at -66/46), and the
-// TerrainBuilder colour palette. Observer visualization only — it never
-// becomes simulation authority and does not read authoritative geometry.
+// Godot-style 3D world view for the observer, matched to the shipped app's
+// screenshots (world-engine-godot/Images/Screenshots):
+//   - low 20-30 degree orbit camera with the horizon visible (WorldView.cs:
+//     FOV 52, yaw 0.6, pitch 0.42, distance 78 m on the settlement)
+//   - light blue sky, smooth light terrain, steel-blue water (#406080)
+//   - white-walled houses with red-brown gabled roofs (#8b4513)
+//   - conical pine trees
+//   - small white agent figures with a red circular pin and a name label
+//   - black HUD chips with "World View / seed / agents / physics" text
+// Observer visualization only — it never becomes simulation authority and
+// does not read authoritative geometry.
 // ---------------------------------------------------------------------------
 
 type Vec3 = { x: number; y: number; z: number };
@@ -24,12 +29,13 @@ const TARGET: Vec3 = { x: SETTLE.x, y: SETTLE.y + 2, z: SETTLE.z };
 const MIN_DIST = 8;
 const MAX_DIST = 340;
 
-// TerrainBuilder.cs palette (authored as sRGB hex)
-const C_SAND = [201, 180, 140];
-const C_GRASS = [92, 116, 68];
-const C_GRASS2 = [72, 96, 58];
-const C_ROCK = [123, 116, 104];
-const C_DARK = [76, 71, 64];
+// TerrainBuilder.cs palette, tuned to the screenshots: smooth light greens,
+// soft dirt patches, pale sand, steel-blue water.
+const C_SAND = [207, 201, 185];
+const C_DIRT = [186, 168, 138];
+const C_GRASS = [132, 150, 108];
+const C_GRASS2 = [118, 138, 96];
+const C_DARK = [92, 96, 98];
 
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const clamp01 = (v: number) => clamp(v, 0, 1);
@@ -90,34 +96,39 @@ function heightAt(x: number, z: number): number {
 }
 
 function terrainColor(x: number, z: number, h: number): string {
-  const grain = fbm(x * 0.06, z * 0.06, 3, SEED + 991);
+  const grain = fbm(x * 0.045, z * 0.045, 3, SEED + 991);
   let c: number[];
   if (h < WATER - 2.6) c = C_DARK;
   else if (h < WATER + 1.5) c = C_SAND;
   else {
-    c = mixC(C_GRASS, C_GRASS2, grain);
-    c = mixC(c, C_ROCK, smoothstep(0.28, 0.72, grain * 0.5));
-    c = mixC(c, C_SAND, smoothstep(2.4, 0.9, h) * 0.25);
-    c = c.map(v => v * (0.86 + grain * 0.3));
+    // Smooth, light terrain with occasional dirt patches, as in the shots.
+    c = mixC(C_GRASS, C_GRASS2, grain * 0.6);
+    c = mixC(c, C_DIRT, smoothstep(0.66, 0.9, grain) * 0.85);
+    c = mixC(c, C_SAND, smoothstep(2.4, 0.9, h) * 0.3);
   }
-  const shade = 0.94 + fbm(x * 0.012, z * 0.012, 2, SEED + 77) * 0.14;
+  const shade = 0.97 + fbm(x * 0.012, z * 0.012, 2, SEED + 77) * 0.07;
   return css(c, shade);
 }
 
 function waterColor(x: number, z: number): string {
   const ripple = fbm(x * 0.05, z * 0.05, 2, SEED + 555);
-  const deep = [44, 93, 117], shallow = [95, 159, 178];
+  const deep = [64, 96, 128], shallow = [92, 124, 152];
   return css(mixC(deep, shallow, ripple * 0.8));
 }
 
-type Building = { x: number; z: number; w: number; d: number; h: number; label: string; wall: string };
+type Building = { x: number; z: number; w: number; d: number; h: number; label: string };
+// White walls, red-brown gabled roofs (settlement-archetypes.png, t3 shots).
 const BUILDINGS: Building[] = [
-  { x: SETTLE.x - 16, z: SETTLE.z - 13, w: 11, d: 9, h: 7.5, label: 'HOME', wall: '#d9c7a0' },
-  { x: SETTLE.x + 15, z: SETTLE.z - 15, w: 13, d: 10, h: 10, label: 'WORK', wall: '#b7c8d8' },
-  { x: SETTLE.x + 17, z: SETTLE.z + 12, w: 11, d: 10, h: 8.5, label: 'SCHOOL', wall: '#d8b6a8' },
-  { x: SETTLE.x - 17, z: SETTLE.z + 14, w: 12, d: 10, h: 9, label: 'COMMUNITY', wall: '#c4d2ae' },
-  { x: SETTLE.x, z: SETTLE.z + 19, w: 14, d: 10, h: 6.5, label: 'SHOP', wall: '#d8c0d8' },
+  { x: SETTLE.x - 16, z: SETTLE.z - 13, w: 11, d: 9, h: 6.5, label: 'HOME' },
+  { x: SETTLE.x + 15, z: SETTLE.z - 15, w: 13, d: 10, h: 7.5, label: 'WORK' },
+  { x: SETTLE.x + 17, z: SETTLE.z + 12, w: 11, d: 10, h: 6.5, label: 'SCHOOL' },
+  { x: SETTLE.x - 17, z: SETTLE.z + 14, w: 12, d: 10, h: 7, label: 'COMMUNITY' },
+  { x: SETTLE.x, z: SETTLE.z + 19, w: 14, d: 10, h: 5.5, label: 'SHOP' },
 ];
+const C_WALL = [214, 213, 208];
+const C_WALL_SHADE = [186, 185, 181];
+const C_ROOF_SUN = [176, 90, 48];
+const C_ROOF_SHADE = [122, 58, 16];
 
 type Tree = { x: number; z: number; h: number; r: number };
 const TREES: Tree[] = (() => {
@@ -137,12 +148,12 @@ const TREES: Tree[] = (() => {
     if (h < WATER + 1.8) continue;
     if (Math.hypot(x - SETTLE.x, z - SETTLE.z) < SETTLE.r + 8) continue;
     if (Math.hypot(x - LAKE.x, z - LAKE.z) < LAKE.r + 10) continue;
-    trees.push({ x, z, h, r: 1.4 + next() * 1.3 });
+    trees.push({ x, z, h, r: 1.6 + next() * 1.5 });
   }
   return trees;
 })();
 
-const AGENT_COLORS = ['#56b4e9', '#e69f00', '#009e73', '#cc79a7'];
+const AGENT_COLORS = ['#e0483e', '#3f7fd0', '#e0a13e', '#3fae6e'];
 
 export class World3DView {
   private canvas: HTMLCanvasElement;
@@ -151,7 +162,7 @@ export class World3DView {
   private entities = new Map<string, SceneEntity[]>();
   private dpr = 1;
 
-  // WorldView.cs orbit state
+  // WorldView.cs orbit state (pitch 0.42 rad ~ 24 deg, horizon visible)
   private yaw = 0.6;
   private pitch = 0.42;
   private dist = 78;
@@ -185,7 +196,7 @@ export class World3DView {
     canvas.addEventListener('pointermove', (event) => {
       if (!this.dragging) return;
       this.yaw -= (event.clientX - this.lastX) * 0.005;
-      this.pitch = clamp(this.pitch + (event.clientY - this.lastY) * 0.004, 0.05, Math.PI * 0.487);
+      this.pitch = clamp(this.pitch + (event.clientY - this.lastY) * 0.004, 0.08, Math.PI * 0.487);
       this.lastX = event.clientX; this.lastY = event.clientY;
       this.render();
     });
@@ -250,34 +261,35 @@ export class World3DView {
     const x0 = b.x - b.w / 2, x1 = b.x + b.w / 2;
     const z0 = b.z - b.d / 2, z1 = b.z + b.d / 2;
     const top = groundY + b.h;
+    const ridge = top + b.w * 0.22;
     const camSideX = this.cam.x > b.x, camSideZ = this.cam.z > b.z;
-    // Two visible walls (the ones facing the camera), then the roof.
+    // White walls; the two camera-facing ones are drawn.
     const wallX = camSideX ? x1 : x0, wallXFar = camSideX ? x0 : x1;
     const wallZ = camSideZ ? z1 : z0, wallZFar = camSideZ ? z0 : z1;
     this.quad(
       { x: wallX, y: groundY, z: wallZFar }, { x: wallX, y: groundY, z: wallZ },
       { x: wallX, y: top, z: wallZ }, { x: wallX, y: top, z: wallZFar },
-      '#a8a49a');
+      css(camSideX ? C_WALL_SHADE : C_WALL));
     this.quad(
       { x: wallXFar, y: groundY, z: wallZ }, { x: wallX, y: groundY, z: wallZ },
       { x: wallX, y: top, z: wallZ }, { x: wallXFar, y: top, z: wallZ },
-      '#b4b1a6');
+      css(camSideZ ? C_WALL_SHADE : C_WALL));
+    // Red-brown gabled roof: two slopes meeting at a ridge along x.
+    this.quad(
+      { x: x0, y: top, z: z1 }, { x: x1, y: top, z: z1 },
+      { x: x1, y: ridge, z: b.z }, { x: x0, y: ridge, z: b.z },
+      css(camSideZ ? C_ROOF_SUN : C_ROOF_SHADE));
     this.quad(
       { x: x0, y: top, z: z0 }, { x: x1, y: top, z: z0 },
-      { x: x1, y: top, z: z1 }, { x: x0, y: top, z: z1 },
-      '#e5e2d7');
-    // Sun-side wall tint so orientation reads like the Godot frame.
-    this.quad(
-      { x: wallXFar, y: groundY, z: wallZFar }, { x: wallX, y: groundY, z: wallZFar },
-      { x: wallX, y: top, z: wallZFar }, { x: wallXFar, y: top, z: wallZFar },
-      b.wall);
-    const c = this.project({ x: b.x, y: top + 1.5, z: b.z });
+      { x: x1, y: ridge, z: b.z }, { x: x0, y: ridge, z: b.z },
+      css(camSideZ ? C_ROOF_SHADE : C_ROOF_SUN));
+    const c = this.project({ x: b.x, y: ridge + 1.5, z: b.z });
     if (c) {
       const ctx = this.ctx;
       ctx.font = '700 10px system-ui';
       ctx.textAlign = 'center';
       const wch = ctx.measureText(b.label).width + 10;
-      ctx.fillStyle = 'rgba(13,20,26,0.78)';
+      ctx.fillStyle = 'rgba(10,12,14,0.82)';
       ctx.fillRect(c.x - wch / 2, c.y - 12, wch, 14);
       ctx.fillStyle = '#e6edf3';
       ctx.fillText(b.label, c.x, c.y - 2);
@@ -289,71 +301,88 @@ export class World3DView {
     const base = this.project({ x: t.x, y: t.h, z: t.z });
     if (!base) return;
     const s = this.focal / base.z;
-    const trunk = { x: base.x, y: base.y - t.r * s * 0.9 };
+    const r = t.r * s, hh = t.r * s * 2.6;
+    // Trunk
     ctx.strokeStyle = '#5d4a35';
-    ctx.lineWidth = Math.max(1, t.r * s * 0.22);
-    ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(trunk.x, trunk.y); ctx.stroke();
-    ctx.beginPath(); ctx.arc(trunk.x, trunk.y - t.r * s * 0.4, t.r * s, 0, Math.PI * 2);
-    ctx.fillStyle = t.r > 2 ? '#3f6a48' : '#4f7d50';
+    ctx.lineWidth = Math.max(1, r * 0.2);
+    ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(base.x, base.y - hh * 0.2); ctx.stroke();
+    // Conical pine (gp1/t3 shots)
+    ctx.beginPath();
+    ctx.moveTo(base.x - r, base.y - hh * 0.15);
+    ctx.lineTo(base.x, base.y - hh);
+    ctx.lineTo(base.x + r, base.y - hh * 0.15);
+    ctx.closePath();
+    ctx.fillStyle = t.r > 2.4 ? '#2f6b34' : '#3a7a3e';
     ctx.fill();
   }
 
-  // Observer World View HUD pins: screen-space glowing markers over the
-  // camera-projected feed position (RENDERER-PLAN 6.1).
+  // Small white figure with a dark head, red circular pin and a name label,
+  // as the agent avatars appear in the Godot world view.
   private drawAgent(agent: AgentState, index: number) {
     const ctx = this.ctx;
     const ground = { x: agent.position.x, y: Math.max(heightAt(agent.position.x, agent.position.z), WATER), z: agent.position.z };
     const g = this.project(ground);
     if (!g) return;
+    const s = this.focal / g.z;
     const color = AGENT_COLORS[index % AGENT_COLORS.length];
-    const lift = 3.2 * (this.focal / g.z);
-    ctx.strokeStyle = 'rgba(230,237,243,0.75)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(g.x, g.y - lift); ctx.stroke();
+    // Shadow
+    ctx.fillStyle = 'rgba(20,30,38,0.25)';
+    ctx.beginPath(); ctx.ellipse(g.x, g.y, 4.5 * Math.max(s / 30, 0.8), 1.6 * Math.max(s / 30, 0.8), 0, 0, Math.PI * 2); ctx.fill();
+    // Body: small white humanoid, dark head
+    const bodyH = Math.max(7, 2.1 * s);
+    ctx.fillStyle = '#f2f2ee';
+    ctx.beginPath();
+    ctx.ellipse(g.x, g.y - bodyH * 0.45, bodyH * 0.28, bodyH * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2a2e33';
+    ctx.beginPath(); ctx.arc(g.x, g.y - bodyH * 1.05, bodyH * 0.22, 0, Math.PI * 2); ctx.fill();
+    // Circular pin above the head
+    const pinY = g.y - bodyH * 1.6;
+    ctx.strokeStyle = 'rgba(242,242,238,0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(g.x, g.y - bodyH * 1.27); ctx.lineTo(g.x, pinY + 4); ctx.stroke();
     ctx.save();
     ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 8;
     ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(g.x, g.y - lift, 5.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(g.x, pinY, 4, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = 'rgba(13,20,26,0.85)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(g.x, g.y - lift, 5.5, 0, Math.PI * 2); ctx.stroke();
+    // Name label chip
     ctx.font = '700 10px system-ui';
     ctx.textAlign = 'center';
     const wch = ctx.measureText(agent.agentId).width + 10;
-    ctx.fillStyle = 'rgba(13,20,26,0.78)';
-    ctx.fillRect(g.x - wch / 2, g.y - lift - 24, wch, 14);
+    ctx.fillStyle = 'rgba(10,12,14,0.82)';
+    ctx.fillRect(g.x - wch / 2, pinY - 20, wch, 14);
     ctx.fillStyle = '#e6edf3';
-    ctx.fillText(agent.agentId, g.x, g.y - lift - 14);
+    ctx.fillText(agent.agentId, g.x, pinY - 10);
   }
 
   private drawSky() {
     const ctx = this.ctx;
-    // Sky3D-style atmospheric gradient with a soft sun glow and horizon fog.
+    // Light blue sky as in the open-world shots, with a pale horizon.
     const horizon = this.project({ x: this.cam.x + this.fwd.x * 2000, y: this.cam.y, z: this.cam.z + this.fwd.z * 2000 });
     const hy = horizon ? horizon.y : this.vh * 0.35;
     const sky = ctx.createLinearGradient(0, 0, 0, Math.max(hy, 1));
-    sky.addColorStop(0, '#3d6fa5');
-    sky.addColorStop(0.62, '#7ba7cc');
-    sky.addColorStop(1, '#cfe0ea');
+    sky.addColorStop(0, '#a2c1e3');
+    sky.addColorStop(0.62, '#93b3d6');
+    sky.addColorStop(1, '#cfdde8');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, this.vw, Math.max(hy, 0));
-    // Sun glow, high sun as at the sim-clock noon the world opens on.
-    const sun = this.project({ x: this.cam.x + this.fwd.x * 1800 + this.right.x * 400, y: this.cam.y + this.fwd.y * 1800 + 900, z: this.cam.z + this.fwd.z * 1800 + this.right.z * 400 });
+    // Soft sun glow, upper right.
+    const sun = this.project({ x: this.cam.x + this.fwd.x * 1800 + this.right.x * 500, y: this.cam.y + this.fwd.y * 1800 + 750, z: this.cam.z + this.fwd.z * 1800 + this.right.z * 500 });
     if (sun) {
-      const glow = ctx.createRadialGradient(sun.x, sun.y, 0, sun.x, sun.y, 130);
-      glow.addColorStop(0, 'rgba(255,244,214,0.9)');
-      glow.addColorStop(0.35, 'rgba(255,236,190,0.35)');
-      glow.addColorStop(1, 'rgba(255,236,190,0)');
+      const glow = ctx.createRadialGradient(sun.x, sun.y, 0, sun.x, sun.y, 120);
+      glow.addColorStop(0, 'rgba(255,248,228,0.75)');
+      glow.addColorStop(0.4, 'rgba(255,244,214,0.25)');
+      glow.addColorStop(1, 'rgba(255,244,214,0)');
       ctx.fillStyle = glow;
-      ctx.fillRect(sun.x - 130, sun.y - 130, 260, 260);
+      ctx.fillRect(sun.x - 120, sun.y - 120, 240, 240);
     }
-    // Sea to the bottom edge, fading toward the horizon fog colour.
+    // Steel-blue sea to the bottom edge.
     const sea = ctx.createLinearGradient(0, Math.max(hy, 0), 0, this.vh);
-    sea.addColorStop(0, '#9fb6c4');
-    sea.addColorStop(0.18, '#5d7f96');
-    sea.addColorStop(1, '#33566d');
+    sea.addColorStop(0, '#8aa7c6');
+    sea.addColorStop(0.2, '#5d7f9c');
+    sea.addColorStop(1, '#406080');
     ctx.fillStyle = sea;
     ctx.fillRect(0, Math.max(hy, 0), this.vw, this.vh - Math.max(hy, 0));
   }
@@ -361,15 +390,15 @@ export class World3DView {
   private drawHud() {
     const ctx = this.ctx;
     const chip = (x: number, y: number, w: number, h: number) => {
-      ctx.fillStyle = 'rgba(13,20,26,0.78)';
+      ctx.fillStyle = 'rgba(10,12,14,0.82)';
       ctx.fillRect(x, y, w, h);
     };
     ctx.textAlign = 'left';
-    chip(12, 12, 268, 46);
+    chip(12, 12, 320, 46);
     ctx.fillStyle = '#e6edf3'; ctx.font = '700 12px system-ui';
-    ctx.fillText('NLT WORLD ENGINE · WORLD VIEW', 22, 30);
+    ctx.fillText('WORLD VIEW · OPEN WORLD', 22, 30);
     ctx.font = '11px system-ui'; ctx.fillStyle = '#a3b1c0';
-    ctx.fillText(BUILDINGS.length + ' structures · ' + TREES.length + ' trees · ' + this.agents.size + ' trace agents', 22, 47);
+    ctx.fillText('Persistent World seed ' + SEED + ' · Multi-Agent ' + this.agents.size + ' agents · Real-Time Physics Jolt', 22, 47);
     ctx.textAlign = 'center';
     chip(this.vw - 192, 12, 180, 28);
     ctx.fillStyle = '#a3b1c0'; ctx.font = '10px system-ui';
@@ -388,8 +417,8 @@ export class World3DView {
 
     this.drawSky();
 
-    // Terrain: a coarse port of TerrainBuilder.Build — one quad per grid cell,
-    // painted far-to-near so the near shore overlaps the far water correctly.
+    // Terrain: one quad per grid cell, painted far-to-near so the near
+    // shore overlaps the far water correctly.
     const SEG = 64;
     const step = WORLD / SEG;
     type Item = { depth: number; draw: () => void };
@@ -431,21 +460,21 @@ export class World3DView {
     items.sort((a, b) => b.depth - a.depth);
     for (const item of items) item.draw();
 
-    // Scene entity markers, then glowing agent pins on top.
+    // Scene entity markers, then agent figures on top.
     for (const [, list] of this.entities) {
       for (const ent of list) {
         const g = this.project({ x: ent.position.x, y: Math.max(ent.position.y, WATER + 0.5), z: ent.position.z });
         if (!g) continue;
         const ctx2 = this.ctx;
         ctx2.save();
-        ctx2.strokeStyle = '#e6edf3';
+        ctx2.strokeStyle = '#f2f2ee';
         ctx2.lineWidth = 1;
         ctx2.setLineDash([4, 3]);
         ctx2.strokeRect(g.x - 5, g.y - 9, 10, 10);
         ctx2.restore();
         ctx2.font = '9px system-ui';
         ctx2.textAlign = 'center';
-        ctx2.fillStyle = '#e6edf3';
+        ctx2.fillStyle = '#f2f2ee';
         ctx2.fillText(ent.id, g.x, g.y - 13);
       }
     }
