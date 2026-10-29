@@ -17,6 +17,12 @@ export interface SourceInfo {
   /** Plain-language provenance shown to the observer. */
   provenance: string;
   detail?: string;
+  /**
+   * What the frames carry. `physical-trace` (a recorded engine run, feed/trace.ts) has positions
+   * and decisions but none of Fusion's semantic fields, so the UI must not show needs or state.
+   * Absent means full nlt.state-feed.v1 documents.
+   */
+  content?: 'state-feed' | 'physical-trace';
 }
 
 export interface FeedSource {
@@ -28,4 +34,6 @@ export interface FeedSource {
   frame(i: number): StateFeedDoc;
   /** Per-frame contract problems; rejected frames are reported, never rendered. */
   diagnostics(): string[];
+  /** Frames per second at 1× playback. Absent means 1, the replay bundles' ~1 Hz. */
+  framesPerSecond?(): number;
 }
