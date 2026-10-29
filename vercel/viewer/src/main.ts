@@ -106,10 +106,6 @@ async function openSource(src: FeedSource, label: string, query: string | null):
   setStatus(null);
   state.playing = params.get('play') !== '0';
   updatePlayButton();
-  const keep = new URLSearchParams(location.search);
-  keep.set('replay', entry.id);
-  for (const k of ['frame', 'play', 'scene', 'about', 'debug']) keep.delete(k);
-  history.replaceState(null, '', `?${keep}`);
   // A local file has no URL of its own; leave the address as it was rather than point at nothing.
   if (query !== null && location.search !== query) history.replaceState(null, '', query);
   return true;
