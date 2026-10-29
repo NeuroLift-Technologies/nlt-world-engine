@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwayland-cursor0 libwayland-egl1 libdecor-0-0 libdbus-1-3 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /opt/godot \
+RUN set -eux; mkdir -p /opt/godot \
     && curl -fsSL "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&platform=linux.64&slug=mono_linux_x86_64.zip" -o /tmp/godot.zip \
     && unzip -q /tmp/godot.zip -d /opt/godot \
     && rm /tmp/godot.zip \
@@ -21,6 +21,7 @@ RUN mkdir -p /opt/godot \
     && test -n "$GODOT_BIN" \
     && chmod +x "$GODOT_BIN" \
     && ln -s "$GODOT_BIN" /usr/local/bin/godot \
+    && ldd "$GODOT_BIN" \
     && godot --version
 
 WORKDIR /src/nlt-world-engine
