@@ -33,9 +33,14 @@ execution. `AsfdkGovernanceGate` is implemented and wired into `IntentIngress`; 
 mapping applies prompt defense, RRT crisis assessment, and Sleepwalker distress assessment.
 Intent-specific TOI policy mapping remains pending, and assessments must not be treated as TOI
 authorization. This is an implementation-level check, not a message or authority transfer in this
-protocol. ASFDK governance does not replace the engine's physical validation. The current
-gate-unavailable fallback is fail-open with an audit explanation and must be reviewed before
-production use.
+protocol. ASFDK governance does not replace the engine's physical validation. On the live path the gate
+fails closed: `AgentLoopDriver` builds `IntentIngress` with `AsfdkGovernanceGate`, and if the gate
+throws, `IntentIngress.SubmitAsync` denies the intent with code `gate-unavailable` and no physical
+action is applied (`world-engine-godot/Agents/AgentLoopDriver.cs`, `_Ready`;
+`world-engine-godot/Agents/IntentIngress.cs`, step 2 of `SubmitAsync`). A fail-open gate exists only
+as `OpenGovernanceGate` (`world-engine-godot/Agents/GovernanceGate.cs`), which allows with an audit
+explanation; it is used by the harness assertions (`GovernanceGateUnavailableIsAudited` in
+`world-engine-godot/Agents/ActionAssertions.cs`) and is not wired into the live loop.
 
 ## 2. Perception snapshot
 
@@ -126,6 +131,10 @@ time; a target's prior visibility does not guarantee that it is still available.
 - The ASFDK-C# governance check is separate from physical validation. A governance denial must
   prevent execution and be reported as a rejection; this contract does not define the internal
   ASFDK policy or adapter API.
+- Where the engine decided (protocol validation, governance, physical re-check, or acceptance) is
+  not part of this contract's result envelope, and this contract adds no field for it. The engine
+  records it, with the governance decision code, only in the observer trace: see the `result`
+  record's `stage` and `governanceCode` in [`observer-trace-v1.md`](observer-trace-v1.md).
 
 ## 5. Transport and observer
 

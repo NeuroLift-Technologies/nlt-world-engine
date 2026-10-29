@@ -48,9 +48,9 @@ hop or a Fusion authority.
 
 `AsfdkGovernanceGate` adapts the available ASFDK APIs to `IGovernanceGate`: it sanitizes intent
 text, denies Orange-or-higher RRT assessments with interventions, and carries Sleepwalker distress
-as a governance note. Intent denials include an explanation. The current gate-unavailable policy is
-fail-open with an explicit audit explanation; physical validation still applies. This policy should
-be revisited before production use. The async check is performed outside Godot's physics/render
+as a governance note. Intent denials include an explanation. If the gate throws, `IntentIngress`
+denies the intent (`gate-unavailable`) and applies nothing: the live path fails closed. The fail-open
+`OpenGovernanceGate` is used only by the harness assertions, not by the live loop. The async check is performed outside Godot's physics/render
 loop.
 
 This governance stage is an implementation boundary, not a new `nlt.agent-loop.v1` wire message.
