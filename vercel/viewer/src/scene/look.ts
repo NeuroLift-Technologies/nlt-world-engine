@@ -112,7 +112,7 @@ export function buildSkyDome(): { mesh: THREE.Mesh; uniforms: Record<string, THR
 
 /**
  * The finishing chain: scene → ground-truth ambient occlusion → subtle bloom (lit windows,
- * the sun's glint on water) → tone mapping + sRGB → SMAA edge smoothing.
+ * the sun's glint on water) → SMAA edge smoothing → tone mapping + sRGB.
  */
 export class Finisher {
   composer: EffectComposer;
@@ -130,9 +130,9 @@ export class Finisher {
     this.composer.addPass(this.gtao);
     this.bloom = new UnrealBloomPass(size, 0.32, 0.55, 0.88);
     this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
     this.smaa = new SMAAPass();
     this.composer.addPass(this.smaa);
+    this.composer.addPass(new OutputPass());
   }
 
   /** AO is tuned for the open world's scale; rooms get a tighter radius. */
@@ -148,6 +148,11 @@ export class Finisher {
 
   render(dt: number) {
     this.composer.render(dt);
+  }
+
+  dispose() {
+    for (const pass of this.composer.passes) pass.dispose();
+    this.composer.dispose();
   }
 }
 

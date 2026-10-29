@@ -173,6 +173,9 @@ export class WorldView {
     if (q === 'high' && !this.finisher) {
       this.finisher = new Finisher(this.renderer, this.scene, this.camera);
       this.finisher.setInterior(this.current !== 'open_world');
+    } else if (q !== 'high') {
+      this.finisher?.dispose();
+      this.finisher = null;
     }
     this.resize();
   }
