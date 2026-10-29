@@ -1,9 +1,15 @@
-name: ci
+name: Godot Docker image
 
 on:
   push:
     branches:
-      - "main"
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   docker:
@@ -11,21 +17,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Log in to Docker Hub
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PAT }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver: cloud
           endpoint: "jdub1216/neurolift-technologies"
-      - name: Build and push
+
+      - name: Build and publish image
         uses: docker/build-push-action@v6
         with:
-          tags: "${{ vars.DOCKER_USER }}/docker-build-cloud-demo:latest"
-          # For pull requests, export results to the build cache.
-          # Otherwise, push to a registry.
+          context: .
+          file: ./Dockerfile
+          tags: |
+            ${{ vars.DOCKER_USER }}/nlt-world-engine:latest
+            ${{ vars.DOCKER_USER }}/nlt-world-engine:${{ github.sha }}
           outputs: ${{ github.event_name == 'pull_request' && 'type=cacheonly' || 'type=registry' }}
-  
