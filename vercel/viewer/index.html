@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'none';"
+    />
+    <meta name="description" content="Read-only replay viewer for nlt.observer-trace.v1 simulation traces." />
+    <title>NLT World Engine — Replay Viewer</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="shell-header" role="banner">
+        <div class="shell-brand">
+          <span class="brand-mark">NLT</span>
+          <span class="brand-name">World Engine · Replay Viewer</span>
+        </div>
+        <div class="shell-meta" id="shell-meta" aria-live="polite"></div>
+      </header>
+
+      <main class="shell-main" role="main">
+        <section class="plot-panel" aria-label="Top-down scene plot">
+          <div class="plot-toolbar">
+            <label class="plot-filter" for="plot-scene">
+              Scene
+              <select id="plot-scene" aria-label="Select scene to plot"></select>
+            </label>
+            <span class="plot-mode" id="plot-mode" aria-live="polite"></span>
+          </div>
+          <canvas id="plot" role="img" aria-label="Agent positions in the horizontal (x, z) plane" aria-describedby="plot-hint"></canvas>
+          <p id="plot-hint" class="visually-hidden">Horizontal plane (x, z). Height (y) is not movement. Markers use shape + label, never colour alone, for agent identity.</p>
+          <div class="plot-legend" id="plot-legend"></div>
+        </section>
+
+        <section class="side-panel" aria-label="Intent and result log">
+          <div class="side-header">
+            <h2 id="log-heading">Intents &amp; results</h2>
+            <span class="side-count" id="log-count"></span>
+          </div>
+          <div class="log-list" id="log-list" role="log" aria-live="polite"></div>
+          <p class="log-empty" id="log-empty" hidden>No intents or results at this tick.</p>
+        </section>
+      </main>
+
+      <section class="summary-strip" aria-label="Trace summary">
+        <h2 class="visually-hidden">Trace summary</h2>
+        <div class="summary-grid" id="summary-grid"></div>
+      </section>
+
+      <section class="transport" aria-label="Playback controls">
+        <div class="transport-row">
+          <button id="btn-play" class="tp-button" aria-pressed="false" aria-label="Play">▶ Play</button>
+          <button id="btn-pause" class="tp-button" aria-pressed="true" aria-label="Pause" hidden>⏸ Pause</button>
+          <button id="btn-step-back" class="tp-button" aria-label="Step back one tick">⏮ Step back</button>
+          <button id="btn-step-fwd" class="tp-button" aria-label="Step forward one tick">Step forward ⏭</button>
+          <label class="tp-speed">
+            Speed
+            <select id="sel-speed" aria-label="Playback speed">
+              <option value="0.25">0.25×</option>
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="4">4×</option>
+              <option value="8">8×</option>
+            </select>
+          </label>
+        </div>
+        <div class="transport-row">
+          <div class="scrubber-group">
+            <span class="scrubber-label" id="tick-label">Tick <span id="tick-value">0</span></span>
+            <input
+              id="scrubber"
+              type="range"
+              min="0"
+              max="100"
+              value="0"
+              step="1"
+              class="tp-scrubber"
+              aria-label="Scrub to a tick"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            />
+            <span id="tick-range">/ 0</span>
+          </div>
+        </div>
+        <div class="transport-row">
+          <div class="timeline" id="timeline" role="region" aria-label="Event timeline (scene transitions and decision failures)"></div>
+        </div>
+      </section>
+
+      <section class="unrecognized" aria-label="Unrecognized records">
+        <h2 id="unrec-heading">Unrecognized records</h2>
+        <p id="unrec-count" class="unrec-count"></p>
+        <ul id="unrec-list" aria-label="Records whose type the viewer does not know"></ul>
+        <p class="unrec-note">These records are shown, never dropped. The viewer tolerates unknown record types and unknown keys.</p>
+      </section>
+    </div>
+
+    <noscript><strong>This viewer requires JavaScript.</strong></noscript>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
