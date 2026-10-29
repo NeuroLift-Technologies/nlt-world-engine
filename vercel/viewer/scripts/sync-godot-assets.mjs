@@ -7,11 +7,15 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const godot = resolve(here, '../../../world-engine-godot');
+const repo = resolve(here, '../../..');
+const godot = join(repo, 'world-engine-godot');
 const out = resolve(here, '../public/godot');
 
-// [source relative to world-engine-godot, destination relative to public/godot]
+// [source relative to world-engine-godot, destination relative to public/godot]. A source starting
+// with '/' is relative to the repo root instead.
 const FILES = [
+  // A real headless engine run, recorded as nlt.observer-trace.v1 (fixtures/observer-trace/README.md).
+  ['/fixtures/observer-trace/sample.jsonl', 'fixtures/observer-trace-sample.jsonl'],
   ['fixtures/replay/stayalert-day.json', 'fixtures/stayalert-day.json'],
   ['fixtures/replay/open-world-day.json', 'fixtures/open-world-day.json'],
   ['fixtures/replay/collapse-only.json', 'fixtures/collapse-only.json'],
@@ -25,9 +29,10 @@ const FILES = [
   ['assets/levels/Academic_Level.fbx', 'levels/Academic_Level.fbx'],
 ];
 
-const missing = FILES.filter(([src]) => !existsSync(join(godot, src)));
+const from = (src) => (src.startsWith('/') ? join(repo, src) : join(godot, src));
+const missing = FILES.filter(([src]) => !existsSync(from(src)));
 if (missing.length) {
-  console.error('[sync-godot-assets] missing in world-engine-godot/:\n  ' + missing.map(([s]) => s).join('\n  '));
+  console.error('[sync-godot-assets] missing:\n  ' + missing.map(([s]) => (s.startsWith('/') ? s.slice(1) : `world-engine-godot/${s}`)).join('\n  '));
   console.error('If this build runs on Vercel, enable "Include files outside the Root Directory".');
   process.exit(1);
 }
@@ -35,7 +40,7 @@ rmSync(out, { recursive: true, force: true });
 let bytes = 0;
 for (const [src, dst] of FILES) {
   mkdirSync(dirname(join(out, dst)), { recursive: true });
-  cpSync(join(godot, src), join(out, dst));
+  cpSync(from(src), join(out, dst));
   bytes += statSync(join(out, dst)).size;
 }
 console.log(`[sync-godot-assets] ${FILES.length} files, ${(bytes / 1024).toFixed(0)} KB -> public/godot/`);

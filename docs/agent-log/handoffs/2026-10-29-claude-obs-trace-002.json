@@ -1,0 +1,47 @@
+{
+  "handoff_record": {
+    "session_id": "claude-code-session_01UNjnjkhke38vHpY7qURrkt",
+    "agent_name": "Claude (Anthropic) via Claude Code",
+    "date": "2026-10-29",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "ccr-997c14ca-p1mbps",
+    "work_completed": [
+      "vercel/viewer/src/feed/trace.ts: TraceSource, a FeedSource over nlt.observer-trace.v1 using the shared trace parser. One frame per sampled tick; decisions (intent + result, decision_failed, scene_transition) shown as recorded; agents carry no semantic fields.",
+      "src/feed/source.ts: additive SourceInfo.content ('physical-trace') and FeedSource.framesPerSecond().",
+      "src/main.ts: one openSource path for replays and recordings; playback at the source's frame rate; badge 'Recording · engine run · not live'; roster, labels and inspector show no state or needs for recordings; Recording menu entries (sample, open a file), drag-and-drop, ?trace=sample; About dialog names the source.",
+      "scripts/sync-godot-assets.mjs: copies fixtures/observer-trace/sample.jsonl into public/godot/fixtures/.",
+      "trace.html: 'View in 3D' link to ./?trace=sample.",
+      "Docs: viewer README §2/§8, active-threads OBS-TRACE-002."
+    ],
+    "work_in_progress": [],
+    "blockers": [],
+    "decisions_made": [
+      "Recordings are labelled 'Recording · engine run', not 'authored fixture' (they are real engine output) and never 'live'.",
+      "No semantic value is shown or estimated for a recording; the inspector states that Fusion's state is not in the file.",
+      "Positions are used as recorded: the 3D view's island and interiors share the engine's frames (verified in workplace_2)."
+    ],
+    "decisions_pending": [
+      "Joshua: live transport (docs/escalations/2026-10-29-observer-live-transport.md)."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Record with tools/headless-loop.sh --trace, then drop observer-trace.jsonl on the 3D view (or open ?trace=sample). Not built: the trace's scene_entities anchors as 3D markers.",
+    "files_modified": [
+      "vercel/viewer/src/feed/trace.ts",
+      "vercel/viewer/src/feed/source.ts",
+      "vercel/viewer/src/main.ts",
+      "vercel/viewer/src/style.css",
+      "vercel/viewer/src/trace.css",
+      "vercel/viewer/trace.html",
+      "vercel/viewer/scripts/sync-godot-assets.mjs",
+      "vercel/viewer/README.md",
+      "docs/active-threads.md"
+    ],
+    "tests_run": [
+      "npm run build (tsc --noEmit + both pages)",
+      "Playwright + SwiftShader: headless trace in the 3D view (badge, roster, inspector, ~10 frames/s, open world -> workplace_2 interior, events), authored replay regression (1 frame/s, needs shown), ?trace=sample, menu switching and URLs, fail-closed trace, non-trace file refused, trace.html marker test"
+    ],
+    "tests_passing": true,
+    "pr_url": ""
+  }
+}

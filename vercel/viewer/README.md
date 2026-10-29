@@ -15,7 +15,8 @@ npm run build      # syncs assets, tsc --noEmit, vite build -> dist/
 npm run preview    # serve dist/ on :4173
 ```
 
-URL parameters (handy for demos and captures): `?replay=stayalert-day|open-world-day|rescue-only|collapse-only`,
+URL parameters (handy for demos and captures): `?replay=stayalert-day|open-world-day|rescue-only|collapse-only`
+or `?trace=sample` (a recorded headless engine run),
 `&scene=open_world|workplace_7|…`, `&frame=N`, `&play=0`, `&about=1`.
 The `nlt.observer-trace.v1` replay viewer is at `trace.html`: it opens traces the Godot engine
 records (see §8).
@@ -53,9 +54,11 @@ records (see §8).
 | Interiors (Home, Workplace, Social, School) | **Static scene data** | The project-owned FBX levels Godot loads, converted the way Godot's ufbx importer does (Z-up cm → Y-up m), dressed by a port of `InteriorStyle` — so building *N* opens in scheme *N* (`workplace_7`, …). |
 | Agents, named states, needs, goals, events, fusion readiness | **Feed data** — currently *authored fixture* | `nlt.state-feed.v1` frames from `world-engine-godot/fixtures/replay`. Validated per contract §9; rejected frames are listed under "Feed diagnostics", never drawn. |
 | Resident figure + walk cycle | Static asset | `nlt_resident_walk.glb` (self-authored probe, ASSET-MANIFEST row). Walks only while the feed's velocity says the agent moves (contract §4.4); stands on frame 0 otherwise. |
+| Agents from a recorded engine run | **Recording** — physical only | An `nlt.observer-trace.v1` file from a real Godot run (`src/feed/trace.ts`, §8): positions, velocities, scenes and the agent loop's decisions. No needs, state or readiness: those are Fusion's and aren't in the file, so the panels say so instead of showing bars. |
 | Live simulation | **Unavailable** | `LiveRelaySource` reports itself unavailable and says why (§5). |
 
-The top bar always says *Replay · authored fixture · not live*; the HUD says *Static scene* when the
+The top bar always says *Replay · authored fixture · not live*, or *Recording · engine run · not live*
+for a recorded engine run; the HUD says *Static scene* when the
 observer looks at a scene with no feed agents in it. Nothing is labelled live that isn't.
 
 ## 3. Design and architecture decisions
@@ -159,3 +162,10 @@ is a frame and ticks are sampled at `cadenceHz`, so playback moves one recorded 
 1/`cadenceHz` at 1×. Agent identity is shape plus label, and stage is shape plus text, never colour
 alone. Live streaming is not built; the options are in
 [`docs/escalations/2026-10-29-observer-live-transport.md`](../../docs/escalations/2026-10-29-observer-live-transport.md).
+
+**In 3D.** The same recording opens in the main 3D view (`index.html`): choose *Open a recording
+file…* in the Recording menu, drop the `.jsonl` on the view, or open `?trace=sample` for the bundled
+run. The engine's avatar walks the rebuilt island and goes into the interior on a scene change; the
+events panel lists its decisions as the engine logged them. Playback runs at the trace's `cadenceHz`.
+Because a recording has no Fusion state, the roster, labels and inspector show no state or needs for
+it. `trace.html` has a *View in 3D* link to the sample.

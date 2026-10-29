@@ -690,6 +690,21 @@ Also uncommitted and unrelated to the observer: the `MIGRATE-PLAN.md` / `RENDERE
 - **Contracts:** `docs/contracts/observer-trace-v1.md` (viewer input), `state-feed-v1.md`,
   `agent-loop-v1.md`.
 
+### 🧭 OBS-TRACE-002 — Recorded engine runs in the 3D view — 2026-10-29
+- **Status:** done on branch `ccr-997c14ca-p1mbps`, draft PR. **Owner:** CLAUDE. Viewer only.
+- **Why:** Joshua asked whether the avatar shows in the viewer when the engine runs headless; it only
+  did on the 2D `trace.html`. Now `vercel/viewer/index.html` (the 3D island, #127) opens the same
+  `nlt.observer-trace.v1` file: menu entry, drag-and-drop, or `?trace=sample`.
+- **How:** `src/feed/trace.ts` (`TraceSource`) turns a trace into frames through the existing
+  `FeedSource` boundary and the shared `src/trace/parser.ts`. `SourceInfo.content: 'physical-trace'`
+  makes the UI show no needs, state or readiness: they're Fusion's and aren't recorded. Playback
+  runs at the trace's `cadenceHz` (`FeedSource.framesPerSecond`).
+- **Checked:** a headless run (engine `d085bc0`) in the built 3D view, Playwright + SwiftShader. The
+  avatar starts at the plaza, walks the island, and stands among the desks inside `workplace_2`
+  after the transition: the coordinate frames match with no offset. The authored replays are unchanged
+  (1 frame/s, full inspector); the fail-closed run shows its 404s; a non-trace file is refused with a
+  reason; `trace.html` marker test still passes.
+
 ### 🔭 OBS-TRACE-001 — Godot → viewer connection, file-based (Phase 1) — 2026-10-29
 - **Status:** done on branch `ccr-997c14ca-p1mbps`, draft PR. **Owner:** CLAUDE.
 - **Decision (Joshua 2026-10-29):** file first, live later. Live transport is escalated, not built:
