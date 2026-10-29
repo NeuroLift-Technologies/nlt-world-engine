@@ -2,105 +2,111 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'none';"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: data:; img-src 'self' blob: data:; frame-ancestors 'none'; form-action 'none';"
     />
-    <meta name="description" content="Read-only replay viewer for nlt.observer-trace.v1 simulation traces." />
-    <title>NLT World Engine — Replay Viewer</title>
+    <meta name="description" content="Spectator viewer for the NLT World Engine — an embodied multi-agent simulation of AI Avatars, Aides and Advocates." />
+    <meta name="theme-color" content="#0e1116" />
+    <title>NLT World Engine — Observer</title>
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <div id="app">
-      <header class="shell-header" role="banner">
-        <div class="shell-brand">
-          <span class="brand-mark">NLT</span>
-          <span class="brand-name">World Engine · Replay Viewer</span>
+    <div id="app" class="app" data-scene="open_world">
+      <canvas id="world" class="world" aria-label="3D view of the NLT World Engine. Drag to orbit, scroll or pinch to zoom, W A S D or arrow keys to pan." tabindex="0"></canvas>
+      <div id="labels" class="labels" aria-hidden="true"></div>
+
+      <header class="topbar" role="banner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">N</span>
+          <span class="brand-name">NLT World Engine <span class="brand-sub">Observer</span></span>
         </div>
-        <div class="shell-meta" id="shell-meta" aria-live="polite"></div>
-      </header>
-
-      <main class="shell-main" role="main">
-        <section class="plot-panel" aria-label="Top-down scene plot">
-          <div class="plot-toolbar">
-            <label class="plot-filter" for="plot-scene">
-              Scene
-              <select id="plot-scene" aria-label="Select scene to plot"></select>
-            </label>
-            <span class="plot-mode" id="plot-mode" aria-live="polite"></span>
-          </div>
-          <canvas id="plot" role="img" aria-label="Agent positions in the horizontal (x, z) plane" aria-describedby="plot-hint"></canvas>
-          <p id="plot-hint" class="visually-hidden">Horizontal plane (x, z). Height (y) is not movement. Markers use shape + label, never colour alone, for agent identity.</p>
-          <div class="plot-legend" id="plot-legend"></div>
-        </section>
-
-        <section class="side-panel" aria-label="Intent and result log">
-          <div class="side-header">
-            <h2 id="log-heading">Intents &amp; results</h2>
-            <span class="side-count" id="log-count"></span>
-          </div>
-          <div class="log-list" id="log-list" role="log" aria-live="polite"></div>
-          <p class="log-empty" id="log-empty" hidden>No intents or results at this tick.</p>
-        </section>
-      </main>
-
-      <section class="summary-strip" aria-label="Trace summary">
-        <h2 class="visually-hidden">Trace summary</h2>
-        <div class="summary-grid" id="summary-grid"></div>
-      </section>
-
-      <section class="transport" aria-label="Playback controls">
-        <div class="transport-row">
-          <button id="btn-play" class="tp-button" aria-pressed="false" aria-label="Play">▶ Play</button>
-          <button id="btn-pause" class="tp-button" aria-pressed="true" aria-label="Pause" hidden>⏸ Pause</button>
-          <button id="btn-step-back" class="tp-button" aria-label="Step back one tick">⏮ Step back</button>
-          <button id="btn-step-fwd" class="tp-button" aria-label="Step forward one tick">Step forward ⏭</button>
-          <label class="tp-speed">
-            Speed
-            <select id="sel-speed" aria-label="Playback speed">
-              <option value="0.25">0.25×</option>
-              <option value="0.5">0.5×</option>
-              <option value="1" selected>1×</option>
-              <option value="2">2×</option>
-              <option value="4">4×</option>
-              <option value="8">8×</option>
+        <button id="source-badge" class="source-badge" data-kind="replay" aria-haspopup="dialog" aria-controls="about">
+          <span class="dot" aria-hidden="true"></span><span id="source-badge-text">Replay · authored fixture · not live</span>
+        </button>
+        <div class="topbar-controls">
+          <label class="select">
+            <span class="select-label">Recording</span>
+            <select id="replay-select" aria-label="Choose a recording"></select>
+          </label>
+          <label class="select">
+            <span class="select-label">Scene</span>
+            <select id="scene-select" aria-label="Choose a scene to view">
+              <option value="follow">Follow the feed</option>
+              <option value="open_world">Open world</option>
+              <option value="personal_1">Home (interior)</option>
+              <option value="workplace_1">Workplace (interior)</option>
+              <option value="social_1">Social (interior)</option>
+              <option value="academic_1">School (interior)</option>
             </select>
           </label>
+          <button id="live-btn" class="chip" data-status="unavailable" aria-haspopup="dialog" aria-controls="about">
+            <span class="dot" aria-hidden="true"></span>Live relay: unavailable
+          </button>
+          <button id="about-btn" class="icon-btn" aria-haspopup="dialog" aria-controls="about" title="What am I looking at?">?</button>
         </div>
+      </header>
+
+      <div class="hud" aria-live="polite">
+        <span id="hud-scene" class="hud-chip"></span>
+        <span id="hud-tick" class="hud-chip"></span>
+        <span id="hud-note" class="hud-chip hud-note" hidden></span>
+      </div>
+
+      <aside id="roster-panel" class="panel roster" aria-label="Agents">
+        <button class="panel-head panel-toggle" id="roster-toggle" aria-expanded="true" aria-controls="inspector">
+          <h2>Agents</h2>
+          <span id="roster-count" class="muted"></span><span class="chev" aria-hidden="true">▾</span>
+        </button>
+        <ul id="roster" class="roster-list"></ul>
+        <section id="inspector" class="inspector" aria-live="polite" hidden></section>
+      </aside>
+
+      <aside id="events-panel" class="panel events" aria-label="Simulation events">
+        <button class="panel-head panel-toggle" id="events-toggle" aria-expanded="true" aria-controls="events-list">
+          <h2>Events</h2><span id="events-count" class="muted"></span><span class="chev" aria-hidden="true">▾</span>
+        </button>
+        <ol id="events-list" class="events-list" role="log"></ol>
+      </aside>
+
+      <canvas id="minimap" class="minimap" width="168" height="168" aria-label="Island map. Select to move the camera there."></canvas>
+
+      <section class="transport" aria-label="Replay controls">
         <div class="transport-row">
-          <div class="scrubber-group">
-            <span class="scrubber-label" id="tick-label">Tick <span id="tick-value">0</span></span>
-            <input
-              id="scrubber"
-              type="range"
-              min="0"
-              max="100"
-              value="0"
-              step="1"
-              class="tp-scrubber"
-              aria-label="Scrub to a tick"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow="0"
-            />
-            <span id="tick-range">/ 0</span>
+          <button id="btn-play" class="tp" aria-label="Play">▶</button>
+          <button id="btn-back" class="tp" aria-label="Previous frame">⏮</button>
+          <button id="btn-fwd" class="tp" aria-label="Next frame">⏭</button>
+          <div class="scrub">
+            <div id="timeline" class="timeline" aria-hidden="true"></div>
+            <input id="scrubber" type="range" min="0" max="0" step="0.001" value="0" aria-label="Replay position" />
           </div>
-        </div>
-        <div class="transport-row">
-          <div class="timeline" id="timeline" role="region" aria-label="Event timeline (scene transitions and decision failures)"></div>
+          <span id="frame-label" class="frame-label">—</span>
+          <label class="speed"><span class="visually-hidden">Speed</span>
+            <select id="speed" aria-label="Playback speed">
+              <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option>
+            </select>
+          </label>
+          <button id="btn-follow" class="tp tp-text" aria-pressed="false" title="Keep the camera on the selected agent">Follow</button>
+          <button id="btn-reset" class="tp tp-text" title="Reset the camera">Reset view</button>
+          <label class="tp-check"><input id="reduced-motion" type="checkbox" /> Reduced motion</label>
         </div>
       </section>
 
-      <section class="unrecognized" aria-label="Unrecognized records">
-        <h2 id="unrec-heading">Unrecognized records</h2>
-        <p id="unrec-count" class="unrec-count"></p>
-        <ul id="unrec-list" aria-label="Records whose type the viewer does not know"></ul>
-        <p class="unrec-note">These records are shown, never dropped. The viewer tolerates unknown record types and unknown keys.</p>
-      </section>
+      <div id="status" class="status" role="status" aria-live="assertive">
+        <div class="status-card">
+          <div class="spinner" aria-hidden="true"></div>
+          <p id="status-text">Building the island from the World Engine's seed…</p>
+        </div>
+      </div>
+
+      <dialog id="about" class="about" aria-labelledby="about-title">
+        <h2 id="about-title">What you are looking at</h2>
+        <div id="about-body"></div>
+        <div class="about-actions"><button id="about-close" class="chip">Close</button></div>
+      </dialog>
     </div>
-
-    <noscript><strong>This viewer requires JavaScript.</strong></noscript>
+    <noscript><strong>This viewer needs JavaScript and WebGL.</strong></noscript>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
