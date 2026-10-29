@@ -41,9 +41,19 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 
 	private readonly System.Collections.Generic.Dictionary<string, AvatarCharacter> _avatars = new();
 	private AgentLoopDriver? _agentLoopDriver;
+	/// <summary>Observer trace (nlt.observer-trace.v1); null unless NLT_OBSERVER_TRACE is set.</summary>
+	private ObserverTraceRecorder? _trace;
 	private System.Collections.Generic.List<TaskAnchor> _worldAnchors = new();
 	private SceneAnchorSets _sceneAnchors = null!;
 
+
+	public override void _ExitTree()
+	{
+		// Write whatever the trace still has queued; a killed run keeps what was already flushed.
+		_trace?.Dispose();
+		_trace = null;
+		base._ExitTree();
+	}
 
 	public override void _Ready()
 	{
@@ -65,7 +75,15 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 		OnDocumentChanged(_feed.Current);
 
 		// Inert unless --capture is passed; see ObserverCapture.
-		ObserverCapture.TryCreate(this);
+		var capture = ObserverCapture.TryCreate(this);
+		if (capture != null)
+		{
+			capture.TickSource = () => _agentLoopDriver?.Tick ?? 0;
+			if (capture.RequestedFollow)
+				ToggleFollow();
+		}
+		// Inert unless --trace-truth / --trace-occupy is passed; test tools for the observer trace.
+		TraceTestTools.TryCreate(this, () => _agentLoopDriver);
 		_observer.LevelChanged += ApplyRequestedLevel;
 		_observer.FocusRequested += ToggleFollow;
 		_observer.FollowTargetChanged += SelectFollowTarget;
@@ -347,6 +365,7 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 
 			var landing = new Vector3(arrival.X, FloorBelow(avatar, arrival, indoor) + 0.05f, arrival.Z);
 			avatar.TransitionTo(landing, target, facing);
+			_trace?.SceneTransition(avatar, from, target);
 			SyncAvatarVisibility();
 			avatar.InteriorRecoveryPoint = indoor ? landing : null;
 			// Inside, the wander fallback roams the room rather than heading for the exit.
@@ -583,6 +602,13 @@ public partial class Main : NltWorldEngine.WorldView, IPortalTransit
 			GD.PushWarning("NLT_AGENT_LOOP_AGENT_ID is not set: perceptions carry the internal id " +
 				$"{LocalAvatarTargetId}, which Fusion does not serve, so no intent will be applied. " +
 				"Set it to a registered roster id, e.g. stay_alert_001.");
+		// Opt-in observer trace: inert unless NLT_OBSERVER_TRACE names a file. Physical fields only.
+		_trace = ObserverTraceRecorder.TryCreateFromEnvironment(new[]
+		{
+			new TraceAgent(PerceptionBuilder.WireAgentId(LocalAvatarTargetId, _agentLoopDriver.PerceptionAgentId),
+				LocalAvatarTargetId, "Local Model", "fusion-agent-loop"),
+		});
+		_agentLoopDriver.Trace = _trace;
 		AddChild(_agentLoopDriver);
 		GD.Print($"Fusion agent loop enabled for {LocalAvatarTargetId} as " +
 			$"'{PerceptionBuilder.WireAgentId(LocalAvatarTargetId, _agentLoopDriver.PerceptionAgentId)}'; " +

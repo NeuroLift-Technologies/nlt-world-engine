@@ -63,17 +63,28 @@ public partial class AgentLoopDriver : Node
     /// </summary>
     public IPortalTransit? Transit { get; set; }
 
+    /// <summary>
+    /// Optional observer trace (<c>nlt.observer-trace.v1</c>), set before the driver enters the tree.
+    /// Null records nothing; with or without it the loop behaves the same.
+    /// </summary>
+    public ObserverTraceRecorder? Trace { get; set; }
+
+    /// <summary>The driver's frame counter: the <c>tick</c> of every perception it builds.</summary>
+    public int Tick => _tick;
+
     public override void _Ready()
     {
         _link = new FusionHttpLink { Name = "FusionHttpLink" };
         _link.FusionEndpoint = _fusionEndpoint;
+        _link.Trace = Trace;
         AddChild(_link);
         _ingress = new IntentIngress(
             new AsfdkGovernanceGate(),
             ResolveTarget,
             sceneId => AnchorsFor(sceneId),
             RunOnMainThreadAsync,
-            Transit);
+            Transit,
+            Trace);
     }
 
     private static Task<IntentExecutionResult> RunOnMainThreadAsync(
@@ -101,6 +112,7 @@ public partial class AgentLoopDriver : Node
             return;
         _tick++;
         var avatars = GetAvatars();
+        Trace?.OnFrame(_tick, delta, avatars);
         foreach (var avatar in avatars)
         {
             if (!string.Equals(avatar.AgentId, TargetAgentId, StringComparison.Ordinal))

@@ -35,6 +35,7 @@ public sealed class IntentIngress
     private readonly Func<string, IReadOnlyList<TaskAnchor>> _anchorsFor;
     private readonly Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>> _runOnMainThread;
     private readonly IPortalTransit? _transit;
+    private readonly IAgentLoopTrace? _trace;
 
     /// <param name="gate">ASFDK-backed governance. Never null — pass
     /// <see cref="OpenGovernanceGate.Instance"/> only where the gate is unavailable.</param>
@@ -43,14 +44,18 @@ public sealed class IntentIngress
     /// <param name="runOnMainThread">Run scene-tree reads and avatar mutations on Godot's main thread.</param>
     /// <param name="transit">The engine's scene transition. Without one, <c>use</c> on a doorway is
     /// rejected (fail closed) rather than walked to with nothing happening on arrival.</param>
+    /// <param name="trace">Optional observer trace: told where each intent was decided. It never
+    /// changes the decision.</param>
     public IntentIngress(
         IGovernanceGate gate,
         Func<string, Vector3?>? resolveTarget = null,
         Func<string, IReadOnlyList<TaskAnchor>>? anchorsFor = null,
         Func<Func<IntentExecutionResult>, Task<IntentExecutionResult>>? runOnMainThread = null,
-        IPortalTransit? transit = null)
+        IPortalTransit? transit = null,
+        IAgentLoopTrace? trace = null)
     {
         _transit = transit;
+        _trace = trace;
         _gate = gate;
         _resolveTarget = resolveTarget ?? (_ => null);
         _anchorsFor = anchorsFor ?? (_ => Array.Empty<TaskAnchor>());
@@ -84,7 +89,7 @@ public sealed class IntentIngress
         // 1. Protocol validation: correlation, verb allowlist, target-in-perception.
         var problem = AgentLoopProtocol.ValidateIntent(perception, intent);
         if (problem != null)
-            return reject($"protocol: {problem}");
+            return Traced(reject($"protocol: {problem}"), "protocol", null);
 
         // 2. Governance (ASFDK): explains denials with interventions, never bare-rejects.
         GovernanceDecision decision;
@@ -104,17 +109,41 @@ public sealed class IntentIngress
         }
 
         return await _runOnMainThread(() =>
-            ApplyDecisionOnMainThread(avatar, perception, intent, currentTick, decision, reject));
+        {
+            var (result, stage) = ApplyDecisionOnMainThread(avatar, perception, intent, currentTick, decision,
+                reason => reject(reason));
+            return Traced(result, stage, decision.Code);
+        });
     }
 
-    private IntentExecutionResult ApplyDecisionOnMainThread(
+    /// <summary>Tell the trace, if any, where <paramref name="result"/> was decided; return it unchanged.</summary>
+    private IntentExecutionResult Traced(IntentExecutionResult result, string stage, string? governanceCode)
+    {
+        if (_trace != null)
+        {
+            try
+            {
+                _trace.IntentResult(result, stage, governanceCode);
+            }
+            catch (Exception)
+            {
+                // The trace is an observer: its faults never change the decision.
+            }
+        }
+        return result;
+    }
+
+    /// <summary>The decision and its trace stage: governance, physical (engine state refused it),
+    /// or accepted.</summary>
+    private (IntentExecutionResult Result, string Stage) ApplyDecisionOnMainThread(
         AvatarCharacter avatar,
         AgentPerceptionSnapshot perception,
         SemanticIntent intent,
         int currentTick,
         GovernanceDecision decision,
-        Func<string, IntentExecutionResult> reject)
+        Func<string, IntentExecutionResult> rejectBy)
     {
+        var reject = (string reason) => (rejectBy(reason), "physical");
         if (!GodotObject.IsInstanceValid(avatar))
             return reject("avatar is no longer in the scene");
         if (avatar.InTransition)
@@ -128,7 +157,7 @@ public sealed class IntentIngress
                 : $"governance denied ({decision.Code}): {decision.Explanation}";
             if (decision.RecommendedInterventions.Count > 0)
                 reason += " Try instead: " + string.Join("; ", decision.RecommendedInterventions);
-            return reject(reason);
+            return (rejectBy(reason), "governance");
         }
 
         // 3. Execution re-check against live world: visibility at decision time does not
@@ -197,7 +226,7 @@ public sealed class IntentIngress
                 Status = accepted.Status,
                 Reason = $"governance note: {decision.Explanation}",
             };
-        return accepted;
+        return (accepted, "accepted");
     }
 
     /// <summary>The doorway link of <paramref name="targetId"/> in the avatar's scene, or null.</summary>

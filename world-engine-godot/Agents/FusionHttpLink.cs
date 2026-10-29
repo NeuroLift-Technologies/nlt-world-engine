@@ -51,6 +51,10 @@ public partial class FusionHttpLink : Node
 	/// </summary>
 	[Export] public float RequestTimeoutSeconds { get; set; } = 30f;
 
+	/// <summary>Optional observer trace (nlt.observer-trace.v1). Null records nothing; set or not,
+	/// the link's behaviour is the same.</summary>
+	public IAgentLoopTrace? Trace { get; set; }
+
 	/// <summary>Seconds to keep quiet after a transport failure, so one outage does not become a
 	/// warning on every cadence tick.</summary>
 	private const float TransportBackoffSeconds = 5f;
@@ -79,6 +83,8 @@ public partial class FusionHttpLink : Node
 				&& Time.GetTicksMsec() / 1000.0 < until)
 				return;
 
+			// Recorded before the request starts: a refused connection can fail it synchronously.
+			Traced(t => t.PerceptionSent(perception));
 			_inFlight[avatar.AgentId] = FetchAndApplyAsync(avatar, perception, ingress, currentTick);
 		}
 	}
@@ -101,6 +107,8 @@ public partial class FusionHttpLink : Node
 			using 			var response = await _http.PostAsync(FusionEndpoint, content, cts.Token);
 			if (!response.IsSuccessStatusCode)
 			{
+				var httpStatus = (int)response.StatusCode;
+				Traced(t => t.DecisionFailed(perception.AgentId, perception.Tick, httpStatus, "http_status", null));
 				// 429 is the server's one-in-flight-per-agent guard, i.e. our own previous request
 				// still decoding. That is a pacing signal, not a fault: log it and let the in-flight
 				// guard throttle us. Treating it as a warning produced an error every cadence tick.
@@ -128,15 +136,19 @@ public partial class FusionHttpLink : Node
 			if (!AgentLoopProtocol.TryParseIntent(json, perception, out var intent, out var parseError)
 				|| intent == null)
 			{
+				Traced(t => t.DecisionFailed(perception.AgentId, perception.Tick, null, "invalid_intent", parseError));
 				ReportWarning($"Fusion intent rejected for {perception.AgentId}: {parseError}");
 				return;
 			}
 			if (intent.ObservedTick != perception.Tick)
 			{
+				Traced(t => t.DecisionFailed(perception.AgentId, perception.Tick, null, "invalid_intent",
+					$"stale observedTick {intent.ObservedTick}"));
 				ReportWarning($"Fusion intent for {perception.AgentId} used stale tick {intent.ObservedTick}; " +
 					$"expected {perception.Tick}. No intent applied.");
 				return;
 			}
+			Traced(t => t.IntentReceived(intent));
 			var result = await ingress.SubmitAsync(avatar, perception, intent, currentTick);
 			var status = result.Status == "accepted" ? "accepted" : "rejected";
 			var detail = string.IsNullOrWhiteSpace(result.Reason) ? "" : $": {result.Reason}";
@@ -148,6 +160,12 @@ public partial class FusionHttpLink : Node
 			// A timeout or a refused connection both mean "Fusion is not answering yet". Back off
 			// and report once; the backoff above keeps the rest of the cadence quiet.
 			_transportFailed = true;
+			var error = e is TaskCanceledException or OperationCanceledException ? "timeout"
+				: e is JsonException ? "invalid_response" : "transport";
+			var detail = e is System.Net.Http.HttpRequestException http && http.HttpRequestError != default
+				? $"{e.GetType().Name}: {http.HttpRequestError}"
+				: e.GetType().Name;
+			Traced(t => t.DecisionFailed(perception.AgentId, perception.Tick, null, error, detail));
 			lock (_lock)
 			{
 				_backoffUntil[key] =
@@ -159,6 +177,7 @@ public partial class FusionHttpLink : Node
 		catch (Exception e)
 		{
 			var message = $"[FusionHttpLink] decision processing failed for {perception.AgentId}: {e.GetType().Name}";
+			Traced(t => t.DecisionFailed(perception.AgentId, perception.Tick, null, "engine_error", e.GetType().Name));
 			Callable.From(() => GD.PushError(message)).CallDeferred();
 		}
 		finally
@@ -179,6 +198,21 @@ public partial class FusionHttpLink : Node
 	{
 		_http.Dispose();
 		base._ExitTree();
+	}
+
+	/// <summary>Report to the trace, if any. A trace fault never reaches the loop.</summary>
+	private void Traced(Action<IAgentLoopTrace> report)
+	{
+		if (Trace is not { } trace)
+			return;
+		try
+		{
+			report(trace);
+		}
+		catch (Exception)
+		{
+			// The trace is an observer: whatever it does wrong, the decision path carries on unchanged.
+		}
 	}
 
 	private static void ReportWarning(string message) =>

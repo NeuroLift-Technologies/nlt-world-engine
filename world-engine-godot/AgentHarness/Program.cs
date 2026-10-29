@@ -19,7 +19,19 @@ internal static class Program
 	private static int Main()
 	{
 		var ok = ActionAssertions.RunAll();
+		ok &= ObserverTraceAssertions.RunAll(ProjectDir());
 		Console.WriteLine(ok ? "RESULT: all assertions passed" : "RESULT: FAILURES present");
 		return ok ? 0 : 1;
+	}
+
+	/// <summary>world-engine-godot/: the nearest folder holding project.godot, from the working
+	/// directory up, then from this assembly's folder up.</summary>
+	private static string ProjectDir()
+	{
+		foreach (var start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+			for (var dir = new System.IO.DirectoryInfo(start); dir != null; dir = dir.Parent)
+				if (System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "project.godot")))
+					return dir.FullName;
+		return Environment.CurrentDirectory;
 	}
 }

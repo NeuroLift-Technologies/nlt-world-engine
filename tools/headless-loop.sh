@@ -3,11 +3,19 @@
 # short summary of what the loop did. Linux (or WSL). See docs/headless-loop.md.
 #
 # Usage: tools/headless-loop.sh [--seconds N] [--iterations N] [--agent-id ID] [--frames]
+#                               [--trace] [--trace-scenario] [--capture-every N]
 #                               [--skip-build] [--out DIR]
 #
 #   --seconds N     stop Godot after N seconds (default 120); with --iterations, the upper bound
 #   --iterations N  let Godot quit by itself after N main-loop iterations (--quit-after): the only
 #                   clean engine exit, since Godot ignores SIGINT and SIGTERM
+#   --trace         write an nlt.observer-trace.v1 trace (trace.jsonl) and scene-tree samples
+#                   (truth.jsonl), then check one against the other (tools/check_observer_trace.py)
+#   --trace-scenario  --trace, with Godot talking to tools/observer_trace_standin.py (port + 1),
+#                   which scripts an accepted, an occupied, an invalid, a 429 and a 503 answer and
+#                   then forwards to Fusion; the check requires every record type
+#   --capture-every N  render under Xvfb (software, real time) and write a PNG every N ticks,
+#                   named by tick, with the camera following the avatar
 #
 # Environment:
 #   GODOT              Godot 4.7.2 .NET (mono) editor binary                       (required)
@@ -28,6 +36,9 @@ AGENT_ID="stay_alert_001"
 FRAMES=0
 SKIP_BUILD=0
 OUT=""
+TRACE=0
+SCENARIO=0
+CAPTURE_EVERY=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +46,9 @@ while [[ $# -gt 0 ]]; do
     --iterations) ITERATIONS="$2"; shift 2 ;;
     --agent-id) AGENT_ID="$2"; shift 2 ;;
     --frames) FRAMES=1; shift ;;
+    --trace) TRACE=1; shift ;;
+    --trace-scenario) TRACE=1; SCENARIO=1; shift ;;
+    --capture-every) CAPTURE_EVERY="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --out) OUT="$2"; shift 2 ;;
     -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 0 ;;  # the header comment above
@@ -54,12 +68,18 @@ fail() { echo "headless-loop: $*" >&2; exit 1; }
 [[ -z "$ITERATIONS" || "$ITERATIONS" =~ ^[1-9][0-9]*$ ]] \
   || fail "--iterations needs a positive whole number, got '$ITERATIONS'"
 
+[[ -z "$CAPTURE_EVERY" || "$CAPTURE_EVERY" =~ ^[1-9][0-9]*$ ]] \
+  || fail "--capture-every needs a positive whole number, got '$CAPTURE_EVERY'"
+(( FRAMES )) && [[ -n "$CAPTURE_EVERY" ]] && fail "--frames and --capture-every both render; pick one"
+
 [[ -n "${GODOT:-}" && -x "$GODOT" ]] || fail "set GODOT to the Godot 4.7.2 .NET binary"
 [[ -n "${FUSION_REPO:-}" && -f "$FUSION_REPO/src/fusion/agent_loop_http.py" ]] \
   || fail "set FUSION_REPO to an nlt-ai-fusion checkout"
 [[ -f "$REPO_ROOT/../asfdk-csharp/src/Asfdk/Asfdk.csproj" ]] \
   || fail "world-engine-godot.csproj needs asfdk-csharp beside this repo: $REPO_ROOT/../asfdk-csharp"
-if (( FRAMES )); then command -v xvfb-run >/dev/null || fail "--frames needs xvfb-run (and Mesa)"; fi
+if (( FRAMES )) || [[ -n "$CAPTURE_EVERY" ]]; then
+  command -v xvfb-run >/dev/null || fail "--frames and --capture-every need xvfb-run (and Mesa)"
+fi
 
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"  # Godot resolves --write-movie against the project, not this shell
@@ -96,6 +116,7 @@ stop_group() {
 }
 cleanup() {
   stop_group "$OUT/godot.pid" HUP
+  stop_group "$OUT/standin.pid" INT
   stop_group "$OUT/fusion.pid" INT
 }
 trap cleanup EXIT
@@ -145,7 +166,32 @@ for _ in $(seq 60); do
 done
 (( ready )) || fail "Fusion did not come up on port $PORT; see $OUT/fusion.log"
 
+ENDPOINT_PORT="$PORT"
+if (( SCENARIO )); then
+  ENDPOINT_PORT=$((PORT + 1))
+  echo "headless-loop: starting the scripted stand-in on port $ENDPOINT_PORT (forwards to $PORT)"
+  setsid python3 "$REPO_ROOT/tools/observer_trace_standin.py" --port "$ENDPOINT_PORT" \
+    --forward "http://127.0.0.1:$PORT/agent-loop/perception" --occupied plaza --log "$OUT/standin.jsonl" \
+    > "$OUT/standin.log" 2>&1 &
+  echo $! > "$OUT/standin.pid"
+  disown
+  for _ in $(seq 20); do
+    grep -q "stand-in on" "$OUT/standin.log" && break
+    group_alive "$OUT/standin.pid" || fail "stand-in exited; see $OUT/standin.log"
+    sleep 0.5
+  done
+fi
+
 GODOT_ARGS=(--path "$PROJECT")
+USER_ARGS=()
+TRACE_ENV=()
+if (( TRACE )); then
+  commit="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+  [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]] && commit="$commit-dirty"
+  TRACE_ENV=(NLT_OBSERVER_TRACE="$OUT/trace.jsonl" NLT_ENGINE_COMMIT="$commit")
+  USER_ARGS+=(--trace-truth "$OUT/truth.jsonl")
+  (( SCENARIO )) && USER_ARGS+=(--trace-occupy plaza)
+fi
 [[ -n "$ITERATIONS" ]] && GODOT_ARGS+=(--quit-after "$ITERATIONS")
 LAUNCH=(setsid)
 if (( FRAMES )); then
@@ -154,6 +200,12 @@ if (( FRAMES )); then
   LAUNCH+=(xvfb-run -a -s "-screen 0 1280x720x24")
   GODOT_ARGS+=(--rendering-method gl_compatibility --rendering-driver opengl3
     --write-movie "$OUT/frames-software-rendered/frame.png" --fixed-fps 2)
+elif [[ -n "$CAPTURE_EVERY" ]]; then
+  # Also software-rendered, but in real time (no --write-movie), so the loop keeps its cadence.
+  mkdir -p "$OUT/captures-software-rendered"
+  LAUNCH+=(xvfb-run -a -s "-screen 0 1280x720x24")
+  GODOT_ARGS+=(--rendering-method gl_compatibility --rendering-driver opengl3)
+  USER_ARGS+=(--capture "$OUT/captures-software-rendered/observer.png" --capture-every "$CAPTURE_EVERY" --follow)
 else
   GODOT_ARGS=(--headless "${GODOT_ARGS[@]}")
 fi
@@ -161,8 +213,9 @@ fi
 echo "headless-loop: running Godot as agent '$AGENT_ID' for ${ITERATIONS:+$ITERATIONS iterations, at most }${SECONDS_TO_RUN}s"
 NLT_AGENT_LOOP_ENABLED=1 \
 NLT_AGENT_LOOP_AGENT_ID="$AGENT_ID" \
-NLT_AGENT_LOOP_ENDPOINT="http://127.0.0.1:$PORT/agent-loop/perception" \
-  "${LAUNCH[@]}" "$GODOT" "${GODOT_ARGS[@]}" > "$OUT/godot.raw.log" 2>&1 &
+NLT_AGENT_LOOP_ENDPOINT="http://127.0.0.1:$ENDPOINT_PORT/agent-loop/perception" \
+  env "${TRACE_ENV[@]}" "${LAUNCH[@]}" "$GODOT" "${GODOT_ARGS[@]}" ${USER_ARGS[@]+-- "${USER_ARGS[@]}"} \
+  > "$OUT/godot.raw.log" 2>&1 &
 GODOT_PID=$!  # kept as a job (not disowned) so its exit status can be read
 echo "$GODOT_PID" > "$OUT/godot.pid"
 
@@ -199,5 +252,18 @@ echo "refusals and transport warnings: $(grep -cE 'does not serve agent|HTTP [0-
 if (( FRAMES )); then
   echo "frames (software-rendered): $(find "$OUT/frames-software-rendered" -name '*.png' | wc -l) in $OUT/frames-software-rendered"
 fi
+if [[ -n "$CAPTURE_EVERY" ]]; then
+  echo "captures (software-rendered): $(find "$OUT/captures-software-rendered" -name '*.png' | wc -l) in $OUT/captures-software-rendered"
+fi
 echo "logs: $LOG, $OUT/fusion.log"
+TRACE_FAILED=0
+if (( TRACE )); then
+  echo
+  echo "== observer trace =="
+  expect="header,tick,perception_sent,intent,result"
+  (( SCENARIO )) && expect="$expect,decision_failed,scene_transition"
+  python3 "$REPO_ROOT/tools/check_observer_trace.py" "$OUT/trace.jsonl" --truth "$OUT/truth.jsonl" \
+    --expect "$expect" --json "$OUT/trace-check.json" || TRACE_FAILED=1
+fi
+(( ! TRACE_FAILED )) || exit 1
 (( ! GODOT_FAILED )) || exit 1

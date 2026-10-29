@@ -29,6 +29,19 @@ public partial class ObserverCapture : Node
     private int _seen;
     private bool _done;
     private bool _selfTest;
+    private int _captureEvery;
+    private int _lastCapturedTick = int.MinValue;
+    private bool _saving;
+
+    /// <summary>
+    /// The agent-loop tick, set by the composition root when the loop runs. With
+    /// <c>--capture-every &lt;ticks&gt;</c>, a PNG named after that tick is written every so many
+    /// ticks and the run carries on, so the pictures line up with an observer trace's tick records.
+    /// </summary>
+    public Func<int>? TickSource { get; set; }
+
+    /// <summary>True with <c>--follow</c>: the camera starts following the loop avatar.</summary>
+    public bool RequestedFollow { get; private set; }
 
     /// <summary>
     /// The replay bundle to load, from <c>--fixture</c>, or null for the observer's default.
@@ -75,6 +88,9 @@ public partial class ObserverCapture : Node
 
         if (int.TryParse(ValueAfter(args, "--frames"), out int f))
             capture._frames = Math.Max(1, f);
+        if (int.TryParse(ValueAfter(args, "--capture-every"), out int every))
+            capture._captureEvery = Math.Max(1, every);
+        capture.RequestedFollow = System.Array.IndexOf(args, "--follow") >= 0;
 
         // Read into the same static the property initialiser reads, so there is one source of truth for it
         // however the capture node happens to be created.
@@ -118,6 +134,11 @@ public partial class ObserverCapture : Node
 
     public override void _Process(double delta)
     {
+        if (_captureEvery > 0)
+        {
+            CaptureOnTick();
+            return;
+        }
         if (_done)
             return;
         if (++_seen < _frames)
@@ -214,6 +235,32 @@ public partial class ObserverCapture : Node
                 into.Add(b);
             Collect(c, into);
         }
+    }
+
+    /// <summary><c>--capture-every</c>: write <c>&lt;path&gt;-tick&lt;N&gt;.png</c> every N agent-loop ticks.</summary>
+    private void CaptureOnTick()
+    {
+        if (_saving || TickSource == null)
+            return;
+        int tick = TickSource();
+        if (tick <= 0 || (tick != 1 && tick - _lastCapturedTick < _captureEvery))
+            return;
+        _lastCapturedTick = tick;
+        SaveTick(tick);
+    }
+
+    private async void SaveTick(int tick)
+    {
+        _saving = true;
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        var image = GetViewport()?.GetTexture()?.GetImage();
+        string stem = _path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? _path[..^4] : _path;
+        string target = ProjectSettings.GlobalizePath($"{stem}-tick{tick:D6}.png");
+        if (image == null || image.SavePng(target) != Error.Ok)
+            GD.PushWarning($"ObserverCapture: could not write {target}");
+        else
+            GD.Print($"ObserverCapture: wrote {target} at tick {tick}");
+        _saving = false;
     }
 
     private async void Save()

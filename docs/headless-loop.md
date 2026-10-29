@@ -34,6 +34,9 @@ tools/headless-loop.sh --frames --seconds 60            # also write software-re
 | `--iterations N` | Godot quits by itself after N main-loop iterations (`--quit-after`). This is the only clean engine exit; see the shutdown section below. |
 | `--agent-id ID` | Roster id sent as the perception's `agentId` (default `stay_alert_001`). Any id Fusion did not register is refused with 404, so `__local_avatar__` here shows the fail-closed path. |
 | `--frames` | Render through Xvfb with the Compatibility renderer and write two PNGs per second. |
+| `--trace` | Write an `nlt.observer-trace.v1` trace (`trace.jsonl`) and independent scene-tree samples (`truth.jsonl`), then compare them with `tools/check_observer_trace.py` ([`contracts/observer-trace-v1.md`](contracts/observer-trace-v1.md)). The script exits 1 if the check fails. |
+| `--trace-scenario` | `--trace`, with `tools/observer_trace_standin.py` on port + 1 between Godot and Fusion. The stand-in scripts an accepted intent, an occupied target (the plaza is held by `--trace-occupy`), an off-view target, a 429 and a 503, then forwards to Fusion. The check requires every record type. |
+| `--capture-every N` | Render under Xvfb (software, in real time, unlike `--frames`) and write `captures-software-rendered/observer-tick<NNNNNN>.png` every N ticks, with the camera following the avatar. Combine with `--trace` to line the pictures up with `tick` records. |
 | `--skip-build` | Skip `dotnet build` and the asset import, for a second run on the same tree. |
 | `--out DIR` | Output folder (default `${TMPDIR:-/tmp}/nlt-headless-loop/<UTC timestamp>`). |
 
@@ -48,6 +51,9 @@ Everything goes to the output folder:
 - `fusion.log`.
 - `build.log` and `import.log`, unless `--skip-build` was given.
 - `frames-software-rendered/` (`--frames` only).
+- `captures-software-rendered/` (`--capture-every` only).
+- `trace.jsonl`, `truth.jsonl` and `trace-check.json` (`--trace`); `standin.log` and
+  `standin.jsonl` (`--trace-scenario`).
 
 The summary shows:
 - how Godot ended (the script exits 1 if Godot exited by itself with a nonzero status);

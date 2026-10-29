@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurolift.technology/schemas/nlt.observer-trace.v1.record.json",
+  "title": "nlt.observer-trace.v1 record (one JSONL line)",
+  "description": "One line of an observer trace. See observer-trace-v1.md. Line 1 is the header; the file may end with one truncated record.",
+  "type": "object",
+  "required": ["type"],
+  "oneOf": [
+    { "$ref": "#/$defs/header" },
+    { "$ref": "#/$defs/tick" },
+    { "$ref": "#/$defs/perception_sent" },
+    { "$ref": "#/$defs/intent" },
+    { "$ref": "#/$defs/result" },
+    { "$ref": "#/$defs/decision_failed" },
+    { "$ref": "#/$defs/scene_transition" },
+    { "$ref": "#/$defs/truncated" }
+  ],
+  "$defs": {
+    "tick": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "tick", "agentId", "scene", "position", "velocity"],
+      "properties": {
+        "type": { "const": "tick" },
+        "tick": { "$ref": "#/$defs/tickNumber" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind"],
+          "properties": {
+            "id": { "type": "string" },
+            "kind": { "enum": ["open_world", "interior", "unknown"] }
+          }
+        },
+        "position": { "$ref": "#/$defs/vector" },
+        "velocity": { "$ref": "#/$defs/vector" }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "schemaVersion", "runId", "engineCommit", "godotVersion", "startTime", "traceHz", "maxBytes", "agents"],
+      "properties": {
+        "type": { "const": "header" },
+        "schemaVersion": { "const": "nlt.observer-trace.v1" },
+        "runId": { "$ref": "#/$defs/id" },
+        "engineCommit": { "type": "string", "minLength": 1 },
+        "godotVersion": { "type": "string", "minLength": 1 },
+        "startTime": { "type": "string", "format": "date-time" },
+        "traceHz": { "type": "number", "minimum": 0.1, "maximum": 120 },
+        "maxBytes": { "type": "integer", "minimum": 1 },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["agentId", "engineId", "displayName", "driver"],
+            "properties": {
+              "agentId": { "$ref": "#/$defs/id" },
+              "engineId": { "$ref": "#/$defs/id" },
+              "displayName": { "type": "string" },
+              "driver": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "perception_sent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "tick", "agentId", "messageId"],
+      "properties": {
+        "type": { "const": "perception_sent" },
+        "tick": { "$ref": "#/$defs/tickNumber" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "messageId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "messageId", "agentId", "observedTick", "verb", "targetId", "atTick"],
+      "properties": {
+        "type": { "const": "intent" },
+        "messageId": { "$ref": "#/$defs/id" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "observedTick": { "$ref": "#/$defs/tickNumber" },
+        "verb": { "enum": ["approach", "look_at", "use", "sit", "rest", "communicate", "wait"] },
+        "targetId": { "type": ["string", "null"] },
+        "atTick": { "$ref": "#/$defs/tickNumber" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "intentMessageId", "agentId", "tick", "status", "stage", "governanceCode", "reason", "atTick"],
+      "properties": {
+        "type": { "const": "result" },
+        "intentMessageId": { "$ref": "#/$defs/id" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "tick": { "$ref": "#/$defs/tickNumber" },
+        "status": { "enum": ["accepted", "rejected"] },
+        "stage": { "enum": ["protocol", "governance", "physical", "accepted"] },
+        "governanceCode": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] },
+        "atTick": { "$ref": "#/$defs/tickNumber" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "accepted" } } },
+          "then": { "properties": { "stage": { "const": "accepted" } } },
+          "else": { "properties": { "stage": { "enum": ["protocol", "governance", "physical"] }, "reason": { "type": "string" } } }
+        }
+      ]
+    },
+    "decision_failed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "agentId", "tick", "httpStatus", "error", "detail", "atTick"],
+      "properties": {
+        "type": { "const": "decision_failed" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "tick": { "$ref": "#/$defs/tickNumber" },
+        "httpStatus": { "type": ["integer", "null"] },
+        "error": { "enum": ["http_status", "timeout", "transport", "invalid_response", "invalid_intent", "engine_error"] },
+        "detail": { "type": ["string", "null"] },
+        "atTick": { "$ref": "#/$defs/tickNumber" }
+      }
+    },
+    "scene_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "agentId", "from", "to", "tick"],
+      "properties": {
+        "type": { "const": "scene_transition" },
+        "agentId": { "$ref": "#/$defs/id" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "tick": { "$ref": "#/$defs/tickNumber" }
+      }
+    },
+    "truncated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reason", "bytesWritten", "recordsWritten"],
+      "properties": {
+        "type": { "const": "truncated" },
+        "reason": { "enum": ["size_cap", "queue_full", "io_error"] },
+        "bytesWritten": { "type": "integer", "minimum": 0 },
+        "recordsWritten": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "id": { "type": "string", "minLength": 1 },
+    "tickNumber": { "type": "integer", "minimum": 0 },
+    "vector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": ["number", "null"] },
+        "y": { "type": ["number", "null"] },
+        "z": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

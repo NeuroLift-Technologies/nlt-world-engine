@@ -1,0 +1,13 @@
+{"type":"header","schemaVersion":"nlt.observer-trace.v1","runId":"run-20261029T000000Z-golden00","engineCommit":"44ddd6f0000000000000000000000000000000000","godotVersion":"4.7.2.stable.mono.official","startTime":"2026-10-29T00:00:00.125Z","traceHz":10,"maxBytes":67108864,"agents":[{"agentId":"stay_alert_001","engineId":"__local_avatar__","displayName":"Local Model","driver":"fusion-agent-loop"}]}
+{"type":"tick","tick":1,"agentId":"stay_alert_001","scene":{"id":"open_world","kind":"open_world"},"position":{"x":2.5,"y":7.375,"z":-1.25},"velocity":{"x":0,"y":-0.5,"z":0}}
+{"type":"perception_sent","tick":1,"agentId":"stay_alert_001","messageId":"obs-1-__local_avatar__-0"}
+{"type":"intent","messageId":"intent-1-stay_alert_001","agentId":"stay_alert_001","observedTick":1,"verb":"approach","targetId":"plaza","atTick":4}
+{"type":"result","intentMessageId":"intent-1-stay_alert_001","agentId":"stay_alert_001","tick":1,"status":"accepted","stage":"accepted","governanceCode":"clean","reason":null,"atTick":5}
+{"type":"intent","messageId":"intent-9-stay_alert_001","agentId":"stay_alert_001","observedTick":9,"verb":"sit","targetId":"well","atTick":11}
+{"type":"result","intentMessageId":"intent-9-stay_alert_001","agentId":"stay_alert_001","tick":9,"status":"rejected","stage":"physical","governanceCode":"clean","reason":"target 'well' is occupied","atTick":12}
+{"type":"intent","messageId":"intent-13-stay_alert_001","agentId":"stay_alert_001","observedTick":13,"verb":"wait","targetId":null,"atTick":14}
+{"type":"result","intentMessageId":"intent-13-stay_alert_001","agentId":"stay_alert_001","tick":13,"status":"rejected","stage":"protocol","governanceCode":null,"reason":"protocol: intent observedTick is stale or does not match observation","atTick":14}
+{"type":"decision_failed","agentId":"stay_alert_001","tick":17,"httpStatus":429,"error":"http_status","detail":null,"atTick":18}
+{"type":"decision_failed","agentId":"stay_alert_001","tick":21,"httpStatus":null,"error":"timeout","detail":"TaskCanceledException","atTick":40}
+{"type":"scene_transition","agentId":"stay_alert_001","from":"open_world","to":"workplace_2","tick":60}
+{"type":"truncated","reason":"size_cap","bytesWritten":1048320,"recordsWritten":9001}
