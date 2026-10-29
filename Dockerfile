@@ -37,7 +37,7 @@ WORKDIR /src/nlt-world-engine/world-engine-godot
 
 # Import assets and generate GodotSharp build support before compiling the C# project.
 RUN godot --headless --editor --path . --audio-driver Dummy --quit \
-    && dotnet build world-engine-godot.csproj --configuration Release \
+    && dotnet build world-engine-godot.csproj --configuration Debug \
     && godot --headless --path . --audio-driver Dummy --quit-after 5
 
 # Keep the initial runtime simple and reproducible. A later optimization can
