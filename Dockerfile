@@ -17,7 +17,7 @@ RUN set -eux; mkdir -p /opt/godot \
     && curl -fsSL "https://downloads.godotengine.org/?version=${GODOT_VERSION}&flavor=stable&platform=linux.64&slug=mono_linux_x86_64.zip" -o /tmp/godot.zip \
     && unzip -q /tmp/godot.zip -d /opt/godot \
     && rm /tmp/godot.zip \
-    && GODOT_BIN="$(find /opt/godot -maxdepth 1 -type f -name 'Godot*' | head -n 1)" \
+    && GODOT_BIN="$(find /opt/godot -type f -name 'Godot*' | head -n 1)" \
     && test -n "$GODOT_BIN" \
     && chmod +x "$GODOT_BIN" \
     && ln -s "$GODOT_BIN" /usr/local/bin/godot \
@@ -55,7 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /opt/godot /opt/godot
-RUN GODOT_BIN="$(find /opt/godot -maxdepth 1 -type f -name 'Godot*' | head -n 1)" \
+RUN GODOT_BIN="$(find /opt/godot -type f -name 'Godot*' | head -n 1)" \
     && test -n "$GODOT_BIN" \
     && chmod +x "$GODOT_BIN" \
     && ln -s "$GODOT_BIN" /usr/local/bin/godot
