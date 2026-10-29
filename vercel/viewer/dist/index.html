@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'none';"
+    />
+    <meta name="description" content="NLT World Engine — AI Habitat Viewer" />
+    <title>NLT World Engine — AI Habitat</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="top-bar" role="banner">
+        <div class="top-bar-title">NLT World Engine</div>
+        <span style="color: var(--text-muted); font-size: 12px;">AI Habitat · Real Consequences</span>
+        <div class="top-bar-spacer"></div>
+        <div id="shell-meta" class="top-bar-meta"></div>
+      </header>
+
+      <div class="viewport-container">
+        <canvas id="plot" class="viewport-canvas" role="img" aria-label="3D world view"></canvas>
+        
+        <div class="hud-top">
+          <div class="hud-chip">
+            <span class="hud-chip-label">Scene</span>
+            <span class="hud-chip-value" id="hud-scene">plaza</span>
+          </div>
+          <div class="hud-chip">
+            <span class="hud-chip-label">Time</span>
+            <span class="hud-chip-value" id="hud-time">Day</span>
+          </div>
+          <div class="hud-chip">
+            <span class="hud-chip-label">Agents</span>
+            <span class="hud-chip-value" id="hud-agents">0</span>
+          </div>
+        </div>
+
+        <aside class="agent-panel" aria-label="Agents">
+          <div class="agent-panel-header">Active Residents</div>
+          <div id="agent-list"></div>
+        </aside>
+      </div>
+
+      <section class="transport-bar" aria-label="Playback controls">
+        <button id="btn-play" class="tp-button" aria-pressed="false">▶ Play</button>
+        <button id="btn-pause" class="tp-button" aria-pressed="true" hidden>⏸ Pause</button>
+        <button id="btn-step-back" class="tp-button">⏮</button>
+        <button id="btn-step-fwd" class="tp-button">⏭</button>
+        <button id="btn-replay" class="tp-button">⟲ Reset</button>
+        <span class="tp-sep"></span>
+        <span class="tp-time">Tick <span id="tick-value">0</span> / <span id="tick-range">0</span></span>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;">
+          <input id="scrubber" type="range" min="0" max="100" value="0" step="1" />
+        </div>
+        <span class="tp-sep"></span>
+        <label class="tp-speed">
+          Speed
+          <select id="sel-speed">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+        <span class="tp-spacer"></span>
+        <button id="btn-open" class="tp-button">Open Trace</button>
+      </section>
+    </div>
+    <script type="module" src="./assets/app.js"></script>
+  </body>
+</html>
