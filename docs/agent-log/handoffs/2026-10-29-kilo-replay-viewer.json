@@ -1,0 +1,57 @@
+{
+  "handoff_record": {
+    "session_id": "kilo-replay-viewer-2026-10-29",
+    "agent_name": "Kilo (Kilo Code, kilo-auto/free)",
+    "date": "2026-10-29",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "main",
+    "work_completed": [
+      "Scaffolded a static replay viewer under vercel/viewer/ (package.json, tsconfig.json, vite.config.ts, index.html, src/).",
+      "Implemented src/trace/parser.ts — single module that knows the nlt.observer-trace.v1 DRAFT JSONL format: validates line-1 header, fails loudly on unknown schemaVersion, tolerates unknown keys, classifies record kinds (tick, perception_sent, intent, result, decision_failed, scene_transition, scene_entities), surfaces unknown record types as parsed 'unknown' records (never dropped).",
+      "Implemented src/trace/reducer.ts — pure reducer reconstructing viewer slice state at tick N (agent positions per scene, last intent/result per agent, failures at/before tick, transitions at tick, scene_entities, unrecognized records).",
+      "Implemented views: Canvas-2D top-down (x, z) plot with per-agent shape+label markers, trails, entity markers when scene_entities exists; scene filter dropdown; play/pause/speed/scrub transport; per-tick intent/result list with verb, target, stage badge (shape+text) and reason; timeline markers for scene_transition (triangle) and decision_failed (X) with click-to-jump; summary strip (accepted/rejected by stage, failures by status code); unrecognized-records section; header meta strip.",
+      "Accessibility: identity and stage conveyed by shape + text (never colour alone); keyboard-operable scrubber (range), play/pause via Space, step via arrow keys; ARIA labels/live regions/roles throughout.",
+      "Security/static: CSP meta (default-src/script-src/style-src/img-src 'self', connect-src 'self', frame-ancestors 'none', form-action 'none'); no fetch/XMLHttpRequest/WebSocket in app code; no env vars, no secrets, no network at runtime.",
+      "Framework choice recorded: Vite + vanilla TypeScript (no runtime JS framework), Canvas 2D for plot + DOM for controls/lists.",
+      "Verified: npm ci && npm run build succeeds (clean, no warnings); tsc --noEmit passes; functional tests of parser/reducer pass (valid trace, loud schema rejection, unknown-key tolerance, tick slices, optional fields absent).",
+      "Self-registered per OTOI §3 at docs/agent-log/registrations/2026-10-29-kilo-replay-viewer.json."
+    ],
+    "work_in_progress": [],
+    "blockers": [],
+    "decisions_made": [
+      "Framework: Vite + vanilla TypeScript, zero runtime deps, static output — guarantees npm ci && npm run build works offline and the shipped app makes no network requests.",
+      "Plot plane: x (horizontal) and z (vertical on screen); Godot y (height) is not movement, per the draft format.",
+      "Stage badge drawn from result.stage (intent carries no stage per the draft record shape).",
+      "Did not edit docs/active-threads.md, docs/contracts/*, Godot code, or the Fusion repo, per the task boundary (CC owns contracts/Fusion; avoids merge conflicts)."
+    ],
+    "decisions_pending": [
+      "Joshua/Claude to create the vercel project 'world-engine-viewer' and deploy; this repo only ships the static viewer source.",
+      "CC to finalize the nlt.observer-trace.v1 contract and the Godot trace writer; viewer is built against the DRAFT and may need alignment when the contract lands.",
+      "Real-sample trace loading path: viewer ships an embedded demo trace and a file-input 'Open trace…' (client-side, no network); no live Fusion/Godot fetch by design."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Viewer is complete and static under vercel/viewer/. Run 'npm ci && npm run build' to verify. Open dist/index.html in a browser (or serve dist statically) to inspect. No fetch/network by design; loads traces via the embedded demo or a user-selected local file. When CC finalizes the observer-trace contract, align src/trace/types.ts/parser.ts/reducer.ts and re-run tsc + build.",
+    "files_modified": [
+      "vercel/viewer/package.json",
+      "vercel/viewer/package-lock.json",
+      "vercel/viewer/tsconfig.json",
+      "vercel/viewer/vite.config.ts",
+      "vercel/viewer/index.html",
+      "vercel/viewer/src/style.css",
+      "vercel/viewer/src/main.ts",
+      "vercel/viewer/src/trace/types.ts",
+      "vercel/viewer/src/trace/parser.ts",
+      "vercel/viewer/src/trace/reducer.ts",
+      "docs/agent-log/registrations/2026-10-29-kilo-replay-viewer.json",
+      "docs/agent-log/handoffs/2026-10-29-kilo-replay-viewer.json (this file)"
+    ],
+    "tests_run": [
+      "npm ci && npm run build (clean, no warnings)",
+      "npx tsc --noEmit (typecheck passes)",
+      "Node functional tests of parser/reducer (6 cases, all pass)"
+    ],
+    "tests_passing": true,
+    "pr_url": ""
+  }
+}

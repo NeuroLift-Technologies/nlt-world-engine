@@ -1,0 +1,15 @@
+{
+  "name": "@nlt/world-engine-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Read-only replay viewer for nlt.observer-trace.v1 traces (static, offline, no network)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2",
+    "vite": "^5.4.11"
+  }
+}
