@@ -17,7 +17,7 @@ GODOT=…/Godot_v4.7.2-stable_mono_linux.x86_64 FUSION_REPO=…/nlt-ai-fusion \
   tree that adds the trace writer, before it was committed.
 
 It is used as:
-- the viewer's built-in demo (`vercel/viewer/src/main.ts` imports this file), so the viewer is
+- the trace viewer's built-in demo (`vercel/viewer/src/trace-main.ts` imports this file), so it is
   always shown against what the engine really writes;
 - a validator fixture: `python3 tools/validate_observer_trace.py fixtures/observer-trace/sample.jsonl`.
 

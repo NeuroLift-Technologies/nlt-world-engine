@@ -1,0 +1,54 @@
+{
+  "handoff_record": {
+    "session_id": "2026-10-29-claude-world-viewer",
+    "agent_name": "Claude (Anthropic, Claude Opus 5.5, claude.ai)",
+    "date": "2026-10-29",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "claude/world-viewer (local; this session had read-only repo access, so it was delivered as a git bundle + patch for Joshua to push)",
+    "assignment": "NLT World Engine — Vercel Viewer Design & Implementation (brief originally written for Kimi)",
+    "work_completed": [
+      "Audited vercel/viewer, world-engine-godot builders, Images/Screenshots, state-feed contract and fixtures, Vercel project world-engine-viewer and the parallel feature/viewer-godot-world branch (PRs #123/#125).",
+      "Ported the Godot open-world builders to TypeScript (WorldGeometry, TerrainBuilder, WaterBuilder, SettlementBuilder + BuildingArchetypes + PortalMarker, VegetationBuilder) with the same seed, constants, RNG order and float32 rounding at decision points; building placement matches Godot captures building-for-building.",
+      "Loaded the four project-owned interior FBX levels with the same axis/unit conversion Godot's ufbx importer applies, and ported InteriorStyle so building N opens in colour scheme N.",
+      "Rebuilt vercel/viewer as a three.js spectator viewer: WorldView.cs camera (orbit/zoom/pan, follow), residents from the self-authored probe GLB with feed-gated walk cycle, name/state labels, building doorway affordance, scene selector, roster + inspector, event feed, minimap, replay transport with event markers, reduced motion, responsive mobile layout.",
+      "Added an explicit FeedSource boundary: ReplaySource (state-feed replay bundles, contract §9 validation, diagnostics) and LiveRelaySource (reports unavailable with the reason). UI labels every source; nothing is presented as live.",
+      "Kept the previous observer-trace viewer intact at trace.html.",
+      "Added scripts/sync-godot-assets.mjs so fixtures/resident/levels are copied from world-engine-godot at dev/build time instead of committed as copies."
+    ],
+    "work_in_progress": [],
+    "blockers": [
+      "No push access from this session (add_repo push was refused), so the branch could not be pushed and no Vercel preview could be built from it. Delivered as claude-world-viewer.bundle + .patch."
+    ],
+    "decisions_made": [
+      "Rebuild the world from the engine's deterministic builders rather than approximate it or use screenshots (C# cannot be web-exported; screenshots carry Godot's UI).",
+      "three.js as the only runtime dependency; FBXLoader code-split.",
+      "Hide the 'Hermes' UE placeholder mesh in Personal_Level (InteriorStyle.cs misses it) so the viewer never shows a person the feed does not contain."
+    ],
+    "decisions_pending": [
+      "Joshua: which viewer line continues — this branch or feature/viewer-godot-world (PRs #123/#125). They overlap and should not both merge.",
+      "Joshua: remove tracked vercel/viewer/node_modules (93 files, commit 63aa0df)?",
+      "Joshua: add 'Hermes' to InteriorStyle.Dress's hide rule on the Godot side?",
+      "Observer relay design and hosting (vercel/transport) before any live view."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Read vercel/viewer/README.md first. src/world/* mirror specific C# files and must change when they do; a Godot-side JSON dump of BuildPlans/tree spots checked in CI would make that enforceable. Live viewing only needs a FeedSource implementation for an authorised relay — the UI is already source-agnostic.",
+    "files_modified": [
+      "vercel/viewer/index.html (new spectator viewer)",
+      "vercel/viewer/trace.html, src/trace-main.ts, src/trace.css (renamed from index.html, src/main.ts, src/style.css — content unchanged)",
+      "vercel/viewer/src/main.ts, src/style.css",
+      "vercel/viewer/src/scene/{world,interiorStyle,minimap}.ts",
+      "vercel/viewer/src/world/{geometry,terrain,settlement,vegetation}.ts",
+      "vercel/viewer/src/feed/{types,source,replay,live,plain}.ts",
+      "vercel/viewer/scripts/sync-godot-assets.mjs, .gitignore, package.json, package-lock.json, vite.config.ts, README.md",
+      "docs/agent-log/handoffs/2026-10-29-claude-world-viewer.json (this file)"
+    ],
+    "tests_run": [
+      "npm ci; npm run build (asset sync + tsc --noEmit + vite build) — clean, no warnings",
+      "Headless Chromium (SwiftShader) 18 interaction checks — 18/18 pass, no console errors",
+      "Visual comparison against world-engine-godot/Images/Screenshots (settlement-archetypes at tick 711; interiors), desktop 1152x648 and mobile 390x844"
+    ],
+    "tests_passing": true,
+    "pr_url": ""
+  }
+}

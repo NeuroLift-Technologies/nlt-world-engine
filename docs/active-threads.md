@@ -683,7 +683,7 @@ Also uncommitted and unrelated to the observer: the `MIGRATE-PLAN.md` / `RENDERE
 
 ### VERCEL-001 — Vercel app workspace — 2026-10-29
 - **Status:** viewer built (Kilo, PRs #119/#120, merged) and now connected to the engine by file
-  traces (OBS-TRACE-001, below). The Vercel project is not created or deployed yet: that is Joshua's.
+  traces (OBS-TRACE-001, below). The Vercel project `world-engine-viewer` exists; production deployment is Joshua's.
 - **Owner:** Kilo (scaffold, viewer); CLAUDE (engine connection, viewer fixes)
 - **Scope:** `vercel/` workspace. Vercel root for the existing project stays `web/`; the viewer's
   candidate root is `vercel/viewer` (`vercel.json` added).
@@ -715,6 +715,9 @@ Also uncommitted and unrelated to the observer: the `MIGRATE-PLAN.md` / `RENDERE
   collapsed to 20 px; agent labels drawn at x=0; trails joined points across scenes; the legend
   shape did not match the marker. Also: stepping/playback move between recorded ticks
   (engine ticks are frames), drag-and-drop, `vercel.json` with CSP as real headers.
-- **Open:** Joshua: create the Vercel project (root `vercel/viewer`) and approve any deployment. Also
-  pre-existing: 93 files of `vercel/viewer/node_modules/` are committed on `main` (from #120) and
-  `.gitignore` does not cover them. Left untouched here (out of scope); worth a cleanup PR.
+- **Merged with #127 (2026-10-29):** `main` turned `vercel/viewer` into the three.js spectator
+  (state feed) and moved this trace viewer to `trace.html` / `src/trace-main.ts` / `src/trace.css`.
+  The fixes above now live there. `vercel.json` sends only `frame-ancestors`, `base-uri` and
+  `object-src` as a header, because the two pages need different meta CSPs.
+- **Open:** Joshua: approve any production deployment of `world-engine-viewer` (the project exists,
+  root `vercel/viewer`). Live transport: see the escalation.

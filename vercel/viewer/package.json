@@ -2,14 +2,23 @@
   "name": "@nlt/world-engine-viewer",
   "private": true,
   "version": "0.1.0",
-  "description": "Read-only replay viewer for nlt.observer-trace.v1 traces (static, offline, no network)",
+  "type": "module",
+  "description": "Spectator viewer for the NLT World Engine: the Godot world rebuilt in the browser, driven by nlt.state-feed.v1 replays (static, no backend)",
   "scripts": {
+    "sync-assets": "node scripts/sync-godot-assets.mjs",
+    "predev": "node scripts/sync-godot-assets.mjs",
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "prebuild": "node scripts/sync-godot-assets.mjs",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/three": "~0.181.0",
     "typescript": "~5.7.2",
     "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "three": "^0.181.2"
   }
 }

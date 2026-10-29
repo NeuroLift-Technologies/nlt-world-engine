@@ -5,7 +5,7 @@ against (`vercel/viewer/src/trace/types.ts`). The only changes from the draft ar
 
 **Producer:** the Godot World Engine (`world-engine-godot/Observer/Trace/ObserverTrace.cs`), written
 by the agent-loop driver while a run is in progress.
-**Consumer:** the World Engine Viewer (`vercel/viewer/`), a static page that opens the file locally.
+**Consumer:** the World Engine Viewer's trace page (`vercel/viewer/trace.html`), a static page that opens the file locally.
 **Validator:** `tools/validate_observer_trace.py`.
 **Sample:** `fixtures/observer-trace/sample.jsonl`.
 

@@ -1,871 +1,514 @@
-import { parseTrace } from './trace/parser.js';
-import { reduce } from './trace/reducer.js';
-import type { ParsedTrace, SliceState, Stage, IntentRecord, ResultRecord, DecisionFailedRecord, SceneTransitionRecord } from './trace/types.js';
+// NLT World Engine — Observer (browser). Presentation and viewer-side interaction only.
+//
+//   Godot / World Engine  owns physical state           -> not reachable from a browser yet
+//   AI-Fusion             owns semantic state           -> arrives inside nlt.state-feed.v1
+//   this viewer           draws what a FeedSource says  -> never simulates, never derives
+import * as THREE from 'three';
+import { WorldView, sceneKeyFor } from './scene/world';
+import { Minimap } from './scene/minimap';
+import { ReplaySource, REPLAYS } from './feed/replay';
+import { LiveRelaySource } from './feed/live';
+import type { FeedSource } from './feed/source';
+import type { Agent, FeedEvent, StateFeedDoc } from './feed/types';
+import * as P from './feed/plain';
+import { SEED } from './world/geometry';
 
-// ---------------------------------------------------------------------------
-// Built-in trace: a real headless engine run, the same file the contract's validator checks
-// (fixtures/observer-trace/README.md). Bundled at build time, so there is still no network.
-// ---------------------------------------------------------------------------
-import DEFAULT_TRACE from '../../../fixtures/observer-trace/sample.jsonl?raw';
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+const params = new URLSearchParams(location.search);
 
-// Marker shapes (identity channel 1 — colour is never the sole channel).
-const SHAPES = ['circle', 'square', 'triangle', 'diamond', 'pentagon', 'hexagon'] as const;
-const SHAPE_GLYPHS = ['○', '□', '△', '◇', '⬠', '⬡'] as const;
-function agentShapeIndex(agentId: string): number {
-  let h = 0;
-  for (let i = 0; i < agentId.length; i++) h = (h * 31 + agentId.charCodeAt(i)) | 0;
-  return Math.abs(h) % SHAPES.length;
+const app = $('app');
+const statusEl = $('status');
+function setStatus(text: string | null, kind: 'loading' | 'error' = 'loading') {
+  if (text === null) {
+    statusEl.classList.add('fade');
+    setTimeout(() => (statusEl.hidden = true), 400);
+    return;
+  }
+  statusEl.hidden = false;
+  statusEl.classList.remove('fade');
+  statusEl.dataset.kind = kind;
+  $('status-text').textContent = text;
 }
 
-function drawMarker(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  shape: string,
-  label: string,
-) {
-  const r = size / 2;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.beginPath();
-  switch (shape) {
-    case 'circle':
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      break;
-    case 'square':
-      ctx.rect(-r, -r, size, size);
-      break;
-    case 'triangle':
-      ctx.moveTo(0, -r);
-      ctx.lineTo(r, r);
-      ctx.lineTo(-r, r);
-      ctx.closePath();
-      break;
-    case 'diamond':
-      ctx.moveTo(0, -r);
-      ctx.lineTo(r, 0);
-      ctx.lineTo(0, r);
-      ctx.lineTo(-r, 0);
-      ctx.closePath();
-      break;
-    case 'pentagon': {
-      const steps = 5;
-      for (let i = 0; i <= steps; i++) {
-        const a = (-Math.PI / 2) + (i * 2 * Math.PI) / steps;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath();
-      break;
-    }
-    case 'hexagon': {
-      const steps = 6;
-      for (let i = 0; i <= steps; i++) {
-        const a = (-Math.PI / 2) + (i * 2 * Math.PI) / steps;
-        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath();
-      break;
-    }
-  }
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.strokeStyle = '#1a1a1a';
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-  ctx.restore();
-
-  // Label: identity channel 2 — text, never colour alone.
-  ctx.save();
-  ctx.font = 'bold 11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillText(label, x, y - r - 5);
-  ctx.restore();
-}
-
-function drawTrail(
-  ctx: CanvasRenderingContext2D,
-  pts: { x: number; z: number; scene: string }[],
-  mx: (x: number) => number,
-  mz: (z: number) => number,
-) {
-  if (pts.length < 2) return;
-  ctx.beginPath();
-  ctx.moveTo(mx(pts[0].x), mz(pts[0].z));
-  // Each scene has its own coordinate frame: start a new segment at a scene change rather than
-  // drawing a line from a doorway outside to a point inside a room.
-  for (let i = 1; i < pts.length; i++) {
-    if (pts[i].scene !== pts[i - 1].scene) ctx.moveTo(mx(pts[i].x), mz(pts[i].z));
-    else ctx.lineTo(mx(pts[i].x), mz(pts[i].z));
-  }
-  ctx.strokeStyle = '#9aa0a6';
-  ctx.lineWidth = 1.4;
-  ctx.globalAlpha = 0.55;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-}
-
-// ---------------------------------------------------------------------------
-// App
-// ---------------------------------------------------------------------------
-export class ViewerApp {
-  private trace: ParsedTrace | null = null;
-  private ticks: Array<{ tick: number; agentId: string; scene: string; position: { x: number; y: number; z: number } }> = [];
-  private minTick = 0;
-  private maxTick = 0;
-  // Every tick some record happened at, ascending. The engine's tick is a frame
-  // (header.tickUnit) and ticks are sampled at cadenceHz, so most integers are empty: stepping
-  // and playback move between these stops, one per 1/cadenceHz at 1×.
-  private tickStops: number[] = [];
-  private currentTick = 0;
-  private sceneFilter = 'all';
-
-  private isPlaying = false;
-  private speed = 1;
-  private lastFrame = 0;
-  // Time owed to playback, carried across animation frames: a 100 ms tick interval is longer
-  // than any one ~16 ms frame, so per-frame time alone would never be enough to advance.
-  private pending = 0;
-  private rafId: number | null = null;
-
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D | null = null;
-  private dpr = 1;
-
-  private elements: Record<string, HTMLElement> = {};
-
-  constructor() {
-    this.canvas = document.getElementById('plot') as HTMLCanvasElement;
-    this.bindElements();
-    this.bindEvents();
-    this.loadText(DEFAULT_TRACE);
-    window.addEventListener('resize', () => this.render());
-  }
-
-  // --- loading -----------------------------------------------------------
-  private async loadText(text: string) {
-    this.clearError();
-    let parsed: ParsedTrace;
-    try {
-      parsed = parseTrace(text);
-    } catch (err) {
-      this.showError([`Parser threw: ${err}`]);
-      return;
-    }
-
-    // Fail LOUDLY on unknown schemaVersion (parser records it, we surface it).
-    const schemaErrors = parsed.errors.filter((e) => e.includes('schemaVersion'));
-    if (schemaErrors.length) {
-      this.showError(schemaErrors);
-      // Still render so the user sees the header as loaded.
-    }
-    if (parsed.errors.length && !schemaErrors.length) {
-      // non-fatal parse problems: show in unrecognized list, continue
-    }
-
-    this.trace = parsed;
-    this.tickIntervalMs = 1000 / Math.max(parsed.header.cadenceHz || 10, 1);
-    this.buildTickIndex();
-    this.refreshHeaderMeta();
-    this.refreshUnrecognized();
-    this.setupSceneFilter();
-    this.currentTick = this.minTick;
-    this.updateScrubberBounds();
-    this.render();
-  }
-
-  private buildTickIndex() {
-    this.ticks = [];
-    for (const r of this.trace!.records) {
-      if (r.kind === 'tick') {
-        this.ticks.push({ tick: r.tick, agentId: r.agentId, scene: r.scene.id, position: r.position });
-      }
-    }
-    const stops = new Set<number>();
-    for (const r of this.trace!.records) {
-      const t = r.kind === 'intent' ? r.observedTick
-        : r.kind === 'tick' || r.kind === 'perception_sent' || r.kind === 'decision_failed' || r.kind === 'scene_transition' ? r.tick
-        : r.kind === 'result' ? r.tick
-        : undefined;
-      if (typeof t === 'number' && Number.isFinite(t) && t >= 0) stops.add(t);
-    }
-    this.tickStops = [...stops].sort((a, b) => a - b);
-    this.minTick = this.tickStops.length ? this.tickStops[0] : 0;
-    this.maxTick = this.tickStops.length ? this.tickStops[this.tickStops.length - 1] : 0;
-    this.currentTick = this.minTick;
-  }
-
-  /** The next (direction 1) or previous (-1) tick a record happened at. */
-  private stopFrom(tick: number, direction: 1 | -1): number {
-    const stops = this.tickStops;
-    if (direction === 1) {
-      for (const s of stops) if (s > tick) return s;
-      return this.maxTick;
-    }
-    for (let i = stops.length - 1; i >= 0; i--) if (stops[i] < tick) return stops[i];
-    return this.minTick;
-  }
-
-  private clearError() {
-    let el = document.getElementById('error-banner');
-    if (el) el.remove();
-  }
-
-  private showError(messages: string[]) {
-    const banner = document.createElement('div');
-    banner.id = 'error-banner';
-    banner.className = 'error-banner';
-    banner.setAttribute('role', 'alert');
-    banner.setAttribute('aria-live', 'assertive');
-    const title = document.createElement('div');
-    title.className = 'title';
-    title.textContent = 'Trace could not be loaded';
-    banner.appendChild(title);
-    const ul = document.createElement('ul');
-    for (const m of messages) {
-      const li = document.createElement('li');
-      li.textContent = m;
-      ul.appendChild(li);
-    }
-    banner.appendChild(ul);
-    const app = document.getElementById('app')!;
-    app.insertBefore(banner, app.firstChild);
-  }
-
-  // --- header / meta -----------------------------------------------------
-  private refreshHeaderMeta() {
-    if (!this.trace) return;
-    const h = this.trace.header;
-    const el = document.getElementById('shell-meta')!;
-    el.textContent = `schemaVersion: ${h.schemaVersion}  ·  runId: ${h.runId}  ·  engine: ${h.engineCommit}  ·  Godot: ${h.godotVersion}  ·  start: ${h.startTime}  ·  cadence: ${h.cadenceHz} Hz  ·  agents: ${h.agentRoster.join(', ')}`;
-  }
-
-  // --- scene filter ------------------------------------------------------
-  private setupSceneFilter() {
-    const sel = document.getElementById('plot-scene') as HTMLSelectElement;
-    const scenes = new Set<string>();
-    for (const t of this.ticks) scenes.add(''); // placeholder
-    // Collect scene ids from tick records.
-    for (const r of this.trace!.records) {
-      if (r.kind === 'tick') scenes.add(r.scene.id);
-    }
-    sel.innerHTML = '<option value="all">All scenes</option>';
-    for (const s of [...scenes].filter(Boolean)) {
-      const o = document.createElement('option');
-      o.value = s;
-      o.textContent = s;
-      sel.appendChild(o);
-    }
-    sel.addEventListener('change', (e) => {
-      this.sceneFilter = (e.target as HTMLSelectElement).value;
-      this.render();
-    });
-  }
-
-  private tickValueOfScene(agentScene: string): boolean {
-    return this.sceneFilter === 'all' || agentScene === this.sceneFilter;
-  }
-
-  // --- render ------------------------------------------------------------
-  private render() {
-    if (!this.trace) return;
-    const state = reduce(this.trace.records, this.currentTick);
-    this.renderPlot(state);
-    this.renderLog(state);
-    this.renderSummary(state);
-    this.renderTimeline();
-    this.updateTickDisplay();
-  }
-
-  private renderPlot(state: SliceState) {
-    // No ctx guard here: the context is created below, so checking it first meant the plot
-    // never drew at all.
-    if (!this.trace) return;
-    const canvas = this.canvas;
-    if (!canvas) return;
-    const dpr = (this.dpr = window.devicePixelRatio || 1);
-    const cssW = canvas.clientWidth || 600;
-    const cssH = canvas.clientHeight || 400;
-    canvas.width = cssW * dpr;
-    canvas.height = cssH * dpr;
-    const ctx = (this.ctx = canvas.getContext('2d')!)!;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-
-    if (this.ticks.length === 0) {
-      ctx.fillStyle = '#6b6b6b';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('No tick records in trace', cssW / 2, cssH / 2);
-      return;
-    }
-
-    // Build per-agent position history (<= current tick).
-    // Filtered to the selected scene, so bounds and trails stay in one coordinate frame.
-    const history = new Map<string, { x: number; z: number; scene: string }[]>();
-    const pts: { x: number; z: number }[] = [];
-    for (const t of this.ticks) {
-      if (t.tick > this.currentTick || !this.tickValueOfScene(t.scene)) continue;
-      let arr = history.get(t.agentId);
-      if (!arr) { arr = []; history.set(t.agentId, arr); }
-      arr.push({ x: t.position.x, z: t.position.z, scene: t.scene });
-      pts.push({ x: t.position.x, z: t.position.z });
-    }
-
-    let minX = 0, maxX = 100, minZ = 0, maxZ = 100;
-    if (pts.length) {
-      minX = Math.min(...pts.map((p) => p.x));
-      maxX = Math.max(...pts.map((p) => p.x));
-      minZ = Math.min(...pts.map((p) => p.z));
-      maxZ = Math.max(...pts.map((p) => p.z));
-    }
-    const padX = (maxX - minX) * 0.12 + 2;
-    const padZ = (maxZ - minZ) * 0.12 + 2;
-    minX -= padX; maxX += padX; minZ -= padZ; maxZ += padZ;
-    const worldW = maxX - minX || 100;
-    const worldH = maxZ - minZ || 100;
-    const scale = Math.min(cssW / worldW, cssH / worldH) * 0.9;
-    const ox = (cssW - worldW * scale) / 2 - minX * scale;
-    const oy = (cssH - worldH * scale) / 2 - minZ * scale;
-    const mx = (x: number) => ox + x * scale;
-    const mz = (z: number) => oy + z * scale;
-
-    // Axes (faint) + origin.
-    ctx.strokeStyle = '#d8d8d8';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(mx(minX), mz(0)); ctx.lineTo(mx(maxX), mz(0)); // x axis
-    ctx.moveTo(mx(0), mz(minZ)); ctx.lineTo(mx(0), mz(maxZ)); // z axis
-    ctx.stroke();
-    ctx.fillStyle = '#6b6b6b';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('x', mx(maxX) + 4, mz(0) - 4);
-    ctx.textBaseline = 'top';
-    ctx.fillText('z', mx(0) + 4, mz(maxZ) + 4);
-
-    // Trails first (behind markers). History is already filtered to the selected scene.
-    for (const [, hist] of history) drawTrail(ctx, hist, mx, mz);
-
-    // Current markers from reducer state.
-    for (const [agentId, st] of state.agents) {
-      if (!this.tickValueOfScene(st.scene.id)) continue;
-      const shape = SHAPES[agentShapeIndex(agentId)];
-      drawMarker(ctx, mx(st.position.x), mz(st.position.z), 16, shape, agentId);
-    }
-
-    // Entity markers for the shown scene(s).
-    for (const [sceneId, entities] of state.entitiesByScene) {
-      if (this.sceneFilter !== 'all' && sceneId !== this.sceneFilter) continue;
-      for (const ent of entities) {
-        ctx.save();
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 3]);
-        ctx.strokeRect(mx(ent.position.x) - 5, mz(ent.position.z) - 5, 10, 10);
-        ctx.setLineDash([]);
-        ctx.restore();
-        ctx.save();
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillText(ent.id, mx(ent.position.x), mz(ent.position.z) - 7);
-        ctx.restore();
-      }
-    }
-
-    // Legend.
-    this.renderLegend();
-  }
-
-  private renderLegend() {
-    const el = document.getElementById('plot-legend')!;
-    // Rebuild compact legend of agents shown at current tick.
-    const shown = new Map<string, string>();
-    for (const r of this.trace!.records) {
-      if (r.kind !== 'tick' || r.tick > this.currentTick) continue;
-      if (!this.tickValueOfScene(r.scene.id)) continue;
-      shown.set(r.agentId, r.scene.id);
-    }
-    el.innerHTML = '';
-    const title = document.createElement('span');
-    title.textContent = 'Agents: ';
-    title.style.fontSize = '11.5px';
-    title.style.color = '#1a1a1a';
-    title.style.fontWeight = '700';
-    el.appendChild(title);
-    let first = true;
-    for (const [agentId] of shown) {
-      if (!first) {
-        const sep = document.createTextNode('   ');
-        el.appendChild(sep);
-      }
-      first = false;
-      const item = document.createElement('span');
-      item.className = 'legend-item';
-      item.setAttribute('aria-label', `Agent ${agentId}`);
-      const shape = document.createElement('span');
-      shape.className = 'legend-shape';
-      const index = agentShapeIndex(agentId);
-      shape.classList.add(SHAPES[index]);
-      // The same shape the plot draws for this agent: shape is the identity channel.
-      shape.textContent = SHAPE_GLYPHS[index];
-      shape.setAttribute('aria-hidden', 'true');
-      const name = document.createElement('span');
-      name.textContent = agentId;
-      item.appendChild(shape);
-      item.appendChild(name);
-      el.appendChild(item);
-    }
-  }
-
-  private renderLog(state: SliceState) {
-    const list = document.getElementById('log-list')!;
-    const empty = document.getElementById('log-empty')!;
-    list.innerHTML = '';
-
-    // Compose intent/result rows for agents whose latest intent is at current tick
-    // OR whose latest result is at current tick — show all intents/results known
-    // at this tick, ordered by observed tick then message id.
-    const rows: Array<{ agentId: string; intentTick: number; messageId: string; verb: string; targetId?: string; resultStage?: Stage; governanceCode?: string; status?: string; reason?: string; ticksBehind?: number; decisionMs?: number; hasResult: boolean }> = [];
-
-    for (const [agentId, intent] of state.intents) {
-      const result = state.results.get(agentId);
-      rows.push({
-        agentId,
-        intentTick: intent.lastTick,
-        messageId: intent.messageId,
-        verb: intent.verb,
-        targetId: intent.targetId,
-        resultStage: result?.stage,
-        governanceCode: result?.governanceCode,
-        status: result?.status,
-        reason: result?.reason,
-        ticksBehind: intent.ticksBehind,
-        decisionMs: intent.decisionMs,
-        hasResult: !!result,
-      });
-    }
-    // Also include results not tied to a shown intent at this tick.
-    for (const [agentId, result] of state.results) {
-      if (state.intents.has(agentId)) continue;
-      rows.push({
-        agentId, intentTick: result.lastTick, messageId: result.intentMessageId,
-        verb: '(unknown intent)', targetId: undefined, resultStage: result.stage,
-        governanceCode: result.governanceCode, status: result.status, reason: result.reason,
-        ticksBehind: undefined, decisionMs: undefined, hasResult: true,
-      });
-    }
-
-    rows.sort((a, b) => a.intentTick - b.intentTick || a.messageId.localeCompare(b.messageId));
-
-    if (rows.length === 0) {
-      empty.hidden = false;
-    } else {
-      empty.hidden = true;
-      for (const row of rows) {
-        const el = document.createElement('div');
-        el.className = 'log-row';
-        el.setAttribute('role', 'listitem');
-
-        const line1 = document.createElement('div');
-        line1.className = 'line1';
-        const tick = document.createElement('span');
-        tick.className = 'tick';
-        tick.textContent = `tick ${row.intentTick}`;
-        const agent = document.createElement('span');
-        agent.className = 'agent';
-        agent.textContent = row.agentId;
-        agent.style.fontWeight = '700';
-        const verb = document.createElement('span');
-        verb.className = 'verb';
-        verb.textContent = row.verb;
-        const target = row.targetId ? ` → ${row.targetId}` : '';
-        verb.textContent += target;
-        line1.appendChild(tick);
-        line1.appendChild(document.createTextNode(' · '));
-        line1.appendChild(agent);
-        line1.appendChild(document.createTextNode(' · '));
-        line1.appendChild(verb);
-
-        const badge = document.createElement('span');
-        badge.className = 'stage-badge';
-        const stageText = row.resultStage ?? '—';
-        const shape = document.createElement('span');
-        shape.className = `stage-shape ${row.resultStage ?? 'accepted'}`;
-        shape.setAttribute('aria-label', stageText);
-        shape.setAttribute('aria-hidden', 'true');
-        const txt = document.createElement('span');
-        txt.textContent = stageText;
-        badge.appendChild(shape);
-        badge.appendChild(txt);
-
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        const parts: string[] = [];
-        if (row.status !== undefined) parts.push(`status: ${row.status}`);
-        if (row.governanceCode) parts.push(`gov: ${row.governanceCode}`);
-        if (row.ticksBehind !== undefined) parts.push(`ticksBehind: ${row.ticksBehind}`);
-        if (row.decisionMs !== undefined) parts.push(`decisionMs: ${row.decisionMs}`);
-        if (parts.length) meta.textContent = parts.join('   ');
-
-        const note = document.createElement('div');
-        note.className = 'note';
-        if (row.reason) note.textContent = `reason: ${row.reason}`;
-        else if (!row.hasResult) note.textContent = 'pending result';
-
-        el.appendChild(line1);
-        el.appendChild(badge);
-        if (meta.textContent) el.appendChild(meta);
-        if (note.textContent) el.appendChild(note);
-        list.appendChild(el);
-      }
-    }
-
-    const count = document.getElementById('log-count')!;
-    count.textContent = `${rows.length} row${rows.length === 1 ? '' : 's'} at tick ${this.currentTick}`;
-  }
-
-  private renderSummary(state: SliceState) {
-    const grid = document.getElementById('summary-grid')!;
-    // Compute over the whole trace (all intents/results/failures/transitions).
-    const all = this.trace!.records;
-    const intents = all.filter((r): r is IntentRecord => r.kind === 'intent');
-    const results = all.filter((r): r is ResultRecord => r.kind === 'result');
-    const failures = all.filter((r): r is DecisionFailedRecord => r.kind === 'decision_failed');
-    const transitions = all.filter((r): r is SceneTransitionRecord => r.kind === 'scene_transition');
-
-    const acceptedByStage: Record<Stage, number> = { protocol: 0, governance: 0, physical: 0, accepted: 0 };
-    const rejectedByStage: Record<Stage, number> = { protocol: 0, governance: 0, physical: 0, accepted: 0 };
-    for (const r of results) {
-      const target = r.status && r.status.toLowerCase() === 'accepted' ? acceptedByStage : rejectedByStage;
-      target[r.stage] = (target[r.stage] ?? 0) + 1;
-    }
-
-    const failuresByStatus: Record<string, number> = {};
-    for (const f of failures) {
-      const key = f.httpStatus !== undefined ? String(f.httpStatus) : f.error ?? 'unknown';
-      failuresByStatus[key] = (failuresByStatus[key] ?? 0) + 1;
-    }
-
-    const cells: Array<{ label: string; value: string | number; sub?: string }> = [
-      { label: 'Intents', value: intents.length },
-      { label: 'Results', value: results.length, sub: `${acceptedByStage.accepted + acceptedByStage.governance + acceptedByStage.physical + acceptedByStage.protocol} accepted` },
-      { label: 'Accepted (stage)', value: Object.values(acceptedByStage).reduce((a, b) => a + b, 0) },
-      { label: 'Rejected (stage)', value: Object.values(rejectedByStage).reduce((a, b) => a + b, 0) },
-      { label: 'Failures', value: failures.length, sub: Object.entries(failuresByStatus).map(([k, v]) => `${k}×${v}`).join(', ') || '—' },
-      { label: 'Scene transitions', value: transitions.length },
-    ];
-
-    grid.innerHTML = '';
-    for (const c of cells) {
-      const cell = document.createElement('div');
-      cell.className = 'summary-cell';
-      const lab = document.createElement('div');
-      lab.className = 'label';
-      lab.textContent = c.label;
-      const val = document.createElement('div');
-      val.className = 'value';
-      val.textContent = String(c.value);
-      cell.appendChild(lab);
-      cell.appendChild(val);
-      if (c.sub) {
-        const sub = document.createElement('div');
-        sub.className = 'sub';
-        sub.textContent = c.sub;
-        cell.appendChild(sub);
-      }
-      grid.appendChild(cell);
-    }
-  }
-
-  private renderTimeline() {
-    const el = document.getElementById('timeline')!;
-    el.innerHTML = '';
-    el.setAttribute('tabindex', '0');
-    el.setAttribute('role', 'region');
-    el.setAttribute('aria-label', 'Event timeline');
-    const all = this.trace!.records;
-    const transitions = all.filter((r): r is SceneTransitionRecord => r.kind === 'scene_transition');
-    const failures = all.filter((r): r is DecisionFailedRecord => r.kind === 'decision_failed');
-
-    const events: Array<{ tick: number; type: 'transition' | 'failure'; label: string }> = [];
-    for (const t of transitions) events.push({ tick: t.tick, type: 'transition', label: `${t.agentId}: ${t.from}→${t.to}` });
-    for (const f of failures) events.push({ tick: f.tick, type: 'failure', label: `${f.agentId} decision failed` });
-
-    if (events.length === 0) {
-      el.appendChild(document.createTextNode('No events'));
-      return;
-    }
-
-    const min = this.minTick;
-    const max = this.maxTick;
-    const span = max - min || 1;
-    const pad = 26;
-    const w = el.clientWidth || 560;
-
-    const line = document.createElement('div');
-    line.className = 'timeline-line';
-    el.appendChild(line);
-
-    const playhead = document.createElement('div');
-    playhead.className = 'timeline-playhead';
-    el.appendChild(playhead);
-
-    const hint = document.createElement('span');
-    hint.className = 'timeline-hint';
-    hint.textContent = '▲ transition   ✕ decision failed   · click to jump   Space play/pause   ← → step';
-    el.appendChild(hint);
-
-    const place = (tick: number) => pad + ((tick - min) / span) * (w - 2 * pad);
-
-    for (const ev of events) {
-      const m = document.createElement('button');
-      m.className = `timeline-marker ${ev.type}`;
-      m.type = 'button';
-      m.setAttribute('aria-label', `${ev.label} at tick ${ev.tick}`);
-      m.style.left = `${place(ev.tick)}px`;
-      m.title = `${ev.label} (tick ${ev.tick})`;
-      m.addEventListener('click', () => this.seek(ev.tick));
-      m.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') this.seek(ev.tick);
-      });
-      el.appendChild(m);
-    }
-
-    const px = pad + ((this.currentTick - min) / span) * (w - 2 * pad);
-    playhead.style.left = `${px}px`;
-    playhead.style.top = '0';
-    playhead.style.bottom = '0';
-  }
-
-  private updateTickDisplay() {
-    const v = document.getElementById('tick-value')!;
-    v.textContent = String(this.currentTick);
-    const r = document.getElementById('tick-range')!;
-    r.textContent = `/ ${this.maxTick}`;
-    const scr = document.getElementById('scrubber') as HTMLInputElement;
-    scr.setAttribute('aria-valuenow', String(this.currentTick));
-    const mode = document.getElementById('plot-mode')!;
-    mode.textContent = this.isPlaying ? 'playing' : 'paused';
-    mode.setAttribute('aria-live', 'polite');
-  }
-
-  // --- transport ---------------------------------------------------------
-  private bindElements() {
-    const ids = ['btn-play', 'btn-pause', 'btn-step-back', 'btn-step-fwd', 'sel-speed', 'scrubber', 'file-input'];
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el) this.elements[id] = el;
-    }
-    // file input is created in markup? not present — create it.
-  }
-
-  private bindEvents() {
-    const play = document.getElementById('btn-play')!;
-    const pause = document.getElementById('btn-pause')!;
-    const back = document.getElementById('btn-step-back')!;
-    const fwd = document.getElementById('btn-step-fwd')!;
-    const speed = document.getElementById('sel-speed') as HTMLSelectElement;
-    const scrub = document.getElementById('scrubber') as HTMLInputElement;
-
-    play.addEventListener('click', () => this.setPlaying(true));
-    pause.addEventListener('click', () => this.setPlaying(false));
-    back.addEventListener('click', () => this.seek(this.stopFrom(this.currentTick, -1)));
-    fwd.addEventListener('click', () => this.seek(this.stopFrom(this.currentTick, 1)));
-    speed.addEventListener('change', () => { this.speed = Number(speed.value || 1); });
-    scrub.addEventListener('input', () => this.seek(Number(scrub.value)));
-    scrub.addEventListener('change', () => this.seek(Number(scrub.value)));
-
-    // Drag timeline container to jump (already buttons; add click on track).
-    const tl = document.getElementById('timeline')!;
-    tl.addEventListener('click', (e: MouseEvent) => {
-      const rect = tl.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const pad = 26;
-      const min = this.minTick;
-      const max = this.maxTick;
-      const span = max - min || 1;
-      const w = rect.width;
-      const t = min + ((x - pad) / Math.max(w - 2 * pad, 1)) * span;
-      this.seek(Math.round(t));
-    });
-
-    // File input: create and attach.
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.jsonl,.json,.txt';
-    fileInput.hidden = true;
-    fileInput.setAttribute('aria-label', 'Open a trace file (JSONL)');
-    document.body.appendChild(fileInput);
-    fileInput.addEventListener('change', (e) => {
-      const f = (e.target as HTMLInputElement).files?.[0];
-      if (!f) return;
-      this.setPlaying(false);
-      f.text().then((text) => this.loadText(text));
-    });
-    const openBtn = document.createElement('button');
-    openBtn.type = 'button';
-    openBtn.textContent = 'Open trace…';
-    openBtn.title = 'Choose a .jsonl trace, or drop one anywhere on the page';
-    openBtn.setAttribute('aria-label', 'Open a trace file (or drop one on the page)');
-    openBtn.className = 'tp-button';
-    openBtn.addEventListener('click', () => fileInput.click());
-    const firstRow = document.querySelector('.transport-row')!;
-    firstRow.insertBefore(openBtn, firstRow.firstChild);
-
-    // Drop a trace anywhere on the page. Read client-side, like the file picker: the file is
-    // never uploaded (CSP connect-src 'self').
-    const app = document.getElementById('app')!;
-    window.addEventListener('dragover', (e: DragEvent) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      app.classList.add('drop-target');
-    });
-    window.addEventListener('dragleave', (e: DragEvent) => {
-      if (e.relatedTarget === null) app.classList.remove('drop-target');
-    });
-    window.addEventListener('drop', (e: DragEvent) => {
-      app.classList.remove('drop-target');
-      const f = e.dataTransfer?.files?.[0];
-      if (!f) return;
-      e.preventDefault();
-      this.setPlaying(false);
-      f.text().then((text) => this.loadText(text));
-    });
-
-    // Keyboard: Space play/pause, arrows step (when no input focused).
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      const active = document.activeElement as HTMLElement | null;
-      const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.isContentEditable);
-      if (e.key === ' ' && !isInput) {
-        e.preventDefault();
-        this.setPlaying(!this.isPlaying);
-        return;
-      }
-      if (e.key === 'ArrowLeft' && !isInput) { e.preventDefault(); this.seek(this.stopFrom(this.currentTick, -1)); return; }
-      if (e.key === 'ArrowRight' && !isInput) { e.preventDefault(); this.seek(this.stopFrom(this.currentTick, 1)); return; }
-    });
-  }
-
-  private tickIntervalMs = 100;
-
-  private setPlaying(playing: boolean) {
-    this.isPlaying = playing;
-    const play = document.getElementById('btn-play')!;
-    const pause = document.getElementById('btn-pause')!;
-    play.hidden = playing;
-    pause.hidden = !playing;
-    play.setAttribute('aria-pressed', String(playing));
-    pause.setAttribute('aria-pressed', String(!playing));
-    if (playing) {
-      this.lastFrame = performance.now();
-      this.pending = 0;
-      this.loop();
-    } else {
-      this.stopLoop();
-    }
-  }
-
-  private stopLoop() {
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
-  }
-
-  private loop = () => {
-    if (!this.isPlaying) { this.rafId = null; return; }
-    const now = performance.now();
-    this.pending += now - this.lastFrame;
-    this.lastFrame = now;
-    const interval = this.tickIntervalMs / this.speed;
-    let advanced = 0;
-    while (this.pending >= interval && advanced < 10) {
-      this.seek(this.stopFrom(this.currentTick, 1));
-      this.pending -= interval;
-      advanced++;
-    }
-    // A long stall (hidden tab) must not replay as a burst later.
-    if (advanced === 10) this.pending = 0;
-    if (this.currentTick >= this.maxTick) {
-      this.setPlaying(false);
-    } else {
-      this.rafId = requestAnimationFrame(this.loop);
-    }
-  };
-
-  private seek(tick: number) {
-    const t = Math.min(Math.max(tick, this.minTick), this.maxTick);
-    if (t === this.currentTick) return;
-    this.currentTick = t;
-    (document.getElementById('scrubber') as HTMLInputElement).value = String(t);
-    this.render();
-  }
-
-  private updateScrubberBounds() {
-    const scr = document.getElementById('scrubber') as HTMLInputElement;
-    scr.min = String(this.minTick);
-    scr.max = String(this.maxTick);
-    scr.value = String(this.currentTick);
-    scr.setAttribute('aria-valuemin', String(this.minTick));
-    scr.setAttribute('aria-valuemax', String(this.maxTick));
-  }
-
-  private refreshUnrecognized() {
-    const countEl = document.getElementById('unrec-count')!;
-    const list = document.getElementById('unrec-list')!;
-    const unrec = (this.trace?.errors ?? []).filter((e) => e.includes('unknown record type'));
-    // Also surface unknown records parsed as kind 'unknown'.
-    const unknownRecords = (this.trace?.records ?? []).filter((r) => r.kind === 'unknown');
-    const total = Math.max(unrec.length, unknownRecords.length);
-    countEl.textContent = `${total} unrecognized record${total === 1 ? '' : 's'}`;
-    list.innerHTML = '';
-    if (total === 0) {
-      const li = document.createElement('li');
-      li.textContent = '(none)';
-      list.appendChild(li);
-      return;
-    }
-    // Show parsed unknown records (with line + reason). Errors-only cases too.
-    const shown = new Set<string>();
-    for (const r of unknownRecords) {
-      const key = `line ${r.line}: ${r.reason}`;
-      if (shown.has(key)) continue;
-      shown.add(key);
-      const li = document.createElement('li');
-      li.textContent = `line ${r.line} — ${r.reason} (${JSON.stringify(r.raw).slice(0, 120)})`;
-      list.appendChild(li);
-    }
-    // Any schema/parse errors not already shown.
-    for (const e of this.trace!.errors) {
-      if (e.includes('unknown record type')) continue;
-      const key = `err: ${e}`;
-      if (shown.has(key)) continue;
-      shown.add(key);
-      const li = document.createElement('li');
-      li.textContent = e;
-      list.appendChild(li);
-    }
+// ------------------------------------------------------------------ boot
+function hasWebGL(): boolean {
+  try {
+    const c = document.createElement('canvas');
+    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
   }
 }
 
-declare global {
-  interface Window { ViewerApp: typeof ViewerApp; }
+if (!hasWebGL()) {
+  setStatus('This viewer needs WebGL, which this browser or device has turned off. The World Engine itself is unaffected.', 'error');
+  throw new Error('WebGL unavailable');
 }
 
-// Start once DOM is ready.
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    (window as any).ViewerApp = ViewerApp;
-    new ViewerApp();
+// Let the status paint before the (synchronous) island build.
+await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 30)));
+const world = new WorldView($('world') as HTMLCanvasElement);
+const minimap = new Minimap($('minimap') as HTMLCanvasElement, world);
+const live = new LiveRelaySource();
+
+const state = {
+  source: null as FeedSource | null,
+  pos: 0, // fractional frame index
+  playing: false,
+  speed: 1,
+  selected: null as string | null,
+  sceneMode: 'follow' as string, // 'follow' or a scene id ('open_world', 'workplace_7', …)
+  lastFrame: -1,
+  switching: false,
+  seenEvents: new Set<string>(),
+};
+
+const labelLayer = $('labels');
+const labels = new Map<string, HTMLDivElement>();
+
+// ------------------------------------------------------------------ feed
+async function openReplay(id: string) {
+  const entry = REPLAYS.find((r) => r.id === id) ?? REPLAYS[0];
+  setStatus(`Loading recording “${entry.label}”…`);
+  state.playing = false;
+  const src = new ReplaySource(entry);
+  try {
+    await src.open();
+  } catch (e) {
+    setStatus(`Could not load this recording: ${e instanceof Error ? e.message : e}`, 'error');
+    return;
+  }
+  state.source = src;
+  state.pos = 0;
+  state.lastFrame = -1;
+  state.seenEvents.clear();
+  state.selected = src.frame(0).agents.find((a) => a.role === 'avatar')?.id ?? src.frame(0).agents[0]?.id ?? null;
+  for (const l of labels.values()) l.remove();
+  labels.clear();
+  const sc = $('scrubber') as HTMLInputElement;
+  sc.max = String(Math.max(0, src.frameCount() - 1));
+  sc.value = '0';
+  buildTimeline();
+  updateSourceBadge();
+  const startFrame = Number(params.get('frame'));
+  if (Number.isFinite(startFrame) && startFrame > 0) state.pos = Math.min(startFrame, src.frameCount() - 1);
+  await syncScene(true);
+  setStatus(null);
+  state.playing = params.get('play') !== '0';
+  updatePlayButton();
+  if (location.search !== `?replay=${entry.id}`) history.replaceState(null, '', `?replay=${entry.id}`);
+}
+
+function updateSourceBadge() {
+  const s = state.source;
+  const badge = $('source-badge');
+  badge.dataset.kind = s?.info.kind ?? 'replay';
+  $('source-badge-text').textContent = s?.info.kind === 'live' ? 'Live simulation' : 'Replay · authored fixture · not live';
+}
+
+function frameAt(i: number): StateFeedDoc {
+  return state.source!.frame(i);
+}
+
+/** Positions between two feed frames. The engine interpolates between ~1 Hz ticks the same way. */
+function interpolatedAgents(): { agent: Agent; pos: THREE.Vector3; vel: THREE.Vector3 }[] {
+  const n = state.source!.frameCount();
+  const i = Math.min(Math.floor(state.pos), n - 1);
+  const j = Math.min(i + 1, n - 1);
+  const t = state.pos - i;
+  const a = frameAt(i), b = frameAt(j);
+  return a.agents.map((ag) => {
+    const nb = b.agents.find((x) => x.id === ag.id && x.scene === ag.scene);
+    const p0 = ag.position, p1 = nb?.position ?? p0;
+    return {
+      agent: ag,
+      pos: new THREE.Vector3(p0.x + (p1.x - p0.x) * t, p0.y + (p1.y - p0.y) * t, p0.z + (p1.z - p0.z) * t),
+      vel: new THREE.Vector3(ag.velocity.x, ag.velocity.y, ag.velocity.z),
+    };
   });
-} else {
-  (window as any).ViewerApp = ViewerApp;
-  new ViewerApp();
 }
+
+/** The scene id to show: the feed's, unless the observer picked one. */
+function shownSceneFor(doc: StateFeedDoc): string {
+  return state.sceneMode === 'follow' ? doc.scene.id : state.sceneMode;
+}
+
+async function syncScene(force = false) {
+  if (!state.source || state.switching) return;
+  const doc = frameAt(Math.floor(state.pos));
+  const want = shownSceneFor(doc);
+  if (!force && want === world.currentId) return;
+  state.switching = true;
+  const wasPlaying = state.playing;
+  state.playing = false;
+  if (want !== 'open_world' && !force) setStatus('Loading interior level…');
+  else if (want !== 'open_world') $('status-text').textContent = 'Loading interior level…';
+  try {
+    await world.showScene(want);
+    app.dataset.scene = world.current;
+  } catch (e) {
+    setStatus(`This interior could not be loaded: ${e instanceof Error ? e.message : e}`, 'error');
+    state.switching = false;
+    return;
+  }
+  if (!force) setStatus(null);
+  state.switching = false;
+  state.playing = wasPlaying;
+}
+
+// ------------------------------------------------------------------ per-frame
+let lastT = performance.now();
+let minimapClock = 0;
+world.onFrame = () => {
+  const now = performance.now();
+  // Wall-clock time, capped at 1 s so a backgrounded tab does not jump the replay.
+  const dt = Math.min((now - lastT) / 1000, 1);
+  lastT = now;
+  const src = state.source;
+  if (!src) return;
+  const n = src.frameCount();
+  if (state.playing && !state.switching) {
+    // Bundles replay at ~1 frame per second (fixtures/README.md), scaled by the speed control.
+    state.pos = Math.min(n - 1, state.pos + dt * state.speed);
+    if (state.pos >= n - 1) { state.playing = false; updatePlayButton(); }
+    ($('scrubber') as HTMLInputElement).value = String(state.pos);
+  }
+  const fi = Math.floor(state.pos);
+  const doc = frameAt(fi);
+  if (fi !== state.lastFrame) {
+    state.lastFrame = fi;
+    onFrameChanged(doc);
+    void syncScene();
+  }
+
+  const agents = interpolatedAgents();
+  const shown = world.current;
+  const items = agents.map((a) => ({ ...a, visible: sceneKeyFor(a.agent.scene) === shown && !state.switching }));
+  world.syncAgents(items, state.selected);
+
+  if (world.followId) {
+    const f = items.find((x) => x.agent.id === world.followId && x.visible);
+    if (f) world.focusOn(f.pos);
+  }
+
+  for (const it of items) {
+    let el = labels.get(it.agent.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'agent-label';
+      el.addEventListener('click', () => select(it.agent.id));
+      labelLayer.appendChild(el);
+      labels.set(it.agent.id, el);
+    }
+    const anchor = world.residentAnchor(it.agent.id);
+    const pr = anchor ? world.project(anchor) : null;
+    if (!pr || !pr.visible) { el.style.display = 'none'; continue; }
+    el.style.display = '';
+    el.style.left = `${pr.x}px`;
+    el.style.top = `${pr.y}px`;
+    el.classList.toggle('sel', it.agent.id === state.selected);
+    const html = `<div class="n">${esc(it.agent.name)} <span class="muted">${esc(P.roleWord(it.agent.role))}</span></div>` +
+      `<div class="s" style="color:${P.stateColour(it.agent.state)}">${P.stateGlyph(it.agent.state)} ${esc(P.stateWord(it.agent.state))}</div>`;
+    if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; }
+  }
+
+  declutterLabels();
+  minimapClock += dt;
+  if (shown === 'open_world' && minimapClock > 0.2) {
+    minimapClock = 0;
+    minimap.draw(items.filter((x) => x.visible).map((x) => ({ x: x.pos.x, z: x.pos.z, selected: x.agent.id === state.selected, role: x.agent.role })));
+  }
+  positionBuildingTip();
+};
+
+/** Stack name labels that would overlap, nearest-to-ground first, so two agents side by side stay readable. */
+function declutterLabels() {
+  const placed: DOMRect[] = [];
+  const els = [...labels.values()].filter((e) => e.style.display !== 'none');
+  els.sort((a, b) => parseFloat(b.style.top) - parseFloat(a.style.top));
+  for (const el of els) {
+    el.style.transform = '';
+    let r = el.getBoundingClientRect();
+    let shift = 0;
+    for (let guard = 0; guard < 6; guard++) {
+      const hit = placed.find((p) => r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top);
+      if (!hit) break;
+      shift += r.bottom - hit.top + 4;
+      r = new DOMRect(r.x, r.y - (r.bottom - hit.top + 4), r.width, r.height);
+    }
+    if (shift) el.style.transform = `translate(-50%, calc(-100% - ${shift}px))`;
+    placed.push(r);
+  }
+}
+
+function onFrameChanged(doc: StateFeedDoc) {
+  const n = state.source!.frameCount();
+  const fi = Math.floor(state.pos);
+  $('frame-label').textContent = `tick ${doc.tick} · frame ${fi + 1}/${n}`;
+  const shownScene = sceneKeyFor(shownSceneFor(doc));
+  const time = doc.simTimeIso ? new Date(doc.simTimeIso).toISOString().slice(11, 16) : '';
+  $('hud-scene').innerHTML = `<strong>${esc(P.sceneName(shownSceneFor(doc)))}</strong>`;
+  $('hud-tick').innerHTML = `tick <strong>${doc.tick}</strong>${time ? ` · sim ${time} UTC` : ''}`;
+  const note = $('hud-note');
+  const inShown = doc.agents.filter((a) => sceneKeyFor(a.scene) === shownScene).length;
+  if (inShown === 0) {
+    note.hidden = false;
+    note.textContent = `Static scene — the feed's agents are in ${P.sceneName(doc.agents[0]?.scene ?? doc.scene.id)}`;
+  } else note.hidden = true;
+  renderRoster(doc);
+  renderInspector(doc);
+  renderEvents(doc);
+}
+
+
+// ------------------------------------------------------------------ roster + inspector
+function select(id: string | null) {
+  state.selected = id;
+  if (world.followId && id) world.followId = id;
+  if (state.source) {
+    const doc = frameAt(Math.floor(state.pos));
+    renderRoster(doc);
+    renderInspector(doc);
+  }
+}
+
+function renderRoster(doc: StateFeedDoc) {
+  const shown = world.current;
+  $('roster-count').textContent = `${doc.agents.length} in this recording`;
+  $('roster').innerHTML = doc.agents
+    .map((a) => {
+      const here = sceneKeyFor(a.scene) === shown;
+      return `<li><button class="agent-btn${here ? '' : ' elsewhere'}" data-id="${esc(a.id)}" aria-pressed="${a.id === state.selected}">
+        <span class="role-badge" data-role="${esc(a.role)}"><span>${esc(P.roleWord(a.role)[0])}</span></span>
+        <span><span class="agent-name">${esc(a.name)}</span><br><span class="agent-sub">${esc(P.roleWord(a.role))} · ${esc(P.sceneName(a.scene))}</span></span>
+        <span class="state-pill" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateWord(a.state))}</span>
+      </button></li>`;
+    })
+    .join('');
+  $('roster').querySelectorAll<HTMLButtonElement>('.agent-btn').forEach((b) =>
+    b.addEventListener('click', () => {
+      const id = b.dataset.id!;
+      select(state.selected === id ? null : id);
+      const a = interpolatedAgents().find((x) => x.agent.id === id);
+      if (a && sceneKeyFor(a.agent.scene) === world.current && state.selected) world.focusOn(a.pos, world.current === 'open_world' ? 34 : undefined);
+    }),
+  );
+}
+
+let detailsOpen = !window.matchMedia('(max-width: 700px)').matches;
+function renderInspector(doc: StateFeedDoc) {
+  const el = $('inspector');
+  $('roster-toggle').setAttribute('aria-expanded', String(detailsOpen));
+  const a = doc.agents.find((x) => x.id === state.selected);
+  if (!a || !detailsOpen) { el.hidden = true; return; }
+  el.hidden = false;
+  const needs = ['quiet', 'rest', 'social', 'stimulation']
+    .map((k) => {
+      const v = a.needs[k] ?? 0;
+      return `<span>${P.needLabel(k)}</span><span class="bar need${v < 0.35 ? ' low' : ''}"><i style="width:${(v * 100).toFixed(0)}%"></i></span><span class="muted">${P.needWord(v)}</span>`;
+    })
+    .join('');
+  const met = ['quiet', 'rest', 'social', 'stimulation'].filter((k) => (a.needs[k] ?? 0) >= 0.65).length;
+  const levels = Object.entries(a.levels ?? {})
+    .map(([k, v]) => `<span>${esc(P.levelLabel(k))}${k === 'independenceScore' ? '<span class="fusion-tag" title="Fusion-owned; display only">·F</span>' : ''}</span><span class="bar"><i style="width:${(v * 100).toFixed(0)}%"></i></span><span class="muted">${P.magnitude(v)}</span>`)
+    .join('');
+  const pair = doc.pairs.find((p) => p.avatarId === a.id || p.aideId === a.id);
+  const gate = pair
+    ? `<div class="gate">${pair.ready ? '<strong style="color:var(--pass)">● Ready to fuse</strong>' : '<strong style="color:var(--warn)">◐ Not ready yet</strong>'} · overall ${(pair.overallScore * 100).toFixed(0)}%</div>` +
+      (pair.blockingDimensions.length ? `<div class="gate-note">Still building: ${pair.blockingDimensions.map((d) => esc(d.toLowerCase().replace(/_/g, ' '))).join(', ')}</div>` : '') +
+      `<div class="gate-note">Readiness is computed by AI-Fusion and shown as received.</div>`
+    : '';
+  el.innerHTML = `
+    <div class="insp-title"><h3>${esc(a.name)}</h3><span class="muted">${esc(P.roleWord(a.role))} · ${esc(a.id)}</span></div>
+    <div class="insp-state" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateReading(a.state))}</div>
+    <div class="insp-since">${esc(P.duration(doc.tick - a.stateSince))}${a.burnout ? ' · <strong style="color:var(--alert)">▲ in burnout</strong>' : ''}</div>
+    <div class="insp-section"><h4>Working on</h4><dl class="kv"><dt>Goal</dt><dd>${esc(a.currentGoal || '—')}</dd><dt>Now</dt><dd>${esc(a.currentTask || '—')}</dd></dl></div>
+    <div class="insp-section"><h4>Needs · ${met} of 4 met</h4><div class="bars">${needs}</div></div>
+    ${a.struggleSignals.length ? `<div class="insp-section"><h4>Signals Fusion is seeing</h4><div class="tags">${a.struggleSignals.map((s) => `<span class="tag">${esc(P.signalName(s))}</span>`).join('')}</div></div>` : ''}
+    ${a.learnedStrategies.length ? `<div class="insp-section"><h4>Strategies kept</h4><div class="tags">${a.learnedStrategies.map((s) => `<span class="tag">${esc(P.strategyName(s))}</span>`).join('')}</div></div>` : ''}
+    <div class="insp-section"><h4>Levels</h4><div class="bars">${levels}</div></div>
+    ${gate ? `<div class="insp-section"><h4>Fusion gate</h4>${gate}</div>` : ''}
+    <div class="insp-section muted">Position ${a.position.x.toFixed(1)}, ${a.position.y.toFixed(1)}, ${a.position.z.toFixed(1)} m in ${esc(P.sceneName(a.scene))}</div>`;
+}
+
+// ------------------------------------------------------------------ events
+const EVENT_GLYPH: Record<string, string> = {
+  burnout_entered: '▲', burnout_recovered: '❯', self_recognition: '◆', aide_intervention: '⬢', strategy_internalised: '●',
+  task_failed: '□', task_complete: '●', task_start: '▏', scene_enter: '→', scene_exit: '←', struggle_detected: '■', fusion_ready: '★',
+};
+const EVENT_COLOUR: Record<string, string> = { burnout_entered: '#d55e00', burnout_recovered: '#009e73', self_recognition: '#cc79a7', aide_intervention: '#ebc62a', struggle_detected: '#e69f00', fusion_ready: '#009e73' };
+const evKey = (e: FeedEvent) => `${e.tick}|${e.agentId}|${e.kind}`;
+
+function renderEvents(doc: StateFeedDoc) {
+  const list = $('events-list');
+  const evs = [...doc.events].sort((a, b) => b.tick - a.tick);
+  $('events-count').textContent = evs.length ? String(evs.length) : '';
+  if (!evs.length) {
+    list.innerHTML = `<li class="ev-empty">No events in the feed at this tick.</li>`;
+    return;
+  }
+  const names = new Map(doc.agents.map((a) => [a.id, a.name]));
+  list.innerHTML = evs
+    .map((e) => {
+      const fresh = !state.seenEvents.has(evKey(e));
+      const ago = doc.tick - e.tick;
+      return `<li class="ev${fresh && state.lastFrame > 0 ? ' new' : ''}"><span class="g" style="color:${EVENT_COLOUR[e.kind] ?? 'var(--dim)'}">${EVENT_GLYPH[e.kind] ?? '•'}</span>
+        <span>${esc(e.text)}<div class="meta">${esc(names.get(e.agentId) ?? e.agentId)} · ${esc(P.eventWord(e.kind))} · ${ago <= 0 ? 'just now' : `${ago} ticks ago`}</div></span></li>`;
+    })
+    .join('');
+  evs.forEach((e) => state.seenEvents.add(evKey(e)));
+}
+
+function buildTimeline() {
+  const src = state.source!;
+  const n = src.frameCount();
+  const tl = $('timeline');
+  const seen = new Map<string, { pos: number; e: FeedEvent }>();
+  for (let i = 0; i < n; i++)
+    for (const e of src.frame(i).events) if (!seen.has(evKey(e))) seen.set(evKey(e), { pos: i, e });
+  tl.innerHTML = [...seen.values()]
+    .map(({ pos, e }) => `<i style="left:${n > 1 ? (pos / (n - 1)) * 100 : 0}%;color:${EVENT_COLOUR[e.kind] ?? 'var(--muted)'}" title="${esc(e.text)}">${EVENT_GLYPH[e.kind] ?? '•'}</i>`)
+    .join('');
+}
+
+// ------------------------------------------------------------------ buildings
+let tip: { el: HTMLDivElement; at: THREE.Vector3 } | null = null;
+world.onClick = (x, y) => {
+  tip?.el.remove();
+  tip = null;
+  const b = world.pickBuilding(x, y);
+  if (!b) return;
+  const el = document.createElement('div');
+  el.className = 'building-tip';
+  el.innerHTML = `<strong>${esc(b.label)}</strong> <span class="muted">building ${b.index + 1} · ${esc(b.sceneId)}</span><br><button class="chip">View inside (static scene)</button>`;
+  el.querySelector('button')!.addEventListener('click', () => {
+    setSceneMode(b.sceneId);
+    tip?.el.remove();
+    tip = null;
+  });
+  app.appendChild(el);
+  tip = { el, at: b.door.clone().add(new THREE.Vector3(0, 3.4, 0)) };
+  positionBuildingTip();
+};
+function positionBuildingTip() {
+  if (!tip) return;
+  const p = world.project(tip.at);
+  tip.el.style.display = p.visible && world.current === 'open_world' ? '' : 'none';
+  tip.el.style.left = `${p.x}px`;
+  tip.el.style.top = `${p.y}px`;
+}
+
+// ------------------------------------------------------------------ controls
+function updatePlayButton() {
+  const b = $('btn-play');
+  b.textContent = state.playing ? '⏸' : '▶';
+  b.setAttribute('aria-label', state.playing ? 'Pause' : 'Play');
+}
+function togglePlay() {
+  if (!state.source) return;
+  if (!state.playing && state.pos >= state.source.frameCount() - 1) state.pos = 0;
+  state.playing = !state.playing;
+  updatePlayButton();
+}
+function step(d: number) {
+  if (!state.source) return;
+  state.playing = false;
+  updatePlayButton();
+  state.pos = Math.max(0, Math.min(state.source.frameCount() - 1, Math.round(state.pos) + d));
+  ($('scrubber') as HTMLInputElement).value = String(state.pos);
+}
+function setSceneMode(mode: string) {
+  state.sceneMode = mode;
+  const sel = $('scene-select') as HTMLSelectElement;
+  if (![...sel.options].some((o) => o.value === mode)) sel.add(new Option(`${P.sceneName(mode)} (interior)`, mode));
+  sel.value = mode;
+  state.lastFrame = -1; // refresh HUD + roster
+  void syncScene(true).then(() => setStatus(null));
+}
+
+$('btn-play').addEventListener('click', togglePlay);
+$('btn-back').addEventListener('click', () => step(-1));
+$('btn-fwd').addEventListener('click', () => step(1));
+($('scrubber') as HTMLInputElement).addEventListener('input', (e) => {
+  state.playing = false;
+  updatePlayButton();
+  state.pos = Number((e.target as HTMLInputElement).value);
+});
+($('speed') as HTMLSelectElement).addEventListener('change', (e) => (state.speed = Number((e.target as HTMLSelectElement).value)));
+($('scene-select') as HTMLSelectElement).addEventListener('change', (e) => setSceneMode((e.target as HTMLSelectElement).value));
+const replaySel = $('replay-select') as HTMLSelectElement;
+replaySel.innerHTML = REPLAYS.map((r) => `<option value="${r.id}">${esc(r.label)}</option>`).join('');
+replaySel.addEventListener('change', () => {
+  state.sceneMode = 'follow';
+  ($('scene-select') as HTMLSelectElement).value = 'follow';
+  void openReplay(replaySel.value);
+});
+const followBtn = $('btn-follow');
+followBtn.addEventListener('click', () => {
+  world.followId = world.followId ? null : state.selected;
+  followBtn.setAttribute('aria-pressed', String(!!world.followId));
+});
+setInterval(() => followBtn.setAttribute('aria-pressed', String(!!world.followId)), 500);
+$('btn-reset').addEventListener('click', () => { world.followId = null; world.resetCamera(); });
+const rm = $('reduced-motion') as HTMLInputElement;
+rm.checked = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+world.reducedMotion = rm.checked;
+rm.addEventListener('change', () => (world.reducedMotion = rm.checked));
+$('roster-toggle').addEventListener('click', () => {
+  detailsOpen = !detailsOpen;
+  if (state.source) renderInspector(frameAt(Math.floor(state.pos)));
+});
+const evToggle = $('events-toggle');
+evToggle.addEventListener('click', () => {
+  const open = evToggle.getAttribute('aria-expanded') !== 'true';
+  evToggle.setAttribute('aria-expanded', String(open));
+  $('events-list').hidden = !open;
+});
+window.addEventListener('keydown', (e) => {
+  if ((e.target as HTMLElement)?.closest?.('input,select,textarea,dialog')) return;
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  else if (e.key === ',' || e.key === '[') step(-1);
+  else if (e.key === '.' || e.key === ']') step(1);
+  else if (e.key === 'Escape') { tip?.el.remove(); tip = null; }
+});
+
+// ------------------------------------------------------------------ about / provenance
+const about = $('about') as HTMLDialogElement;
+function openAbout() {
+  const s = state.source;
+  const diag = s?.diagnostics() ?? [];
+  $('about-body').innerHTML = `
+    <p>A spectator window onto the <strong>NLT World Engine</strong>: a persistent island where AI Avatars, Aides and Advocates live, move and work through scenarios. The engine itself is a Godot 4.7 (C#) desktop application; this page is a separate browser projection of it.</p>
+    <h3>Where each thing on screen comes from</h3>
+    <table>
+      <tr><td>Island, settlement, trees</td><td><strong>Static scene data.</strong> Rebuilt in your browser from the World Engine's own builders (WorldGeometry, TerrainBuilder, SettlementBuilder, BuildingArchetypes, VegetationBuilder), same seed ${SEED}. Not rendered by Godot. Sky and lighting are an approximation of Godot's Sky3D.</td></tr>
+      <tr><td>Interiors</td><td><strong>Static scene data.</strong> The project-owned level files Godot loads (assets/levels/*.fbx). Per-building colour schemes (InteriorStyle) are not ported.</td></tr>
+      <tr><td>Agents, states, events</td><td><strong>${esc(s?.info.provenance ?? '—')}.</strong> ${esc(s?.info.title ?? '')} — nlt.state-feed.v1 frames from world-engine-godot/fixtures/replay. ${esc(s?.info.detail ?? '')}</td></tr>
+      <tr><td>Resident figure</td><td>The self-authored pipeline-probe character Godot uses (deliberately primitive), with its walk cycle. It plays only while the feed says the agent is moving.</td></tr>
+      <tr><td>Live simulation</td><td><strong>Unavailable.</strong> ${esc(live.info.detail ?? '')}</td></tr>
+    </table>
+    <h3>Responsibilities</h3>
+    <p>Godot owns physical reality. AI-Fusion owns semantic reality — states, needs, readiness. This viewer only draws what a feed says; it never simulates, and it never computes Fusion's numbers.</p>
+    <h3>Controls</h3>
+    <p>Drag to orbit · scroll or pinch to zoom · W A S D / arrows to pan · click a building for its doorway · Space plays and pauses · , and . step frames.</p>
+    ${diag.length ? `<h3>Feed diagnostics</h3><div class="diag">${diag.map(esc).join('<br>')}</div>` : ''}
+    <p class="muted">The earlier trace-replay viewer (nlt.observer-trace.v1) is still available at <a href="./trace.html" style="color:var(--accent)">trace.html</a>.</p>`;
+  about.showModal();
+}
+['about-btn', 'source-badge', 'live-btn'].forEach((id) => $(id).addEventListener('click', openAbout));
+$('about-close').addEventListener('click', () => about.close());
+
+// ------------------------------------------------------------------ go
+try {
+  await world.loadResidentModel('godot/characters/nlt_resident_walk.glb');
+} catch (e) {
+  console.warn('Resident model unavailable; using a plain marker.', e);
+}
+const initial = params.get('replay') ?? 'open-world-day';
+replaySel.value = REPLAYS.some((r) => r.id === initial) ? initial : REPLAYS[0].id;
+const sceneParam = params.get('scene');
+if (sceneParam && /^(open_world|(personal|workplace|social|academic)_\d+)$/.test(sceneParam)) setSceneMode(sceneParam);
+await openReplay(replaySel.value);
+if (params.get('about') === '1') openAbout();
+if (params.has('debug')) (window as unknown as Record<string, unknown>).__nlt = { world, state };
