@@ -87,6 +87,19 @@ export async function listDesktopTools(): Promise<RemoteTool[]> {
   return result.tools as RemoteTool[];
 }
 
+export async function callDesktopReadOnlyTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+  const connected = await getDesktopClient();
+  const tools = await connected.listTools();
+  const selected = tools.tools.find((tool) => tool.name === name);
+  if (!selected) {
+    throw new Error(`Unknown desktop Godot tool: ${name}. Call desktop_list_tools first.`);
+  }
+  if (selected.annotations?.readOnlyHint !== true || selected.annotations?.destructiveHint === true) {
+    throw new Error("This operation is not explicitly annotated read-only by the Godot MCP Toolkit. Use desktop_call_tool and obtain user approval.");
+  }
+  return connected.callTool({ name, arguments: args });
+}
+
 export async function callDesktopTool(name: string, args: Record<string, unknown>): Promise<unknown> {
   const connected = await getDesktopClient();
   const tools = await connected.listTools();
