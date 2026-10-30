@@ -744,3 +744,16 @@ Also uncommitted and unrelated to the observer: the `MIGRATE-PLAN.md` / `RENDERE
   `object-src` as a header, because the two pages need different meta CSPs.
 - **Open:** Joshua: approve any production deployment of `world-engine-viewer` (the project exists,
   root `vercel/viewer`). Live transport: see the escalation.
+
+### 🤖 CHATGPT-GODOT-001 — ChatGPT MCP app for desktop + headless Godot — 2026-10-29
+- **Status:** implementation scaffold created on `feat/chatgpt-godot-mcp-app`; awaiting local build, protocol tests, and human review.
+- **Owner:** ChatGPT (implementation) · Joshua (architecture and approval authority).
+- **Scope:** `integrations/chatgpt-godot/` — local Streamable HTTP MCP server with desktop and headless adapters.
+- **Desktop:** delegates to the existing vendored Godot MCP Toolkit through the pinned `@npgamedev/godot-mcp-server@1.0.4` bridge. Does not replace the toolkit or duplicate editor operations.
+- **Headless:** fixed Godot/.NET command templates for version status, build/import/startup validation, and bounded simulation runs. No arbitrary shell or Godot arguments.
+- **Knowledge:** reads `.claude/skills/godot-senior-engineer/` in place through MCP tools; Claude's skill remains the source of truth and is not copied.
+- **Connection:** loopback-only HTTP MCP endpoint; ChatGPT access is intended through OpenAI Secure MCP Tunnel. No public listener, OAuth service, cloud deployment, or production app registration was created.
+- **Safety:** desktop bridge defaults to toolkit read-only mode; mutating desktop dispatch and headless execution carry destructive MCP annotations. Local mutations require explicit configuration and ChatGPT approval.
+- **Open verification:** install Node 22 dependencies; run `npm run build` and `npm test`; test the MCP endpoint with MCP Inspector; verify desktop bridge on Godot 4.7.2 .NET; run headless validation on a machine with Godot/.NET and the adjacent `asfdk-csharp` checkout.
+- **Next:** review PR, fix any compile/protocol issues, add lockfile, then connect through Secure MCP Tunnel and test in ChatGPT web. Joshua retains deployment and ChatGPT account installation decisions.
+

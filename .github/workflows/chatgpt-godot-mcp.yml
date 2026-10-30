@@ -1,0 +1,30 @@
+name: ChatGPT Godot MCP
+
+on:
+  pull_request:
+    paths:
+      - "integrations/chatgpt-godot/**"
+      - ".github/workflows/chatgpt-godot-mcp.yml"
+  push:
+    branches: [main]
+    paths:
+      - "integrations/chatgpt-godot/**"
+      - ".github/workflows/chatgpt-godot-mcp.yml"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/chatgpt-godot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript build
+        run: npm run build
+      - name: Unit tests
+        run: npm test

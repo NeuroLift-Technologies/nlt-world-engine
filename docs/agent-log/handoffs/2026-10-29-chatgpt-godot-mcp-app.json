@@ -1,0 +1,56 @@
+{
+  "handoff_record": {
+    "session_id": "chatgpt-godot-mcp-app-2026-10-29",
+    "agent_name": "ChatGPT GPT-6",
+    "date": "2026-10-29",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "feat/chatgpt-godot-mcp-app",
+    "work_completed": [
+      "Created a local-first MCP server for ChatGPT using Streamable HTTP.",
+      "Added a desktop adapter that delegates to the existing Godot MCP Toolkit bridge pinned at @npgamedev/godot-mcp-server@1.0.4.",
+      "Added a headless adapter with fixed .NET build, Godot import/startup, and bounded run command templates.",
+      "Added MCP tools to list and read the existing .claude/skills/godot-senior-engineer files in place.",
+      "Added separate read-only and destructive desktop tool dispatchers, with fail-closed behavior for tools lacking explicit read-only annotations.",
+      "Added NLT project context reader, local-only binding guard, read-only desktop default, destructive tool annotations, README, basic command tests, and CI workflow.",
+      "Added orderly child bridge cleanup on MCP server shutdown.",
+      "Registered CHATGPT-GODOT-001 in docs/active-threads.md."
+    ],
+    "work_in_progress": [
+      "Local dependency installation, TypeScript compilation, MCP Inspector verification, and live Godot desktop/headless testing."
+    ],
+    "blockers": [
+      "This GitHub connector session has no local Node.js, Godot, .NET, or desktop editor runtime for executing the verification commands.",
+      "ChatGPT Secure MCP Tunnel setup and ChatGPT account app creation must be completed by the user."
+    ],
+    "decisions_made": [
+      "Use a local MCP server reached through Secure MCP Tunnel rather than exposing a public unauthenticated endpoint.",
+      "Keep the existing Claude senior Godot skill as the shared source of truth and read it directly rather than copying it.",
+      "Use separate desktop and headless adapters behind one MCP interface.",
+      "Default desktop operations to toolkit read-only mode; require destructive tool approval for mutations."
+    ],
+    "decisions_pending": [
+      "Approve and merge the implementation after build and live runtime verification.",
+      "Choose whether to add a ChatGPT-hosted UI resource beyond the initial tool-based app.",
+      "Choose any future remote deployment or OAuth architecture; neither is included in this local-first scaffold."
+    ],
+    "escalations": [],
+    "next_agent_notes": "Run npm install in integrations/chatgpt-godot, then npm run build and npm test. Fix TypeScript or MCP SDK API issues before merging. Test desktop adapter with Godot 4.7.2 .NET editor and MCP Toolkit v1.0.4 enabled. Test headless adapter on the dev machine; world-engine-godot references ../asfdk-csharp. Verify the loopback Streamable HTTP endpoint with MCP Inspector, then configure OpenAI Secure MCP Tunnel and connect the endpoint to ChatGPT web. Do not deploy publicly or alter NLT-DEV-OTOI.md.",
+    "files_modified": [
+      "integrations/chatgpt-godot/package.json",
+      "integrations/chatgpt-godot/tsconfig.json",
+      "integrations/chatgpt-godot/.gitignore",
+      "integrations/chatgpt-godot/src/config.ts",
+      "integrations/chatgpt-godot/src/godot-desktop.ts",
+      "integrations/chatgpt-godot/src/headless.ts",
+      "integrations/chatgpt-godot/src/skill.ts",
+      "integrations/chatgpt-godot/src/server.ts",
+      "integrations/chatgpt-godot/README.md",
+      "integrations/chatgpt-godot/tests/commands.test.ts",
+      ".github/workflows/chatgpt-godot-mcp.yml",
+      "docs/active-threads.md",
+      "docs/agent-log/registrations/2026-10-29-chatgpt-godot-mcp.json"
+    ],
+    "tests_run": [],
+    "tests_passing": false
+  }
+}
