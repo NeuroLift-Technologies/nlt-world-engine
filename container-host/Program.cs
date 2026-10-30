@@ -71,7 +71,17 @@ sealed class GodotSupervisor(string project) : BackgroundService
         foreach (var a in new[] { "--headless", "--path", project, "--audio-driver", "Dummy" })
             psi.ArgumentList.Add(a);
 
-        _proc = Process.Start(psi) ?? throw new InvalidOperationException("godot failed to start");
+        try
+        {
+            _proc = Process.Start(psi);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // Stay up so /health can report engine_down (503) and the cause is in the logs.
+            Console.Error.WriteLine($"godot failed to start: {ex.Message}");
+            return;
+        }
+        if (_proc is null) return;
         _started = DateTime.UtcNow;
         try { await _proc.WaitForExitAsync(stop); }
         catch (OperationCanceledException) { }
