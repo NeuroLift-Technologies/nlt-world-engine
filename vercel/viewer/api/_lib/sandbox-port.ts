@@ -1,5 +1,5 @@
 import { Sandbox } from '@vercel/sandbox';
-import type { RunInfo, RunPort } from './run-control';
+import type { RunInfo, RunPort } from './run-control.js';
 
 // A run is one Vercel Sandbox started from the engine image, with headless Godot as its process.
 // Sandboxes are found by tag, not by instance, so start, stop and status always see the same run.

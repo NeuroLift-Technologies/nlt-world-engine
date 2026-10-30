@@ -1,5 +1,5 @@
-import { controlEnabled, handleRunRequest } from './_lib/run-control';
-import { sandboxPort } from './_lib/sandbox-port';
+import { controlEnabled, handleRunRequest } from './_lib/run-control.js';
+import { sandboxPort } from './_lib/sandbox-port.js';
 
 // GET    /api/run  -> { state, run }          current run, or idle
 // POST   /api/run  -> start a run (409 if one is already active)
