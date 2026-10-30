@@ -19,6 +19,15 @@ export interface RunPort {
   listActive(): Promise<RunInfo[]>;
   start(): Promise<RunInfo>;
   stop(id: string): Promise<void>;
+  /** New complete trace lines from byte offset `from`; `next` is the offset to ask for next. */
+  readTrace(id: string, from: number): Promise<TraceChunk>;
+}
+
+export interface TraceChunk {
+  text: string;
+  next: number;
+  /** True when the chunk was cut at the size limit and more may be waiting. */
+  more: boolean;
 }
 
 export interface ControlRequest {
@@ -166,4 +175,33 @@ export async function handleRunRequest(
     toStop.length > 0 ? 'stopped' : 'stop_already_stopping',
     latest?.id,
   );
+}
+
+/**
+ * GET /api/run/trace?from=<byte offset>: the next lines of the running engine's observer trace.
+ * Read-only, nothing is stored, and the sandbox has no public port: this route is the only way out.
+ * A run that is starting or stopping answers with no lines rather than an error.
+ */
+export async function handleTraceRequest(
+  req: ControlRequest,
+  enabled: boolean,
+  port: RunPort,
+  fromParam: string | null,
+): Promise<ControlResult> {
+  if (!enabled) return { status: 503, body: { error: 'run_control_disabled' } };
+  if (req.method.toUpperCase() !== 'GET') {
+    return { status: 405, body: { error: 'method_not_allowed' }, headers: { allow: 'GET' } };
+  }
+  if (fromParam !== null && !/^\d{1,15}$/.test(fromParam)) {
+    return { status: 400, body: { error: 'bad_offset' } };
+  }
+  const from = fromParam === null ? 0 : Number(fromParam);
+
+  const run = newest(await port.listActive());
+  if (!run) return { status: 200, body: { state: 'idle', runId: null, text: '', next: from, more: false } };
+  if (run.state !== 'running') {
+    return { status: 200, body: { state: run.state, runId: run.id, text: '', next: from, more: false } };
+  }
+  const chunk = await port.readTrace(run.id, from);
+  return { status: 200, body: { state: 'running', runId: run.id, ...chunk } };
 }

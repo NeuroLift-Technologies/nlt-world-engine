@@ -22,3 +22,9 @@ export function maxRunMs(env: Env): number {
 export function sandboxVcpus(env: Env): number {
   return Math.min(positiveInt(env.NLT_SANDBOX_VCPUS) ?? DEFAULT_VCPUS, MAX_VCPUS);
 }
+
+/** Where the engine writes the observer trace inside the sandbox. Fixed: callers never choose a path. */
+export const TRACE_PATH = '/tmp/nlt-observer-trace.jsonl';
+
+/** Most bytes one poll returns. The client asks again while `more` is true. */
+export const TRACE_CHUNK_BYTES = 256 * 1024;

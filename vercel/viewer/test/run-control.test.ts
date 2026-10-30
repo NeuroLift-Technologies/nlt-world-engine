@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { controlEnabled, handleRunRequest } from '../api/_lib/run-control.ts';
+import { controlEnabled, handleRunRequest, handleTraceRequest } from '../api/_lib/run-control.ts';
 import type { AuditEntry, ControlRequest, RunInfo, RunPort } from '../api/_lib/run-control.ts';
 
 const HOST = 'viewer.example.com';
@@ -13,8 +13,9 @@ function req(method: string, headers: Record<string, string> = {}): ControlReque
 const sameOrigin = { host: HOST, origin: `https://${HOST}`, 'x-nlt-run': '1' };
 
 /** In-memory stand-in for the Sandbox adapter. `hideFirst` makes the first N listings look empty. */
-function fakePort(initial: RunInfo[] = [], hideFirst = 0) {
+function fakePort(initial: RunInfo[] = [], hideFirst = 0, trace = '') {
   const runs = [...initial];
+  const traceReads: Array<[string, number]> = [];
   let clock = 100;
   let listCalls = 0;
   const stopped: string[] = [];
@@ -32,8 +33,15 @@ function fakePort(initial: RunInfo[] = [], hideFirst = 0) {
     async stop(id) {
       stopped.push(id);
     },
+    async readTrace(id, from) {
+      traceReads.push([id, from]);
+      const bytes = Buffer.from(trace, 'utf8').subarray(from);
+      const end = bytes.lastIndexOf(0x0a);
+      const text = end === -1 ? '' : bytes.subarray(0, end + 1).toString('utf8');
+      return { text, next: from + Buffer.byteLength(text, 'utf8'), more: false };
+    },
   };
-  return { port, stopped, runs };
+  return { port, stopped, runs, traceReads };
 }
 
 const running = (id: string, createdAt: number): RunInfo => ({ id, state: 'running', createdAt });
@@ -241,5 +249,75 @@ describe('audit trail', () => {
   it('never carries identity or request headers', async () => {
     const { entries } = await audited('POST', { ...sameOrigin, cookie: 'secret=1', authorization: 'Bearer x' }, fakePort().port);
     assert.deepEqual(Object.keys(entries[0]).sort(), ['action', 'at', 'event', 'outcome', 'runId', 'status']);
+  });
+});
+
+describe('handleTraceRequest', () => {
+  const LINES = '{"a":1}\n{"b":2}\n';
+
+  it('is off unless enabled', async () => {
+    const { port, traceReads } = fakePort([running('run-1', 1)], 0, LINES);
+    const res = await handleTraceRequest(req('GET'), false, port, null);
+    assert.equal(res.status, 503);
+    assert.equal(traceReads.length, 0);
+  });
+
+  it('only answers GET', async () => {
+    const res = await handleTraceRequest(req('POST', sameOrigin), true, fakePort().port, null);
+    assert.equal(res.status, 405);
+  });
+
+  it('rejects an offset that is not a plain non-negative integer', async () => {
+    for (const bad of ['-1', '1.5', 'abc', '', '1e3', '0x10', '9999999999999999', "1;rm -rf /"]) {
+      const { port, traceReads } = fakePort([running('run-1', 1)], 0, LINES);
+      const res = await handleTraceRequest(req('GET'), true, port, bad);
+      assert.equal(res.status, 400, `offset ${JSON.stringify(bad)}`);
+      assert.equal(traceReads.length, 0);
+    }
+  });
+
+  it('answers idle with no lines and keeps the offset when nothing is running', async () => {
+    const res = await handleTraceRequest(req('GET'), true, fakePort().port, '42');
+    assert.deepEqual(res.body, { state: 'idle', runId: null, text: '', next: 42, more: false });
+  });
+
+  it('does not read while a run is starting or stopping', async () => {
+    for (const state of ['starting', 'stopping'] as const) {
+      const { port, traceReads } = fakePort([{ id: 'run-1', state, createdAt: 1 }], 0, LINES);
+      const res = await handleTraceRequest(req('GET'), true, port, '5');
+      assert.equal(res.status, 200);
+      assert.equal(res.body.state, state);
+      assert.equal(res.body.text, '');
+      assert.equal(res.body.next, 5);
+      assert.equal(traceReads.length, 0);
+    }
+  });
+
+  it('returns whole lines from the offset and the next offset', async () => {
+    const { port, traceReads } = fakePort([running('run-1', 1)], 0, LINES);
+    const first = await handleTraceRequest(req('GET'), true, port, null);
+    assert.equal(first.body.text, LINES);
+    assert.equal(first.body.next, Buffer.byteLength(LINES));
+    assert.equal(first.body.runId, 'run-1');
+    const none = await handleTraceRequest(req('GET'), true, port, String(first.body.next));
+    assert.equal(none.body.text, '');
+    assert.equal(none.body.next, first.body.next);
+    assert.deepEqual(traceReads, [['run-1', 0], ['run-1', Buffer.byteLength(LINES)]]);
+  });
+
+  it('holds back a half-written last line until its newline arrives', async () => {
+    const { port } = fakePort([running('run-1', 1)], 0, '{"a":1}\n{"b":');
+    const res = await handleTraceRequest(req('GET'), true, port, null);
+    assert.equal(res.body.text, '{"a":1}\n');
+    assert.equal(res.body.next, Buffer.byteLength('{"a":1}\n'));
+  });
+
+  it('counts bytes, not characters, so multi-byte text does not shift the offset', async () => {
+    const line = '{"name":"Zoë – 日本"}\n';
+    const { port } = fakePort([running('run-1', 1)], 0, line + line);
+    const first = await handleTraceRequest(req('GET'), true, port, null);
+    assert.equal(first.body.next, Buffer.byteLength(line + line));
+    const second = await handleTraceRequest(req('GET'), true, port, String(Buffer.byteLength(line)));
+    assert.equal(second.body.text, line);
   });
 });

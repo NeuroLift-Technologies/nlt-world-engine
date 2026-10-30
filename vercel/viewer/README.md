@@ -35,6 +35,7 @@ simulate, and it does not show the run live yet (see "Not done").
 | Endpoint | `api/run.ts`: `GET` status, `POST` start, `DELETE` stop |
 | Rules (one run at a time, idempotent stop, same-origin guard) | `api/_lib/run-control.ts`, tested in `test/run-control.test.ts` (`npm test`) |
 | Sandbox adapter | `api/_lib/sandbox-port.ts` |
+| Live trace (server) | `api/run/trace.ts`: `GET /api/run/trace?from=<byte offset>` returns the next whole lines of the running engine's `nlt.observer-trace.v1` file |
 
 **Behaviour.** Starting while a run is active answers 409. Stopping with nothing running succeeds. If two
 starts race, the newer run stops itself. A run ends by itself after `NLT_RUN_MAX_MINUTES` (default 15, capped
@@ -63,6 +64,12 @@ Polling (`GET`) is not logged. ASFDK is not called at the button; it keeps gatin
 that matches the host. The sandbox exposes no ports, so it has no public URL. Errors are logged in the function
 logs and the page only sees a generic failure. Nothing here stores a secret: Vercel supplies the credentials to
 the function.
+
+**Live trace.** The engine is started with `NLT_OBSERVER_TRACE=/tmp/nlt-observer-trace.jsonl` and flushes a line at a time.
+`/api/run/trace` reads the new bytes from the running sandbox and returns `{ state, runId, text, next, more }`: only whole lines,
+`next` is the byte offset to ask for next, `more` says the chunk hit the 256 KB limit. Nothing is stored and the sandbox exposes
+no port. The caller picks an offset only: the file path is fixed in the server. Lines written after the last poll are lost if the
+run stops before the next poll.
 
 **Not done**
 
