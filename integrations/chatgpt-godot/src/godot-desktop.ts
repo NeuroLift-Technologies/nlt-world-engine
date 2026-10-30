@@ -45,9 +45,15 @@ export async function getDesktopClient(): Promise<Client> {
       env: childEnvironment()
     });
     const next = new Client({ name: "nlt-chatgpt-godot", version: "0.1.0" });
-    await next.connect(transport);
-    client = next;
-    return next;
+    try {
+      await next.connect(transport);
+      client = next;
+      return next;
+    } catch (error) {
+      await transport.close().catch(() => undefined);
+      transport = undefined;
+      throw error;
+    }
   })();
 
   try {
@@ -111,4 +117,16 @@ export async function callDesktopTool(name: string, args: Record<string, unknown
     throw new Error("This session is read-only. Only tools explicitly annotated readOnlyHint=true are allowed. Set GODOT_MCP_READ_ONLY=0 locally and restart only if you explicitly authorize mutations.");
   }
   return connected.callTool({ name, arguments: args });
+}
+
+export async function closeDesktopClient(): Promise<void> {
+  const activeClient = client;
+  const activeTransport = transport;
+  client = undefined;
+  transport = undefined;
+  if (activeClient) {
+    await activeClient.close();
+  } else if (activeTransport) {
+    await activeTransport.close();
+  }
 }
