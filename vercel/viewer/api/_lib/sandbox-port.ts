@@ -1,13 +1,11 @@
 import { Sandbox } from '@vercel/sandbox';
+import { maxRunMs, sandboxVcpus } from './run-config.js';
 import type { RunInfo, RunPort } from './run-control.js';
 
 // A run is one Vercel Sandbox started from the engine image, with headless Godot as its process.
 // Sandboxes are found by tag, not by instance, so start, stop and status always see the same run.
 
 const TAG = { app: 'nlt-world-engine-run' } as const;
-const DEFAULT_MAX_MINUTES = 15;
-const MAX_MINUTES_CEILING = 60;
-
 // Mirrors the image's own runtime settings; Sandbox does not run the image's ENTRYPOINT or CMD.
 const GODOT_ARGS = ['--headless', '--path', '/app/world-engine-godot', '--audio-driver', 'Dummy'];
 const GODOT_ENV = {
@@ -32,12 +30,6 @@ function toState(status: SandboxStatus): RunInfo['state'] | null {
   }
 }
 
-export function maxRunMs(env: Record<string, string | undefined>): number {
-  const parsed = Number.parseInt(env.NLT_RUN_MAX_MINUTES ?? '', 10);
-  const minutes = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, MAX_MINUTES_CEILING) : DEFAULT_MAX_MINUTES;
-  return minutes * 60_000;
-}
-
 export function sandboxPort(env: Record<string, string | undefined>): RunPort {
   return {
     async listActive() {
@@ -60,6 +52,7 @@ export function sandboxPort(env: Record<string, string | undefined>): RunPort {
         name: `nlt-run-${Date.now()}`,
         image,
         timeout: maxRunMs(env),
+        resources: { vcpus: sandboxVcpus(env) },
         tags: { ...TAG },
       });
 

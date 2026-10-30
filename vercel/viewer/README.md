@@ -38,7 +38,7 @@ simulate, and it does not show the run live yet (see "Not done").
 
 **Behaviour.** Starting while a run is active answers 409. Stopping with nothing running succeeds. If two
 starts race, the newer run stops itself. A run ends by itself after `NLT_RUN_MAX_MINUTES` (default 15, capped
-at 60; your Vercel plan's own maximum also applies). Runs are found by tag, so start, stop and status always
+at 60; your Vercel plan's own maximum also applies) and gets `NLT_SANDBOX_VCPUS` vCPUs (default 2). There is no automatic extension. Runs are found by tag, so start, stop and status always
 see the same run.
 
 **Setup (human steps, nothing here deploys itself)**
@@ -51,7 +51,7 @@ see the same run.
    requests; it does not identify a person.
 4. Set `NLT_RUN_CONTROL=enabled`. Without it every method answers 503 and the button reads "Run control: unavailable".
 
-Optional: `NLT_RUN_MAX_MINUTES`.
+Optional: `NLT_RUN_MAX_MINUTES` (default 15, never above 60) and `NLT_SANDBOX_VCPUS` (default 2, i.e. 4 GB; 1 to 4).
 
 **Audit.** Every start, stop and refusal writes one JSON line to the function logs
 (`{"event":"nlt.run-control","action":"start|stop","outcome":…,"status":…,"runId":…,"at":…}`).
