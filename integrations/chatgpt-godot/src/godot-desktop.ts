@@ -20,23 +20,29 @@ function bridgeCommand(): { command: string; args: string[] } {
   return { command: process.env.NPX_BIN ?? "npx", args: ["-y", BRIDGE_PACKAGE] };
 }
 
+function childEnvironment(): Record<string, string> {
+  const inherited = Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+  return {
+    ...inherited,
+    GODOT_MCP_CONFIG_VERSION: "1",
+    GODOT_MCP_PROJECT_PATH: PROJECT_ROOT,
+    ...(READ_ONLY ? { GODOT_MCP_READ_ONLY: "1" } : {})
+  };
+}
+
 export async function getDesktopClient(): Promise<Client> {
   if (client) return client;
   if (connecting) return connecting;
 
   connecting = (async () => {
     const launch = bridgeCommand();
-    const env = {
-      ...process.env,
-      GODOT_MCP_CONFIG_VERSION: "1",
-      GODOT_MCP_PROJECT_PATH: PROJECT_ROOT,
-      ...(READ_ONLY ? { GODOT_MCP_READ_ONLY: "1" } : {})
-    };
     transport = new StdioClientTransport({
       command: launch.command,
       args: launch.args,
       cwd: PROJECT_ROOT,
-      env
+      env: childEnvironment()
     });
     const next = new Client({ name: "nlt-chatgpt-godot", version: "0.1.0" });
     await next.connect(transport);
