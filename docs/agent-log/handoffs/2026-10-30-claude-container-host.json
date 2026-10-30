@@ -1,0 +1,44 @@
+{
+  "handoff_record": {
+    "session_id": "session_01UNjnjizxgtTUM3DpXpjwS1",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-30",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "ccr-cfb13a59-j499a5",
+    "work_completed": [
+      "container-host/: ASP.NET front that listens on 0.0.0.0:$PORT, keeps headless Godot alive as a child process and serves GET /health",
+      "POST /run is Bearer-gated by NLT_RUN_TOKEN (disabled without it) and returns 501 until an engine ingress is decided",
+      "Dockerfile publishes the host and uses it as CMD"
+    ],
+    "work_in_progress": [],
+    "blockers": [
+      "Image and host project are unbuilt: no dotnet or Docker daemon in the session"
+    ],
+    "decisions_made": [
+      "/run fails closed (503 with no token, 401 on a bad token) and is a 501 stub rather than a guessed behaviour",
+      "No vercel.json added: the existing Vercel project roots are web/ and vercel/viewer, so a container deploy needs its own project"
+    ],
+    "decisions_pending": [
+      "What /run does and what engine ingress backs it (Joshua) - docs/escalations/2026-10-30-container-run-endpoint.md",
+      "Whether to deploy at all and which host: Vercel Container Runtime scales to zero after 5 min idle, so simulation state is lost; Daemons or a GPU/container host are alternatives (Joshua)"
+    ],
+    "escalations": [
+      "docs/escalations/2026-10-30-container-run-endpoint.md - open"
+    ],
+    "next_agent_notes": "Run docker build on the Dockerfile first and fix any host build errors. Do not expose /agent-loop/perception. Do not create or deploy a Vercel project without Joshua's approval.",
+    "files_modified": [
+      "Dockerfile",
+      "container-host/NltContainerHost.csproj",
+      "container-host/Program.cs",
+      "docs/agent-log/registrations/2026-10-30-claude-container-host.json",
+      "docs/agent-log/handoffs/2026-10-30-claude-container-host.json",
+      "docs/escalations/2026-10-30-container-run-endpoint.md"
+    ],
+    "tests_run": [
+      "None: no dotnet or Docker daemon available in the session"
+    ],
+    "tests_passing": null,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/134"
+  }
+}
