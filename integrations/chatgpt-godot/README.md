@@ -60,7 +60,7 @@ The server binds only to `127.0.0.1:8787`. Check `http://127.0.0.1:8787/healthz`
 
 Use OpenAI's **Secure MCP Tunnel** for the local MCP endpoint. Configure the tunnel to forward to `http://127.0.0.1:8787/mcp`, then create a custom MCP app/plugin in ChatGPT using the tunnel connection. Do not use a public unauthenticated reverse proxy.
 
-ChatGPT custom MCP app setup and Secure MCP Tunnel availability are controlled by OpenAI account/workspace access. The repository includes the server implementation; it does not create or publish an app inside a ChatGPT account.
+ChatGPT custom MCP app setup is currently performed from ChatGPT on the web; Secure MCP Tunnel and custom-app availability depend on OpenAI account/workspace access. The repository includes the server implementation; it does not create or publish an app inside a ChatGPT account.
 
 ## Tools
 
@@ -68,6 +68,7 @@ ChatGPT custom MCP app setup and Secure MCP Tunnel availability are controlled b
 |---|---|---|
 | `godot_connection_status` | Both | Reports desktop bridge and headless binary status |
 | `desktop_list_tools` | Desktop | Discovers the live toolkit tool list |
+| `desktop_call_readonly_tool` | Desktop | Calls only tools explicitly annotated read-only by the toolkit |
 | `desktop_call_tool` | Desktop | Calls a named toolkit tool; marked destructive because the selected operation may mutate |
 | `headless_validate_project` | Headless | .NET build, Godot import, and startup/quit validation |
 | `headless_run_project` | Headless | Runs the project for a bounded number of main-loop iterations |
@@ -80,6 +81,7 @@ ChatGPT custom MCP app setup and Secure MCP Tunnel availability are controlled b
 - The HTTP listener rejects non-loopback bind addresses.
 - Secure MCP Tunnel is the intended ChatGPT connection path.
 - Desktop bridge starts in **read-only mode by default** (`GODOT_MCP_READ_ONLY=1`). The toolkit itself hides destructive tools in that mode.
+- `desktop_call_readonly_tool` accepts only toolkit operations explicitly annotated `readOnlyHint=true`.
 - `desktop_call_tool` is annotated destructive so ChatGPT can require confirmation. Read the discovered tool metadata before invoking it.
 - Headless operations accept no shell strings, arbitrary executable paths, or arbitrary Godot arguments. Only fixed command templates are used.
 - Headless build/import/run tools are marked destructive because they execute code and write normal build/import outputs.
