@@ -12,7 +12,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --import ./test/register.mjs --test \"test/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "22.12.0",

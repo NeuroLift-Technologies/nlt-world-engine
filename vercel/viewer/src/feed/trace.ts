@@ -5,22 +5,13 @@
 // needs, levels, named state or Fusion gate — those are Fusion's and are not in the file — so the
 // agents here carry none, and the UI says so rather than drawing bars. Nothing is inferred.
 import { parseTrace } from '../trace/parser';
-import type { ParsedRecord, ResultRecord, TraceHeader } from '../trace/types';
+import type { ParsedRecord, TraceHeader } from '../trace/types';
 import type { FeedSource, SourceInfo } from './source';
-import type { Agent, FeedEvent, StateFeedDoc } from './types';
+import { TraceFrames } from './traceFrames';
+import type { StateFeedDoc } from './types';
 
 /** The real headless run bundled with the viewer (fixtures/observer-trace/README.md). */
 export const TRACE_SAMPLE = { id: 'sample', url: 'godot/fixtures/observer-trace-sample.jsonl', label: 'Headless engine run — sample' };
-
-/** How many recent decisions each frame lists, newest first: the events panel's window. */
-const EVENTS_SHOWN = 8;
-
-const STAGE_WORDS: Record<string, string> = {
-  accepted: 'accepted',
-  protocol: 'refused by protocol',
-  governance: 'refused by governance',
-  physical: 'refused by the world',
-};
 
 type Load = { kind: 'url'; url: string } | { kind: 'text'; text: string; name: string };
 
@@ -68,72 +59,11 @@ export class TraceSource implements FeedSource {
   }
 
   private build(header: TraceHeader, records: ParsedRecord[]) {
-    const roster = new Set(header.agentRoster);
-    // Agents at each sampled tick. The engine samples every avatar at the same tick (cadenceHz).
-    const byTick = new Map<number, Agent[]>();
-    for (const r of records) {
-      if (r.kind !== 'tick') continue;
-      const list = byTick.get(r.tick) ?? [];
-      list.push({
-        id: r.agentId,
-        name: r.agentId,
-        role: roster.has(r.agentId) ? 'avatar' : 'resident',
-        scene: r.scene.id,
-        position: r.position,
-        velocity: r.velocity,
-        levels: {},
-        needs: {},
-        state: '',
-        stateSince: r.tick,
-        struggleSignals: [],
-        learnedStrategies: [],
-        burnout: false,
-        supportIndex: null,
-      });
-      byTick.set(r.tick, list);
-    }
-    const ticks = [...byTick.keys()].sort((a, b) => a - b);
-
-    // Decisions as the engine recorded them: an intent with its result, a failed request, a scene
-    // change. Text only restates the record; nothing is scored or interpreted.
-    const results = new Map<string, ResultRecord>();
-    for (const r of records) if (r.kind === 'result') results.set(r.intentMessageId, r);
-    const events: FeedEvent[] = [];
-    for (const r of records) {
-      if (r.kind === 'intent') {
-        const res = results.get(r.messageId);
-        const target = r.targetId ? ` → ${r.targetId}` : '';
-        const outcome = res
-          ? `${STAGE_WORDS[res.stage] ?? res.stage}${res.governanceCode ? ` (${res.governanceCode})` : ''}`
-          : 'no result recorded';
-        events.push({ tick: r.observedTick, agentId: r.agentId, kind: 'decision', text: `${r.verb}${target} · ${outcome}`, severity: res && res.status !== 'accepted' ? 'warn' : undefined });
-      } else if (r.kind === 'decision_failed') {
-        const why = [r.httpStatus ? `HTTP ${r.httpStatus}` : '', r.error ?? ''].filter(Boolean).join(' ');
-        events.push({ tick: r.tick, agentId: r.agentId, kind: 'decision_failed', text: `no decision${why ? ` · ${why}` : ''}`, severity: 'warn' });
-      } else if (r.kind === 'scene_transition') {
-        events.push({ tick: r.tick, agentId: r.agentId, kind: 'scene_enter', text: `${r.from} → ${r.to}` });
-      }
-    }
-    events.sort((a, b) => a.tick - b.tick);
-
-    let next = 0;
-    const recent: FeedEvent[] = [];
-    for (const tick of ticks) {
-      while (next < events.length && events[next].tick <= tick) recent.push(events[next++]);
-      const agents = byTick.get(tick)!;
-      const first = records.find((r) => r.kind === 'tick' && r.tick === tick);
-      this.frames.push({
-        schemaVersion: 'nlt.observer-trace.v1',
-        tick,
-        simTimeIso: '',
-        scene: { id: agents[0].scene, kind: first && first.kind === 'tick' && first.scene.kind === 'interior' ? 'interior' : 'open_world' },
-        agents,
-        pairs: [],
-        burnoutEpisodes: [],
-        selfRecognitions: [],
-        events: recent.slice(-EVENTS_SHOWN),
-      });
-    }
+    const built = new TraceFrames(header);
+    built.add(records);
+    built.finish();
+    this.frames = built.all();
+    this.diag.push(...built.problems);
   }
 
   close(): void {}
