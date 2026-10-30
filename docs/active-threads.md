@@ -181,6 +181,14 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
 
 **✅ Resolved 2026-10-16:** the `NobodyWhoModel` node in `Main.tscn` (bound to a 639 MB local GGUF) was removed on Joshua's decision — it was an evaluation download, not an integration.
 
+### 🛠️ TOOL-001 — Godot senior-engineer skill for Claude sessions
+
+- **Status:** open — PR #135 pending Joshua's review
+- **Owner:** Claude (claude.ai session, skill-creator) · **Approved by:** Joshua, 2026-10-29
+- **Started / Last updated:** 2026-10-29
+- **Scope:** adds `.claude/skills/godot-senior-engineer/` only, with no code, scene or setting changes. It is a Claude skill that makes Claude act as a senior Godot engineer. Inside: `SKILL.md` (workflow, verification order, handoff-brief format); `references/` with 18 files covering every engine subsystem (4.7.2); generated Godot 3→4 rename tables and the 4.4→4.7 API-change records, both taken from the engine source at tag `4.7.2-stable`; `references/nlt-world-engine.md` with this repo's rules and boundaries; `scripts/godot_api_check.py`, which checks API names against the engine class reference XML; and `evals/`, the test cases used while building the skill.
+- **Note for agents:** the skill defers to this repo's authority chain and verification commands, and doesn't override them. `references/nlt-world-engine.md` is a snapshot from 2026-10-29 (`main` @ PR #129). If it drifts from `AGENTS.md`, `AGENTS.md` wins; update the snapshot.
+
 ### 🌐 WEB-001 — Public homepage on GitHub Pages
 
 - **Status:** open — live; content decisions pending with Joshua

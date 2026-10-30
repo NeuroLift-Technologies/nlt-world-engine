@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: csharp-stutter-review
+expected_outcome: |
+  A markdown review that identifies the real problems (missing partial, per-frame GetNode/tree lookups and LINQ allocations, O(n^2) group scan across 200 crates, string->StringName action conversion, moving a RigidBody by setting Position, physics work in _Process, per-frame label string formatting), recommends the Compatibility renderer for the HD 2500, and provides corrected code.
