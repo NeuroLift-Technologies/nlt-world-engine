@@ -43,8 +43,9 @@ see the same run.
 
 **Setup (human steps, nothing here deploys itself)**
 
-1. Build and push the engine image to Vercel Container Registry (linux/amd64):
-   `vercel vcr build docker . <repository>:<tag> --push` from the repo root, using the project that will own the sandboxes.
+1. Build and push the engine image to Vercel Container Registry (linux/amd64), from the repo root:
+   `vercel vcr build docker . world-engine:<tag> --push --project world-engine-viewer`. The image must live in the registry of the
+   project whose function creates the sandboxes, which is why `--project` matters.
 2. In the `world-engine-viewer` project set `NLT_SANDBOX_IMAGE=<repository>:<tag>`.
 3. Enable it **only for the Preview environment** (Joshua, 2026-10-30: Vercel team only). Previews sit behind Vercel Auth, so only
    people on the Vercel team can open the page and press the button. Leave Production off. The endpoint blocks cross-site
