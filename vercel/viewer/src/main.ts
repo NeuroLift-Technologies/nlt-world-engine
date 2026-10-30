@@ -223,8 +223,9 @@ world.onFrame = () => {
     el.style.top = `${pr.y}px`;
     el.classList.toggle('sel', it.agent.id === state.selected);
     el.dataset.role = it.agent.role;
+    // A recorded engine run carries no named state, so its label has no state line.
     const html = `<div class="n">${esc(it.agent.name)} <span class="r">${esc(P.roleWord(it.agent.role))}</span></div>` +
-      `<div class="s" style="color:${P.stateColour(it.agent.state)}">${P.stateGlyph(it.agent.state)} ${esc(P.stateWord(it.agent.state))}</div>`;
+      (physicalOnly() ? '' : `<div class="s" style="color:${P.stateColour(it.agent.state)}">${P.stateGlyph(it.agent.state)} ${esc(P.stateWord(it.agent.state))}</div>`);
     if (el.dataset.h !== html) { el.innerHTML = html; el.dataset.h = html; }
   }
 
@@ -296,8 +297,10 @@ function renderRoster(doc: StateFeedDoc) {
       const here = sceneKeyFor(a.scene) === shown;
       return `<li><button class="agent-btn${here ? '' : ' elsewhere'}" data-id="${esc(a.id)}" aria-pressed="${a.id === state.selected}">
         <span class="role-badge" data-role="${esc(a.role)}"><span>${esc(P.roleWord(a.role)[0])}</span></span>
-        <span class="agent-text"><span class="agent-name">${esc(a.name)}</span> <span class="agent-sub">${esc(P.roleWord(a.role))} · ${esc(P.sceneName(a.scene))}</span><br>
-        <span class="state-pill" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateWord(a.state))}</span></span>
+        <span class="agent-text"><span class="agent-name">${esc(a.name)}</span> <span class="agent-sub">${esc(P.roleWord(a.role))} · ${esc(P.sceneName(a.scene))}</span>${
+          // A recorded engine run has no named state to show (feed/trace.ts).
+          physicalOnly() ? '' : `<br>
+        <span class="state-pill" style="color:${P.stateColour(a.state)}">${P.stateGlyph(a.state)} ${esc(P.stateWord(a.state))}</span>`}</span>
       </button></li>`;
     })
     .join('');
