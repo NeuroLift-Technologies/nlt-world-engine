@@ -183,7 +183,7 @@ Also fixed: `PlainLanguage.Duration` was reused for event *ages*, producing rows
 
 ### 🛠️ TOOL-001 — Godot senior-engineer skill for Claude sessions
 
-- **Status:** open — PR pending Joshua's review
+- **Status:** open — PR #135 pending Joshua's review
 - **Owner:** Claude (claude.ai session, skill-creator) · **Approved by:** Joshua, 2026-10-29
 - **Started / Last updated:** 2026-10-29
 - **Scope:** adds `.claude/skills/godot-senior-engineer/` only, with no code, scene or setting changes. It is a Claude skill that makes Claude act as a senior Godot engineer. Inside: `SKILL.md` (workflow, verification order, handoff-brief format); `references/` with 18 files covering every engine subsystem (4.7.2); generated Godot 3→4 rename tables and the 4.4→4.7 API-change records, both taken from the engine source at tag `4.7.2-stable`; `references/nlt-world-engine.md` with this repo's rules and boundaries; `scripts/godot_api_check.py`, which checks API names against the engine class reference XML; and `evals/`, the test cases used while building the skill.
