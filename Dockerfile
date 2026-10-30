@@ -67,7 +67,8 @@ RUN godot --headless --editor --path . --audio-driver Dummy --quit \
        --export-release "Linux Dedicated Server" /opt/server/nlt-world-engine.x86_64 \
     && test -x /opt/server/nlt-world-engine.x86_64 \
     && ldd /opt/server/nlt-world-engine.x86_64 \
-    && ! ldd /opt/server/nlt-world-engine.x86_64 | grep -q "not found"
+    && ! ldd /opt/server/nlt-world-engine.x86_64 | grep -q "not found" \
+    && timeout 30s /opt/server/nlt-world-engine.x86_64 --headless --audio-driver Dummy --quit-after 5
 
 # HTTP front (/health, /run) supervises the exported server executable.
 RUN dotnet publish /src/nlt-world-engine/container-host/NltContainerHost.csproj \
