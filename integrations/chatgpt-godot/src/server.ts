@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { assertProjectRoot, HOST, PORT, PROJECT_ROOT, READ_ONLY, REPO_ROOT } from "./config.js";
-import { callDesktopTool, desktopStatus, listDesktopTools } from "./godot-desktop.js";
+import { callDesktopReadOnlyTool, callDesktopTool, desktopStatus, listDesktopTools } from "./godot-desktop.js";
 import { headlessStatus, runHeadless, validateHeadless } from "./headless.js";
 import { listSkillFiles, readSkillFile } from "./skill.js";
 
@@ -44,6 +44,19 @@ server.registerTool("desktop_list_tools", {
 }, async () => {
   const tools = await listDesktopTools();
   return { content: [{ type: "text", text: JSON.stringify(tools, null, 2) }] };
+});
+
+server.registerTool("desktop_call_readonly_tool", {
+  title: "Call a read-only desktop Godot tool",
+  description: "Invoke only a Godot MCP Toolkit tool explicitly annotated readOnlyHint=true and not destructive. Use this for inspection in the default read-only session.",
+  inputSchema: {
+    tool_name: z.string().min(1),
+    arguments: z.record(z.unknown()).default({})
+  },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true }
+}, async ({ tool_name, arguments: args }) => {
+  const result = await callDesktopReadOnlyTool(tool_name, args);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 });
 
 server.registerTool("desktop_call_tool", {
