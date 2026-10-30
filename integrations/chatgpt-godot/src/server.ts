@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { assertProjectRoot, HOST, PORT, PROJECT_ROOT, READ_ONLY, REPO_ROOT } from "./config.js";
-import { callDesktopReadOnlyTool, callDesktopTool, desktopStatus, listDesktopTools } from "./godot-desktop.js";
+import { callDesktopReadOnlyTool, callDesktopTool, closeDesktopClient, desktopStatus, listDesktopTools } from "./godot-desktop.js";
 import { headlessStatus, runHeadless, validateHeadless } from "./headless.js";
 import { listSkillFiles, readSkillFile } from "./skill.js";
 
@@ -121,10 +121,10 @@ function pathJoin(root: string, relative: string): string {
   return root + "/" + relative;
 }
 
-const transport = new StreamableHTTPServerTransport({
+const serverTransport = new StreamableHTTPServerTransport({
   sessionIdGenerator: undefined
 });
-await server.connect(transport);
+await server.connect(serverTransport);
 
 const httpServer = createServer(async (request, response) => {
   if (request.url === "/healthz" && request.method === "GET") {
@@ -138,7 +138,7 @@ const httpServer = createServer(async (request, response) => {
     return;
   }
   try {
-    await transport.handleRequest(request, response);
+    await serverTransport.handleRequest(request, response);
   } catch (error) {
     if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain" });
     response.end(error instanceof Error ? error.message : String(error));
@@ -153,7 +153,10 @@ httpServer.listen(PORT, HOST, () => {
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
     httpServer.close();
-    void transport.close();
-    void server.close();
+    void (async () => {
+      await closeDesktopClient();
+      await serverTransport.close();
+      await server.close();
+    })();
   });
 }
