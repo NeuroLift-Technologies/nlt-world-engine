@@ -14,17 +14,7 @@ const server = new McpServer({
   version: "0.1.0"
 });
 
-const empty = z.object({});
-const commandResult = z.object({
-  command: z.string(),
-  args: z.array(z.string()),
-  exitCode: z.number().nullable(),
-  signal: z.string().nullable(),
-  timedOut: z.boolean(),
-  durationMs: z.number(),
-  stdout: z.string(),
-  stderr: z.string()
-});
+const empty = {};
 
 server.registerTool("godot_connection_status", {
   title: "Godot connection status",
