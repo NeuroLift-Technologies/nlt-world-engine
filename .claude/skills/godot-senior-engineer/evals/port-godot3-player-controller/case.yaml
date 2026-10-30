@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: port-godot3-player-controller
+expected_outcome: |
+  A correct Godot 4 port of the script (CharacterBody3D, @export/@onready, velocity property + argument-less move_and_slide, await, declared signal emitted via .emit, position instead of translation), saved as a .gd file, with a short explanation of what changed and any remaining gotchas.

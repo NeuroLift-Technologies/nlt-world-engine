@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: world-engine-pickup-brief
+expected_outcome: |
+  Recognizes that "pick up" is not one of the nlt.agent-loop.v1 verbs, so adding it is a cross-repo contract change that needs Joshua's decision; designs it without breaking the Fusion-semantic / engine-physical boundary (Fusion sends intent, LocomotionController stays the only position writer, governance gate in the path); handles target resolution, execution-time revalidation, and held-item physics under Jolt; and ends with a brief that points at the repo's own rules and verification commands.

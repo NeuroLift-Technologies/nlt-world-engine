@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: coop-multiplayer-desync
+expected_outcome: |
+  Diagnoses missing authority checks in player input (every peer moves every player), enemies spawned with add_child outside a MultiplayerSpawner (and random positions per peer), and the unvalidated any_peer damage RPC; gives corrected Godot 4.7 code using set_multiplayer_authority / is_multiplayer_authority, MultiplayerSpawner, server-side damage validation with get_remote_sender_id, and addresses jitter with interpolation or reduced sync of transforms.

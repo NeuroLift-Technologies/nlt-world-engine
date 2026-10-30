@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: godot47-tween-joystick
+expected_outcome: |
+  Uses the 4.7 Tween.tween_await() to pause the tween until the signal fires, and points to the built-in VirtualJoystick node (4.7+) mapped to the existing input actions instead of recommending a plugin; does not invent APIs.
