@@ -10,7 +10,9 @@
       "Added a desktop adapter that delegates to the existing Godot MCP Toolkit bridge pinned at @npgamedev/godot-mcp-server@1.0.4.",
       "Added a headless adapter with fixed .NET build, Godot import/startup, and bounded run command templates.",
       "Added MCP tools to list and read the existing .claude/skills/godot-senior-engineer files in place.",
-      "Added NLT project context reader, local-only binding guard, read-only desktop default, destructive tool annotations, README, and basic command tests.",
+      "Added separate read-only and destructive desktop tool dispatchers, with fail-closed behavior for tools lacking explicit read-only annotations.",
+      "Added NLT project context reader, local-only binding guard, read-only desktop default, destructive tool annotations, README, basic command tests, and CI workflow.",
+      "Added orderly child bridge cleanup on MCP server shutdown.",
       "Registered CHATGPT-GODOT-001 in docs/active-threads.md."
     ],
     "work_in_progress": [
@@ -44,6 +46,7 @@
       "integrations/chatgpt-godot/src/server.ts",
       "integrations/chatgpt-godot/README.md",
       "integrations/chatgpt-godot/tests/commands.test.ts",
+      ".github/workflows/chatgpt-godot-mcp.yml",
       "docs/active-threads.md",
       "docs/agent-log/registrations/2026-10-29-chatgpt-godot-mcp.json"
     ],
