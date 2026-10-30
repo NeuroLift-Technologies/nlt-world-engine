@@ -55,7 +55,7 @@ Merge #134 as a deployable skeleton only. No strong recommendation on hosting un
 
 **Still open (Joshua)**
 
-1. **Who may press the button.** Interim rule: `/api/run` is off unless the operator sets `NLT_RUN_CONTROL=enabled`, and must only be enabled on a deployment behind Vercel Deployment Protection (or another gate). The endpoint blocks cross-site requests; it does not identify a person.
+1. ~~**Who may press the button.**~~ **Resolved 2026-10-30 (Joshua): Vercel team only.** `NLT_RUN_CONTROL=enabled` is set only for the **Preview** environment of `world-engine-viewer`, which sits behind Vercel Auth, so only people on the Vercel team can open the page and press the button. Production stays off. Anything wider (named observers, a shared password, a public viewer) is a new decision.
 2. **ASFDK governance gate** at this new control boundary.
 3. **Live feed.** The sandbox exposes no ports, so the viewer cannot watch the run yet. That needs the authenticated, read-only relay described in `vercel/transport/README.md`.
 4. **Maximum run length and sandbox size.** Defaults: 15 minutes, capped at 60 by the code; the plan's own maximum applies on top.
