@@ -16,6 +16,7 @@ async function respond(request: Request): Promise<Response> {
       { method: request.method, header: (name) => request.headers.get(name) },
       controlEnabled(process.env),
       sandboxPort(process.env),
+      (entry) => console.log(JSON.stringify(entry)),
     );
     return new Response(JSON.stringify(result.body), {
       status: result.status,

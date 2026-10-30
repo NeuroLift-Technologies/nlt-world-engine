@@ -32,6 +32,30 @@ export interface ControlResult {
   headers?: Record<string, string>;
 }
 
+/**
+ * One line per state-changing request (start, stop, refusals), written to the function logs.
+ * It records what happened and when. It cannot say who: Vercel Auth gates the page but does
+ * not tell the function which person is behind a request. GET polling is not recorded.
+ */
+export interface AuditEntry {
+  event: 'nlt.run-control';
+  action: 'start' | 'stop';
+  outcome:
+    | 'started'
+    | 'start_refused_in_progress'
+    | 'start_lost_race'
+    | 'stopped'
+    | 'stop_nothing_running'
+    | 'stop_already_stopping'
+    | 'refused'
+    | 'disabled';
+  status: number;
+  runId?: string;
+  at: string;
+}
+
+export type Audit = (entry: AuditEntry) => void;
+
 /** Operator opt-in. Without it the control is off, so a fresh deploy can never start a run. */
 export function controlEnabled(env: Record<string, string | undefined>): boolean {
   return env.NLT_RUN_CONTROL === 'enabled';
@@ -68,31 +92,48 @@ export async function handleRunRequest(
   req: ControlRequest,
   enabled: boolean,
   port: RunPort,
+  audit: Audit = () => {},
 ): Promise<ControlResult> {
-  if (!enabled) {
-    return { status: 503, body: { error: 'run_control_disabled' } };
-  }
-
   const method = req.method.toUpperCase();
+  const action = method === 'POST' ? 'start' : method === 'DELETE' ? 'stop' : null;
+
+  const done = (
+    result: ControlResult,
+    outcome?: AuditEntry['outcome'],
+    runId?: string,
+  ): ControlResult => {
+    if (action && outcome) {
+      audit({ event: 'nlt.run-control', action, outcome, status: result.status, runId, at: new Date().toISOString() });
+    }
+    return result;
+  };
+
+  if (!enabled) {
+    return done({ status: 503, body: { error: 'run_control_disabled' } }, 'disabled');
+  }
 
   if (method === 'GET') {
     const run = newest(await port.listActive());
     return { status: 200, body: { state: run ? run.state : 'idle', run: run ?? null } };
   }
 
-  if (method !== 'POST' && method !== 'DELETE') {
+  if (action === null) {
     return { status: 405, body: { error: 'method_not_allowed' }, headers: { allow: 'GET, POST, DELETE' } };
   }
 
   if (!sameOriginIntent(req)) {
-    return { status: 403, body: { error: 'forbidden' } };
+    return done({ status: 403, body: { error: 'forbidden' } }, 'refused');
   }
 
-  if (method === 'POST') {
+  if (action === 'start') {
     const active = await port.listActive();
     if (active.length > 0) {
       const run = newest(active)!;
-      return { status: 409, body: { error: 'run_in_progress', state: run.state, run } };
+      return done(
+        { status: 409, body: { error: 'run_in_progress', state: run.state, run } },
+        'start_refused_in_progress',
+        run.id,
+      );
     }
 
     const started = await port.start();
@@ -103,17 +144,26 @@ export async function handleRunRequest(
     const winner = oldest(after);
     if (winner && winner.id !== started.id) {
       await port.stop(started.id);
-      return { status: 409, body: { error: 'run_in_progress', state: winner.state, run: winner } };
+      return done(
+        { status: 409, body: { error: 'run_in_progress', state: winner.state, run: winner } },
+        'start_lost_race',
+        started.id,
+      );
     }
-    return { status: 202, body: { state: started.state, run: started } };
+    return done({ status: 202, body: { state: started.state, run: started } }, 'started', started.id);
   }
 
-  // DELETE: stop is idempotent. Nothing running is a success, not an error.
+  // Stop is idempotent. Nothing running is a success, not an error.
   const active = await port.listActive();
   if (active.length === 0) {
-    return { status: 200, body: { state: 'idle', run: null } };
+    return done({ status: 200, body: { state: 'idle', run: null } }, 'stop_nothing_running');
   }
   const toStop = active.filter((r) => r.state !== 'stopping');
   for (const run of toStop) await port.stop(run.id);
-  return { status: 202, body: { state: 'stopping', run: newest(active) ?? null } };
+  const latest = newest(active) ?? null;
+  return done(
+    { status: 202, body: { state: 'stopping', run: latest } },
+    toStop.length > 0 ? 'stopped' : 'stop_already_stopping',
+    latest?.id,
+  );
 }

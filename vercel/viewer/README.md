@@ -46,11 +46,17 @@ see the same run.
 1. Build and push the engine image to Vercel Container Registry (linux/amd64):
    `vercel vcr build docker . <repository>:<tag> --push` from the repo root, using the project that will own the sandboxes.
 2. In the `world-engine-viewer` project set `NLT_SANDBOX_IMAGE=<repository>:<tag>`.
-3. Make sure the deployment sits behind Vercel Deployment Protection (or another gate that decides who is an
-   authorised observer). The endpoint blocks cross-site requests; it does not identify a person.
+3. Enable it **only for the Preview environment** (Joshua, 2026-10-30: Vercel team only). Previews sit behind Vercel Auth, so only
+   people on the Vercel team can open the page and press the button. Leave Production off. The endpoint blocks cross-site
+   requests; it does not identify a person.
 4. Set `NLT_RUN_CONTROL=enabled`. Without it every method answers 503 and the button reads "Run control: unavailable".
 
 Optional: `NLT_RUN_MAX_MINUTES`.
+
+**Audit.** Every start, stop and refusal writes one JSON line to the function logs
+(`{"event":"nlt.run-control","action":"start|stop","outcome":…,"status":…,"runId":…,"at":…}`).
+It records what happened and when, not who: Vercel Auth does not tell the function which person is behind a request.
+Polling (`GET`) is not logged. ASFDK is not called at the button; it keeps gating agent intents inside the engine.
 
 **Security.** `POST` and `DELETE` need the header `x-nlt-run: 1` and, when the browser sends an `Origin`, one
 that matches the host. The sandbox exposes no ports, so it has no public URL. Errors are logged in the function

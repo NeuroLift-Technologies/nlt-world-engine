@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { controlEnabled, handleRunRequest } from '../api/_lib/run-control.ts';
-import type { ControlRequest, RunInfo, RunPort } from '../api/_lib/run-control.ts';
+import type { AuditEntry, ControlRequest, RunInfo, RunPort } from '../api/_lib/run-control.ts';
 
 const HOST = 'viewer.example.com';
 
@@ -182,5 +182,64 @@ describe('handleRunRequest', () => {
       await handleRunRequest(req('DELETE', sameOrigin), true, port);
       assert.deepEqual(stopped.sort(), ['run-1', 'run-2']);
     });
+  });
+});
+
+describe('audit trail', () => {
+  async function audited(method: string, headers: Record<string, string>, port: RunPort, enabled = true) {
+    const entries: AuditEntry[] = [];
+    const res = await handleRunRequest(req(method, headers), enabled, port, (e) => entries.push(e));
+    return { res, entries };
+  }
+
+  it('records a start with its run id', async () => {
+    const { entries } = await audited('POST', sameOrigin, fakePort().port);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].action, 'start');
+    assert.equal(entries[0].outcome, 'started');
+    assert.equal(entries[0].status, 202);
+    assert.match(entries[0].runId ?? '', /^run-/);
+  });
+
+  it('records a refused start while a run is active', async () => {
+    const { entries } = await audited('POST', sameOrigin, fakePort([running('run-1', 1)]).port);
+    assert.deepEqual(entries.map((e) => [e.outcome, e.status, e.runId]), [['start_refused_in_progress', 409, 'run-1']]);
+  });
+
+  it('records the loser of a double press', async () => {
+    const { port } = fakePort([], 2);
+    const log: AuditEntry[] = [];
+    await Promise.all([
+      handleRunRequest(req('POST', sameOrigin), true, port, (e) => log.push(e)),
+      handleRunRequest(req('POST', sameOrigin), true, port, (e) => log.push(e)),
+    ]);
+    assert.deepEqual(log.map((e) => e.outcome).sort(), ['start_lost_race', 'started']);
+  });
+
+  it('records stop outcomes: stopped, already stopping, nothing running', async () => {
+    const a = await audited('DELETE', sameOrigin, fakePort([running('run-1', 1)]).port);
+    assert.deepEqual(a.entries.map((e) => e.outcome), ['stopped']);
+    const b = await audited('DELETE', sameOrigin, fakePort([{ id: 'run-1', state: 'stopping', createdAt: 1 }]).port);
+    assert.deepEqual(b.entries.map((e) => e.outcome), ['stop_already_stopping']);
+    const c = await audited('DELETE', sameOrigin, fakePort().port);
+    assert.deepEqual(c.entries.map((e) => e.outcome), ['stop_nothing_running']);
+  });
+
+  it('records refusals and the disabled state without touching the port', async () => {
+    const refused = await audited('POST', { host: HOST }, fakePort().port);
+    assert.deepEqual(refused.entries.map((e) => [e.outcome, e.status]), [['refused', 403]]);
+    const off = await audited('DELETE', sameOrigin, fakePort().port, false);
+    assert.deepEqual(off.entries.map((e) => [e.outcome, e.status]), [['disabled', 503]]);
+  });
+
+  it('does not record GET polling', async () => {
+    const on = await audited('GET', {}, fakePort().port);
+    const off = await audited('GET', {}, fakePort().port, false);
+    assert.equal(on.entries.length + off.entries.length, 0);
+  });
+
+  it('never carries identity or request headers', async () => {
+    const { entries } = await audited('POST', { ...sameOrigin, cookie: 'secret=1', authorization: 'Bearer x' }, fakePort().port);
+    assert.deepEqual(Object.keys(entries[0]).sort(), ['action', 'at', 'event', 'outcome', 'runId', 'status']);
   });
 });
