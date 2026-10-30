@@ -45,6 +45,18 @@ Merge #134 as a deployable skeleton only. No strong recommendation on hosting un
 
 `/run` behaviour and any deployment.
 
-### Resolution
+### Resolution (partial)
 
-*(To be filled in after Joshua responds)*
+**Date:** 2026-10-30  
+**Decided by:** Joshua W. Dorsey, Sr. (in session)
+
+- **Hosting: Vercel Sandbox.** A "run" is one sandbox started from the engine image, with headless Godot as its process. The human observer starts and stops it from a button in the viewer (`vercel/viewer`, `/api/run`). Chosen over Vercel Container Runtime (cannot guarantee start and stop reach the same instance), Daemons (production only, no inbound traffic) and Cloudflare Containers (new host).
+- **`/run` on the container host:** no longer the control path. The `world-engine-container` Vercel project and `container-host/` stay as a test harness until Joshua says otherwise.
+
+**Still open (Joshua)**
+
+1. **Who may press the button.** Interim rule: `/api/run` is off unless the operator sets `NLT_RUN_CONTROL=enabled`, and must only be enabled on a deployment behind Vercel Deployment Protection (or another gate). The endpoint blocks cross-site requests; it does not identify a person.
+2. **ASFDK governance gate** at this new control boundary.
+3. **Live feed.** The sandbox exposes no ports, so the viewer cannot watch the run yet. That needs the authenticated, read-only relay described in `vercel/transport/README.md`.
+4. **Maximum run length and sandbox size.** Defaults: 15 minutes, capped at 60 by the code; the plan's own maximum applies on top.
+5. **Production enablement.** Pushing the image to Vercel Container Registry and setting the environment variables is a human step (see `vercel/viewer/README.md`, "Run control").

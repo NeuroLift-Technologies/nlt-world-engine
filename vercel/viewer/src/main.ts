@@ -13,6 +13,7 @@ import type { FeedSource } from './feed/source';
 import type { Agent, FeedEvent, StateFeedDoc } from './feed/types';
 import * as P from './feed/plain';
 import { SEED } from './world/geometry';
+import { initRunControl } from './run/runControl';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -615,6 +616,12 @@ function openAbout() {
 }
 ['about-btn', 'source-badge', 'live-btn'].forEach((id) => $(id).addEventListener('click', openAbout));
 $('about-close').addEventListener('click', () => about.close());
+
+// ------------------------------------------------------------------ run control
+// Asks /api/run to start or stop an engine run. It does not change what the view shows.
+initRunControl($<HTMLButtonElement>('run-btn'), (message) => {
+  $('run-status').textContent = message;
+});
 
 // ------------------------------------------------------------------ go
 try {

@@ -23,6 +23,51 @@ records (see §8).
 
 ---
 
+## Run control (start / stop an engine run)
+
+A button in the top bar asks the engine to start or stop a **run**: one [Vercel Sandbox](https://vercel.com/docs/sandbox)
+started from the engine image, with headless Godot as its process. The viewer only *asks*. It does not
+simulate, and it does not show the run live yet (see "Not done").
+
+| Piece | Where |
+|---|---|
+| Button and polling | `src/run/runControl.ts`, `#run-btn` in `index.html` |
+| Endpoint | `api/run.ts`: `GET` status, `POST` start, `DELETE` stop |
+| Rules (one run at a time, idempotent stop, same-origin guard) | `api/_lib/run-control.ts`, tested in `test/run-control.test.ts` (`npm test`) |
+| Sandbox adapter | `api/_lib/sandbox-port.ts` |
+
+**Behaviour.** Starting while a run is active answers 409. Stopping with nothing running succeeds. If two
+starts race, the newer run stops itself. A run ends by itself after `NLT_RUN_MAX_MINUTES` (default 15, capped
+at 60; your Vercel plan's own maximum also applies). Runs are found by tag, so start, stop and status always
+see the same run.
+
+**Setup (human steps, nothing here deploys itself)**
+
+1. Build and push the engine image to Vercel Container Registry (linux/amd64):
+   `vercel vcr build docker . <repository>:<tag> --push` from the repo root, using the project that will own the sandboxes.
+2. In the `world-engine-viewer` project set `NLT_SANDBOX_IMAGE=<repository>:<tag>`.
+3. Make sure the deployment sits behind Vercel Deployment Protection (or another gate that decides who is an
+   authorised observer). The endpoint blocks cross-site requests; it does not identify a person.
+4. Set `NLT_RUN_CONTROL=enabled`. Without it every method answers 503 and the button reads "Run control: unavailable".
+
+Optional: `NLT_RUN_MAX_MINUTES`.
+
+**Security.** `POST` and `DELETE` need the header `x-nlt-run: 1` and, when the browser sends an `Origin`, one
+that matches the host. The sandbox exposes no ports, so it has no public URL. Errors are logged in the function
+logs and the page only sees a generic failure. Nothing here stores a secret: Vercel supplies the credentials to
+the function.
+
+**Not done**
+
+- The viewer does not display the run. Live viewing needs the authenticated, read-only relay in
+  `vercel/transport/README.md`; `LiveRelaySource` still reports itself unavailable.
+- No countdown to the automatic stop.
+- Not exercised against a real sandbox yet: the adapter typechecks against `@vercel/sandbox` 3.9.1 and the rules are
+  unit-tested, but starting Godot inside a sandbox has not been tried.
+- Godot-in-a-sandbox needs the image to contain `/app/world-engine-godot` (it does, from the root `Dockerfile`).
+
+---
+
 ## 1. Audit (2026-10-29)
 
 | Looked at | Finding |
