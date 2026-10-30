@@ -7,7 +7,7 @@ ARG ASFDK_CSHARP_COMMIT=eb2887d7076bb61ca916d8fad778bb6213290421
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl git unzip \
-    libasound2 libfontconfig1 libgl1 libpulse0 libvulkan1 \
+    libfontconfig1 libgl1 libvulkan1 \
     libx11-6 libxcursor1 libxext6 libxfixes3 libxi6 libxinerama1 \
     libxkbcommon0 libxrandr2 libxrender1 libwayland-client0 \
     libwayland-cursor0 libwayland-egl1 libdecor-0-0 libdbus-1-3 \
@@ -53,13 +53,14 @@ RUN godot --headless --editor --path . --audio-driver Dummy --quit \
 RUN dotnet publish /src/nlt-world-engine/container-host/NltContainerHost.csproj \
     --configuration Release --output /opt/host
 
-# Keep the initial runtime simple and reproducible. A later optimization can
-# replace the editor binary with a dedicated-server export template.
+# Headless runtime: keep only the shared libraries required by the Linux Godot
+# Mono binary. Audio backends are intentionally omitted; --audio-driver Dummy
+# is used for both import/validation and the supervised server process.
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libasound2 libfontconfig1 libgl1 libpulse0 libvulkan1 \
+    libfontconfig1 libgl1 libvulkan1 \
     libx11-6 libxcursor1 libxext6 libxfixes3 libxi6 libxinerama1 \
     libxkbcommon0 libxrandr2 libxrender1 libwayland-client0 \
     libwayland-cursor0 libwayland-egl1 libdecor-0-0 libdbus-1-3 \
