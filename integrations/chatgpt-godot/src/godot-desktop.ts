@@ -107,8 +107,8 @@ export async function callDesktopTool(name: string, args: Record<string, unknown
   if (!selected) {
     throw new Error(`Unknown desktop Godot tool: ${name}. Call desktop_list_tools first.`);
   }
-  if (READ_ONLY && selected.annotations?.destructiveHint === true) {
-    throw new Error("This session is read-only. Set GODOT_MCP_READ_ONLY=0 locally and restart only if you explicitly authorize mutations.");
+  if (READ_ONLY && selected.annotations?.readOnlyHint !== true) {
+    throw new Error("This session is read-only. Only tools explicitly annotated readOnlyHint=true are allowed. Set GODOT_MCP_READ_ONLY=0 locally and restart only if you explicitly authorize mutations.");
   }
   return connected.callTool({ name, arguments: args });
 }
