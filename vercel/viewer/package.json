@@ -11,14 +11,17 @@
     "prebuild": "node scripts/sync-godot-assets.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import ./test/register.mjs --test \"test/*.test.ts\""
   },
   "devDependencies": {
+    "@types/node": "22.12.0",
     "@types/three": "~0.181.0",
     "typescript": "~5.7.2",
     "vite": "^8.3.5"
   },
   "dependencies": {
+    "@vercel/sandbox": "3.9.1",
     "three": "^0.181.2"
   }
 }

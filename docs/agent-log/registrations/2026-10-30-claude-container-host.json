@@ -1,0 +1,23 @@
+{
+  "agent_registration": {
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "platform": "Claude Code",
+    "version": "not recorded",
+    "session_id": "session_01UNjnjizxgtTUM3DpXpjwS1",
+    "entry_date": "2026-10-30",
+    "entry_point": "Joshua: run the nlt-world-engine Dockerfile on Vercel containers (Vercel AI advice: long-running HTTP service with /health and /run).",
+    "acknowledged_otoi": true,
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "working_repo": "NeuroLift-Technologies/nlt-world-engine",
+    "working_branch": "ccr-cfb13a59-j499a5",
+    "capabilities_self_reported": [
+      "Dockerfile and container-host (ASP.NET) changes",
+      "Vercel documentation lookup via the Vercel MCP"
+    ],
+    "known_limitations": [
+      "No dotnet or Docker daemon in this session: nothing was built or run",
+      "No Vercel project creation or deployment (escalation-required)"
+    ],
+    "preferred_handoff_format": "Structured JSON handoff plus the PR description"
+  }
+}

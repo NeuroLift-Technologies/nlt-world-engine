@@ -36,4 +36,7 @@ export interface FeedSource {
   diagnostics(): string[];
   /** Frames per second at 1× playback. Absent means 1, the replay bundles' ~1 Hz. */
   framesPerSecond?(): number;
+  /** True while frames may still be added (a run in progress). The player then waits at the last
+   *  frame instead of stopping, and keeps its scrubber and timeline up to date. Absent means fixed. */
+  isGrowing?(): boolean;
 }

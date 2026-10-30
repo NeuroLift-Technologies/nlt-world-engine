@@ -7,12 +7,14 @@ import * as THREE from 'three';
 import { WorldView, sceneKeyFor } from './scene/world';
 import { Minimap } from './scene/minimap';
 import { ReplaySource, REPLAYS } from './feed/replay';
+import { LiveRunSource } from './feed/liveRun';
 import { TraceSource, TRACE_SAMPLE } from './feed/trace';
 import { LiveRelaySource } from './feed/live';
 import type { FeedSource } from './feed/source';
 import type { Agent, FeedEvent, StateFeedDoc } from './feed/types';
 import * as P from './feed/plain';
 import { SEED } from './world/geometry';
+import { initRunControl } from './run/runControl';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -65,6 +67,11 @@ const state = {
   seenEvents: new Set<string>(),
 };
 
+// What the player last drew of a source that can grow (a run in progress).
+let shownCount = -1;
+let wasGrowing = false;
+let timelineAt = 0;
+
 const labelLayer = $('labels');
 const labels = new Map<string, HTMLDivElement>();
 
@@ -89,6 +96,8 @@ async function openSource(src: FeedSource, label: string, query: string | null):
     return false;
   }
   state.source = src;
+  shownCount = -1;
+  wasGrowing = src.isGrowing?.() ?? false;
   state.pos = 0;
   state.lastFrame = -1;
   state.seenEvents.clear();
@@ -114,10 +123,14 @@ async function openSource(src: FeedSource, label: string, query: string | null):
 function updateSourceBadge() {
   const s = state.source;
   const badge = $('source-badge');
-  badge.dataset.kind = s?.info.kind ?? 'replay';
-  // A recorded engine run is real engine output, so it is not labelled authored; neither is live.
-  $('source-badge-text').textContent =
-    s?.info.kind === 'live' ? 'Live simulation' : physicalOnly() ? 'Recording · engine run · not live' : 'Replay · authored fixture · not live';
+  const live = s?.info.kind === 'live';
+  const growing = s?.isGrowing?.() ?? false;
+  badge.dataset.kind = live && growing ? 'live' : 'replay';
+  // A run in progress is real engine output, a few seconds behind; once it ends it is a recording.
+  // An authored fixture is the only thing labelled "authored".
+  $('source-badge-text').textContent = live
+    ? growing ? 'Live run · engine trace · seconds behind' : 'Run ended · engine trace · not live'
+    : physicalOnly() ? 'Recording · engine run · not live' : 'Replay · authored fixture · not live';
 }
 
 function frameAt(i: number): StateFeedDoc {
@@ -181,11 +194,26 @@ world.onFrame = () => {
   const src = state.source;
   if (!src) return;
   const n = src.frameCount();
+  const growing = src.isGrowing?.() ?? false;
+  if (n !== shownCount) {
+    // A run in progress added frames: widen the scrubber, and redraw the timeline now and then.
+    shownCount = n;
+    ($('scrubber') as HTMLInputElement).max = String(Math.max(0, n - 1));
+    if (growing && now - timelineAt > 1500) { timelineAt = now; buildTimeline(); }
+  }
+  if (growing !== wasGrowing) {
+    // The run just ended (or began): the badge, timeline and play state all change.
+    wasGrowing = growing;
+    updateSourceBadge();
+    buildTimeline();
+    updatePlayButton();
+  }
   if (state.playing && !state.switching) {
     // Bundles replay at ~1 frame per second (fixtures/README.md); a recorded engine run at its
     // sampling rate (cadenceHz). Both are scaled by the speed control.
     state.pos = Math.min(n - 1, state.pos + dt * state.speed * (src.framesPerSecond?.() ?? 1));
-    if (state.pos >= n - 1) { state.playing = false; updatePlayButton(); }
+    // At the end of a fixed recording playback stops. A run in progress waits for more frames.
+    if (state.pos >= n - 1 && !growing) { state.playing = false; updatePlayButton(); }
     ($('scrubber') as HTMLInputElement).value = String(state.pos);
   }
   const fi = Math.floor(state.pos);
@@ -448,7 +476,8 @@ function updatePlayButton() {
 }
 function togglePlay() {
   if (!state.source) return;
-  if (!state.playing && state.pos >= state.source.frameCount() - 1) state.pos = 0;
+  // Play at the end of a finished recording starts it over; a run in progress has no end to leave.
+  if (!state.playing && state.pos >= state.source.frameCount() - 1 && !state.source.isGrowing?.()) state.pos = 0;
   state.playing = !state.playing;
   updatePlayButton();
 }
@@ -482,9 +511,11 @@ const replaySel = $('replay-select') as HTMLSelectElement;
 const TRACE_OPT = 'trace:sample';
 const FILE_OPT = 'trace:file';
 const LOCAL_OPT = 'trace:local';
+const LIVE_OPT = 'live:run';
 replaySel.innerHTML =
   `<optgroup label="Authored fixtures">${REPLAYS.map((r) => `<option value="${r.id}">${esc(r.label)}</option>`).join('')}</optgroup>` +
-  `<optgroup label="Recorded engine runs"><option value="${TRACE_OPT}">${esc(TRACE_SAMPLE.label)}</option><option value="${FILE_OPT}">Open a recording file…</option></optgroup>`;
+  `<optgroup label="Recorded engine runs"><option value="${TRACE_OPT}">${esc(TRACE_SAMPLE.label)}</option><option value="${FILE_OPT}">Open a recording file…</option></optgroup>` +
+  `<optgroup label="Live" id="live-group" hidden><option value="${LIVE_OPT}">Live run (engine trace)</option></optgroup>`;
 
 // A recording file (nlt.observer-trace.v1 .jsonl) is read in the browser and sent nowhere.
 const fileInput = document.createElement('input');
@@ -520,7 +551,21 @@ fileInput.addEventListener('change', () => {
   fileInput.value = '';
   if (f) void openTraceFile(f);
 });
+// Watch the engine run started from the Start run button, a few seconds behind. It adds frames as
+// the engine writes them; it carries positions and decisions only.
+async function openLive() {
+  state.sceneMode = 'follow';
+  ($('scene-select') as HTMLSelectElement).value = 'follow';
+  const previous = lastChoice;
+  replaySel.value = LIVE_OPT;
+  if (await openSource(new LiveRunSource(), 'Live run', null)) lastChoice = LIVE_OPT;
+  else replaySel.value = previous;
+}
 replaySel.addEventListener('change', () => {
+  if (replaySel.value === LIVE_OPT) {
+    void openLive();
+    return;
+  }
   if (replaySel.value === FILE_OPT) {
     replaySel.value = lastChoice; // stay on what is shown until a file is actually chosen
     fileInput.click();
@@ -606,7 +651,7 @@ function openAbout() {
           : `<tr><td>Agents, states, events</td><td><strong>${esc(s?.info.provenance ?? '—')}.</strong> ${esc(s?.info.title ?? '')} — nlt.state-feed.v1 frames from world-engine-godot/fixtures/replay. ${esc(s?.info.detail ?? '')}</td></tr>`
       }
       <tr><td>Resident figure</td><td>The self-authored pipeline-probe character Godot uses (deliberately primitive), with its walk cycle. It plays only while the feed says the agent is moving.</td></tr>
-      <tr><td>Live simulation</td><td><strong>Unavailable.</strong> ${esc(live.info.detail ?? '')}</td></tr>
+      <tr><td>Live simulation</td><td><strong>No full live relay.</strong> ${esc(live.info.detail ?? '')} A run started with the Start run button can be watched a few seconds behind, with positions and decisions only.</td></tr>
     </table>
     <h3>Responsibilities</h3>
     <p>Godot owns physical reality. AI-Fusion owns semantic reality — states, needs, readiness. This viewer only draws what a feed says; it never simulates, and it never computes Fusion's numbers.</p>
@@ -618,6 +663,29 @@ function openAbout() {
 }
 ['about-btn', 'source-badge', 'live-btn'].forEach((id) => $(id).addEventListener('click', openAbout));
 $('about-close').addEventListener('click', () => about.close());
+
+// ------------------------------------------------------------------ run control
+// Asks /api/run to start or stop an engine run. It does not change what the view shows.
+initRunControl(
+  $<HTMLButtonElement>('run-btn'),
+  (message) => {
+    $('run-status').textContent = message;
+  },
+  fetch,
+  {
+    // The live entry is offered while a run exists, and stays while it is the thing on screen.
+    onState: (runState) => {
+      const active = runState === 'starting' || runState === 'running';
+      $('live-group').hidden = !active && replaySel.value !== LIVE_OPT;
+    },
+    // Pressing Start takes you to the run you started.
+    onStarted: () => void openLive(),
+    // A stopped run cannot be read again, so take what is left first.
+    beforeStop: async () => {
+      if (state.source instanceof LiveRunSource) await state.source.drain();
+    },
+  },
+);
 
 // ------------------------------------------------------------------ go
 try {

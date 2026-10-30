@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    HTTP front for the headless Godot runtime when it is deployed as a container
+    (Vercel Container Runtime, Cloud Run, ...). It supervises the Godot process and
+    exposes /health and /run. It holds no simulation state: Godot stays the physical authority.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NltContainerHost</AssemblyName>
+  </PropertyGroup>
+
+</Project>

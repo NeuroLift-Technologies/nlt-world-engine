@@ -66,6 +66,13 @@ select {
 }
 .chip[data-status='unavailable'] { color: var(--dim); }
 .chip[data-status='unavailable'] .dot { background: transparent; border: 1.5px solid var(--muted); }
+.chip[data-state='unavailable'] { color: var(--dim); }
+.chip[data-state='unavailable'] .dot { background: transparent; border: 1.5px solid var(--muted); }
+.chip[data-state='idle'] .dot { background: var(--muted); }
+.chip[data-state='running'] { border-color: rgba(0, 158, 115, 0.6); color: #00c896; }
+.chip[data-state='starting'], .chip[data-state='stopping'] { color: #ffc247; }
+.chip:disabled { cursor: default; }
+.chip:disabled:not([data-state='unavailable']) { opacity: 0.85; }
 .icon-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--raised); cursor: pointer; font-weight: 700; }
 
 /* ---------------------------------------------------------------- HUD */

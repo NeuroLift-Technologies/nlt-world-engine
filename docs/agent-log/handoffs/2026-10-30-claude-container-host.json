@@ -1,0 +1,66 @@
+{
+  "handoff_record": {
+    "session_id": "session_01UNjnjizxgtTUM3DpXpjwS1",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-10-30",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "ccr-cfb13a59-j499a5",
+    "work_completed": [
+      "container-host/: ASP.NET front that listens on 0.0.0.0:$PORT, keeps headless Godot alive as a child process and serves GET /health",
+      "POST /run is Bearer-gated by NLT_RUN_TOKEN (disabled without it) and returns 501 until an engine ingress is decided",
+      "Dockerfile publishes the host and uses it as CMD",
+      "Fixed the runtime Godot binary lookup (exact match Godot_v*.x86_64) and made the host survive a failed Godot start; container preview verified: GET /health 200 with godot running (Vercel project world-engine-container)",
+      "Run control for the human observer on Vercel Sandbox: vercel/viewer/api/run.ts (GET status, POST start, DELETE stop), api/_lib/run-control.ts (rules), api/_lib/sandbox-port.ts (adapter), src/run/runControl.ts and a Start/Stop button in the top bar",
+      "17 unit tests (npm test in vercel/viewer) for single-run, idempotent stop, same-origin guard and the double-press race; browser check of the button with a faked /api/run (unavailable, disabled, start/stop cycle, transient failure)"
+    ],
+    "work_in_progress": [],
+    "blockers": [
+      "Not exercised against a real Vercel Sandbox: needs the image pushed to VCR (docker is not available in the agent session) and the environment variables set",
+      "Dockerfile/host image built successfully only by Vercel's own build; not built locally"
+    ],
+    "decisions_made": [
+      "/run fails closed (503 with no token, 401 on a bad token) and is a 501 stub rather than a guessed behaviour",
+      "No vercel.json added: the existing Vercel project roots are web/ and vercel/viewer, so a container deploy needs its own project",
+      "Hosting for runs: Vercel Sandbox (Joshua, in session). The run is one sandbox with headless Godot; start/stop are requests from the viewer's server route",
+      "/api/run is off unless NLT_RUN_CONTROL=enabled and must sit behind Deployment Protection; the sandbox exposes no ports (no public URL)"
+    ],
+    "decisions_pending": [
+      "Who may press the button, and the ASFDK governance gate at this boundary (Joshua)",
+      "Authenticated read-only live feed relay so the viewer can show the run (vercel/transport/README.md)",
+      "Maximum run length and sandbox size; pushing the engine image to Vercel Container Registry and setting NLT_SANDBOX_IMAGE / NLT_RUN_CONTROL in the world-engine-viewer project (human steps)"
+    ],
+    "escalations": [
+      "docs/escalations/2026-10-30-container-run-endpoint.md - open"
+    ],
+    "next_agent_notes": "Run control lives in vercel/viewer (see its README, 'Run control'). First real test: push the image with `vercel vcr build docker . <repo>:<tag> --push`, set NLT_SANDBOX_IMAGE and NLT_RUN_CONTROL=enabled on a protected preview of world-engine-viewer, press Start, check the sandbox list, press Stop. Do not expose /agent-loop/perception. Do not enable run control on an unprotected deployment. The container-host/ and world-engine-container Vercel project are a test harness and can go once Sandbox is confirmed.",
+    "files_modified": [
+      "Dockerfile",
+      "container-host/NltContainerHost.csproj",
+      "container-host/Program.cs",
+      "docs/agent-log/registrations/2026-10-30-claude-container-host.json",
+      "docs/agent-log/handoffs/2026-10-30-claude-container-host.json",
+      "docs/escalations/2026-10-30-container-run-endpoint.md",
+      "vercel/viewer/api/run.ts",
+      "vercel/viewer/api/_lib/run-control.ts",
+      "vercel/viewer/api/_lib/sandbox-port.ts",
+      "vercel/viewer/src/run/runControl.ts",
+      "vercel/viewer/test/run-control.test.ts",
+      "vercel/viewer/index.html",
+      "vercel/viewer/src/main.ts",
+      "vercel/viewer/src/style.css",
+      "vercel/viewer/tsconfig.json",
+      "vercel/viewer/package.json",
+      "vercel/viewer/package-lock.json",
+      "vercel/viewer/README.md"
+    ],
+    "tests_run": [
+      "npm test (vercel/viewer): 17 tests",
+      "tsc --noEmit and npm run build (vercel/viewer)",
+      "Playwright check of the run button against a faked /api/run",
+      "Vercel preview of the container project: GET /health returned 200"
+    ],
+    "tests_passing": true,
+    "pr_url": "https://github.com/NeuroLift-Technologies/nlt-world-engine/pull/134"
+  }
+}
