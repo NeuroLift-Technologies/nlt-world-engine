@@ -80,10 +80,23 @@ export interface RunControl {
   refresh(): Promise<void>;
 }
 
+export interface RunHooks {
+  /** The run state changed (also called once with the first answer). */
+  onState?: (state: RunState) => void;
+  /** This person pressed Start and the engine accepted it. */
+  onStarted?: () => void;
+  /** Called, and waited for, just before a stop is requested: a stopped run cannot be read again. */
+  beforeStop?: () => Promise<void>;
+}
+
+/** The most the page will wait for beforeStop, so a slow read never delays the stop itself. */
+const BEFORE_STOP_MS = 4000;
+
 export function initRunControl(
   button: HTMLButtonElement,
   announce: (message: string) => void,
   fetchImpl: typeof fetch = fetch,
+  hooks: RunHooks = {},
 ): RunControl {
   let state: RunState = 'unavailable';
   let busy = false;
@@ -106,6 +119,7 @@ export function initRunControl(
     button.title = next.note ?? TITLE[state];
     button.disabled = busy || blocked();
     if (changed && !first) announce(next.note ?? ANNOUNCE[state]);
+    if (changed || first) hooks.onState?.(state);
     first = false;
 
     window.clearTimeout(timer);
@@ -127,7 +141,13 @@ export function initRunControl(
     busy = true;
     button.disabled = true;
     try {
-      render(await call(state === 'idle' ? 'POST' : 'DELETE', fetchImpl));
+      const starting = state === 'idle';
+      if (!starting && hooks.beforeStop) {
+        await Promise.race([hooks.beforeStop().catch(() => undefined), new Promise((r) => setTimeout(r, BEFORE_STOP_MS))]);
+      }
+      const result = await call(starting ? 'POST' : 'DELETE', fetchImpl);
+      render(result);
+      if (starting && (result.state === 'starting' || result.state === 'running')) hooks.onStarted?.();
     } finally {
       busy = false;
       button.disabled = blocked();

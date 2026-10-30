@@ -1,6 +1,7 @@
 import { Sandbox } from '@vercel/sandbox';
-import { maxRunMs, sandboxVcpus, TRACE_CHUNK_BYTES, TRACE_PATH } from './run-config.js';
+import { maxRunMs, sandboxVcpus, TRACE_PATH } from './run-config.js';
 import type { RunInfo, RunPort } from './run-control.js';
+import { readWholeLines } from './trace-read.js';
 
 // A run is one Vercel Sandbox started from the engine image, with headless Godot as its process.
 // Sandboxes are found by tag, not by instance, so start, stop and status always see the same run.
@@ -79,17 +80,14 @@ export function sandboxPort(env: Record<string, string | undefined>): RunPort {
 
     async readTrace(id: string, from: number) {
       const sandbox = await Sandbox.get({ name: id });
-      // Offsets are validated integers and the path is a constant; both go in as arguments, never into the script.
-      const result = await sandbox.runCommand({
-        cmd: 'sh',
-        args: ['-c', 'tail -c +"$1" "$2" 2>/dev/null | head -c "$3"', 'sh', String(from + 1), TRACE_PATH, String(TRACE_CHUNK_BYTES)],
-      });
-      const raw = await result.stdout();
-      // Hand back whole lines only. Anything after the last newline is a half-written line or a cut
-      // multi-byte character; it is read again next time because `next` stops at the newline.
-      const end = raw.lastIndexOf('\n');
-      const text = end === -1 ? '' : raw.slice(0, end + 1);
-      return { text, next: from + Buffer.byteLength(text, 'utf8'), more: Buffer.byteLength(raw, 'utf8') >= TRACE_CHUNK_BYTES };
+      return readWholeLines(async (limit) => {
+        // Offsets are validated integers and the path is a constant; both go in as arguments, never into the script.
+        const result = await sandbox.runCommand({
+          cmd: 'sh',
+          args: ['-c', 'tail -c +"$1" "$2" 2>/dev/null | head -c "$3"', 'sh', String(from + 1), TRACE_PATH, String(limit)],
+        });
+        return result.stdout();
+      }, from);
     },
   };
 }
