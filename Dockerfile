@@ -54,7 +54,7 @@ WORKDIR /src/nlt-world-engine/world-engine-godot
 # development integrations, not part of the authoritative simulation server.
 RUN sed -i '/^_fennara_game_capture=/d' project.godot \
     && sed -i '/^MCPRuntimeServer=/d' project.godot \
-    && sed -i 's/, "res:\/\/addons\/godot_mcp_toolkit\/plugin.cfg"//' project.godot \
+    && sed -i 's/, "res:\/addons\/godot_mcp_toolkit\/plugin.cfg"//' project.godot \
     && rm -rf addons/fennara addons/godotopenxrvendors addons/godot_mcp_toolkit
 
 # Import resources, compile the managed project, and export a Linux dedicated
