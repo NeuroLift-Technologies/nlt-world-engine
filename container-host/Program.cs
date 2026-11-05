@@ -3,15 +3,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-// Container entrypoint: starts headless Godot as a long-lived child and serves HTTP on 0.0.0.0:$PORT.
+// Container entrypoint: supervises the exported headless Godot server and serves HTTP.
 var port = Environment.GetEnvironmentVariable("PORT") is { Length: > 0 } p ? p : "80";
-var godotProject = Environment.GetEnvironmentVariable("NLT_GODOT_PROJECT") ?? "/app/world-engine-godot";
+var godotBinary = Environment.GetEnvironmentVariable("NLT_GODOT_BIN")
+    ?? "/app/engine/nlt-world-engine.x86_64";
 var runToken = Environment.GetEnvironmentVariable("NLT_RUN_TOKEN") ?? "";
 const int MaxBodyBytes = 1 << 20;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-builder.Services.AddSingleton(new GodotSupervisor(godotProject));
+builder.Services.AddSingleton(new GodotSupervisor(godotBinary));
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GodotSupervisor>());
 var app = builder.Build();
 
@@ -51,8 +52,8 @@ app.MapPost("/run", async (HttpRequest req) =>
 
 app.Run();
 
-/// <summary>Runs Godot headless for the life of the host (no --quit) and stops it on shutdown.</summary>
-sealed class GodotSupervisor(string project) : BackgroundService
+/// <summary>Runs the exported Godot server for the life of the host and stops it on shutdown.</summary>
+sealed class GodotSupervisor(string executable) : BackgroundService
 {
     private Process? _proc;
     private DateTime _started;
@@ -63,12 +64,13 @@ sealed class GodotSupervisor(string project) : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stop)
     {
-        var psi = new ProcessStartInfo("godot")
+        var psi = new ProcessStartInfo(executable)
         {
             // Output is inherited so it lands in the platform's runtime logs.
             UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(executable) ?? "/app/engine",
         };
-        foreach (var a in new[] { "--headless", "--path", project, "--audio-driver", "Dummy" })
+        foreach (var a in new[] { "--headless", "--audio-driver", "Dummy" })
             psi.ArgumentList.Add(a);
 
         try
@@ -78,7 +80,7 @@ sealed class GodotSupervisor(string project) : BackgroundService
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             // Stay up so /health can report engine_down (503) and the cause is in the logs.
-            Console.Error.WriteLine($"godot failed to start: {ex.Message}");
+            Console.Error.WriteLine($"Godot server failed to start: {ex.Message}");
             return;
         }
         if (_proc is null) return;
