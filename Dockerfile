@@ -57,7 +57,7 @@ WORKDIR /src/nlt-world-engine/world-engine-godot
 # Without them the export silently ships no assemblies and the server segfaults.
 RUN sed -i '/^_fennara_game_capture=/d' project.godot \
     && sed -i '/^MCPRuntimeServer=/d' project.godot \
-    && sed -i 's/, "res:\/addons\/godot_mcp_toolkit\/plugin.cfg"//' project.godot \
+    && sed -i 's|, "res://addons/godot_mcp_toolkit/plugin.cfg"||' project.godot \
     && rm -rf addons/fennara addons/godotopenxrvendors addons/godot_mcp_toolkit \
     && mv world-engine-godot.csproj "NLT World Engine (Godot).csproj" \
     && dotnet new sln --name "NLT World Engine (Godot)" \
