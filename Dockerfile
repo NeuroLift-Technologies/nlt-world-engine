@@ -52,20 +52,27 @@ WORKDIR /src/nlt-world-engine/world-engine-godot
 # Produce a server-only project copy. Keep the desktop project unchanged.
 # Fennara capture, XR vendor bindings, and the editor/runtime MCP bridge are
 # development integrations, not part of the authoritative simulation server.
+# Godot's .NET export publishes <assembly_name>.csproj and requires a matching
+# <assembly_name>.sln (dotnet/project/assembly_name = "NLT World Engine (Godot)").
+# Without them the export silently ships no assemblies and the server segfaults.
 RUN sed -i '/^_fennara_game_capture=/d' project.godot \
     && sed -i '/^MCPRuntimeServer=/d' project.godot \
     && sed -i 's/, "res:\/addons\/godot_mcp_toolkit\/plugin.cfg"//' project.godot \
-    && rm -rf addons/fennara addons/godotopenxrvendors addons/godot_mcp_toolkit
+    && rm -rf addons/fennara addons/godotopenxrvendors addons/godot_mcp_toolkit \
+    && mv world-engine-godot.csproj "NLT World Engine (Godot).csproj" \
+    && dotnet new sln --name "NLT World Engine (Godot)" \
+    && dotnet sln "NLT World Engine (Godot).sln" add "NLT World Engine (Godot).csproj"
 
 # Import resources, compile the managed project, and export a Linux dedicated
 # server. Godot's dedicated_server export feature strips visual resource payloads
 # and forces headless mode; collision/physics resources and simulation scripts stay.
 RUN godot --headless --editor --path . --audio-driver Dummy --quit \
-    && dotnet build world-engine-godot.csproj --configuration Release \
+    && dotnet build "NLT World Engine (Godot).csproj" --configuration Release \
     && mkdir -p /opt/server \
     && godot --headless --path . --audio-driver Dummy \
        --export-release "Linux Dedicated Server" /opt/server/nlt-world-engine.x86_64 \
     && test -x /opt/server/nlt-world-engine.x86_64 \
+    && test -d "/opt/server/data_NLT World Engine (Godot)_linuxbsd_x86_64" \
     && ldd /opt/server/nlt-world-engine.x86_64 \
     && ! ldd /opt/server/nlt-world-engine.x86_64 | grep -q "not found" \
     && timeout 30s /opt/server/nlt-world-engine.x86_64 --headless --audio-driver Dummy --quit-after 5
