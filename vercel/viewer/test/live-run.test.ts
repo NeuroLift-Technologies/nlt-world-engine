@@ -228,4 +228,25 @@ describe('LiveRunSource against the real trace route', () => {
     await live.drain();
     assert.equal(run.requests.length, requests);
   });
+
+  it('works with the real browser fetch, which refuses to run as a method of another object', async () => {
+    const original = globalThis.fetch;
+    let calls = 0;
+    // A browser throws "Illegal invocation" if fetch is called with any `this` other than the window.
+    // Node does not care, which is why the fakes in the other tests could never catch this.
+    globalThis.fetch = function (this: unknown) {
+      if (this !== undefined && this !== globalThis) {
+        throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+      }
+      calls++;
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ state: 'idle', text: '', next: 0, more: false }) } as unknown as Response);
+    } as typeof fetch;
+    try {
+      const live = new LiveRunSource({ wait: async () => {} }); // no fetch option: it must use the global one
+      await assert.rejects(live.open(), /No engine run is active/); // an answer from the server, not a TypeError
+      assert.equal(calls, 1);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
 });

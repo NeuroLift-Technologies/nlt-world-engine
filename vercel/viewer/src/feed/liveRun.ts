@@ -63,7 +63,9 @@ export class LiveRunSource implements FeedSource {
   private missed = 0;
 
   constructor(options: LiveRunOptions = {}) {
-    this.fetchImpl = options.fetch ?? fetch;
+    // Wrapped, not stored as `fetch` itself: a browser throws "Illegal invocation" when fetch is
+    // called as a method of another object, which `this.fetchImpl(...)` would do.
+    this.fetchImpl = options.fetch ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
     this.pollMs = options.pollMs ?? 2000;
     this.wait = options.wait ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.firstDataTimeoutMs = options.firstDataTimeoutMs ?? 30_000;
