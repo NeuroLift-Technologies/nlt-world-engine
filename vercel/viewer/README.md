@@ -27,7 +27,7 @@ records (see §8).
 
 A button in the top bar asks the engine to start or stop a **run**: one [Vercel Sandbox](https://vercel.com/docs/sandbox)
 started from the engine image, with headless Godot as its process. The viewer only *asks*. It does not
-simulate, and it does not show the run live yet (see "Not done").
+simulate. Pressing Start also opens a near-live view of the run (see "Watching the run").
 
 | Piece | Where |
 |---|---|
@@ -71,13 +71,22 @@ the function.
 no port. The caller picks an offset only: the file path is fixed in the server. Lines written after the last poll are lost if the
 run stops before the next poll.
 
+**Watching the run.** Pressing Start takes you to the run: `src/feed/liveRun.ts` polls `/api/run/trace` every couple of
+seconds and feeds the new lines to the same frame builder a recorded file uses (`src/feed/traceFrames.ts`), so the scrubber and
+timeline grow while the run lives and playback waits at the newest frame. The top bar reads *Live run · engine trace · seconds
+behind*, and *Run ended · engine trace · not live* afterwards; the frames received stay viewable. A run started elsewhere can be
+opened from the *Live* entry in the recording menu, which appears while a run exists. Pressing Stop first reads what the engine
+has written since the last poll (a stopped run cannot be read again), then asks for the stop.
+Like any trace it carries **positions and decisions only**: no needs, states or readiness, which are Fusion's. The page, the
+polling and the server route are checked together in a real browser against a faked `/api/run` that serves the recorded sample
+trace; see "Not done" for what has not been tried.
+
 **Not done**
 
-- The viewer does not display the run. Live viewing needs the authenticated, read-only relay in
-  `vercel/transport/README.md`; `LiveRelaySource` still reports itself unavailable.
-- No countdown to the automatic stop.
-- Not exercised against a real sandbox yet: the adapter typechecks against `@vercel/sandbox` 3.9.1 and the rules are
-  unit-tested, but starting Godot inside a sandbox has not been tried.
+- Never run against a real sandbox: the adapter typechecks against `@vercel/sandbox` 3.9.1 and the rules are unit-tested, and the
+  page was exercised against a fake API, but starting Godot inside a sandbox, and `--trace` working headless there, are untried.
+- No full live relay with Fusion's state. `LiveRelaySource` (the *Live relay* chip) still reports itself unavailable.
+- No countdown to the automatic stop, and no "jump to live" button if playback falls behind the newest frame.
 - Godot-in-a-sandbox needs the image to contain `/app/world-engine-godot` (it does, from the root `Dockerfile`).
 
 ---
