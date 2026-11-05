@@ -1,0 +1,42 @@
+{
+  "handoff_record": {
+    "session_id": "session_01UNjnjizxgtTUM3DpXpjwS1",
+    "agent_name": "Claude (Anthropic) via Claude Code session",
+    "date": "2026-11-05",
+    "otoi_version": "ORG-DEV-OTOI-1.0.3",
+    "repo": "NeuroLift-Technologies/nlt-world-engine",
+    "branch": "ccr-cfb13a59-j499a5",
+    "work_completed": [
+      "Found that PR #134 merged with a live-view bug: LiveRunSource called fetch as this.fetchImpl(...), which browsers reject (Illegal invocation), so pressing Start never opened the live view. Reproduced in a real browser, fixed, and added a regression test that imitates the browser rule (it failed before the fix).",
+      "Re-ran the whole flow in a real browser against a faked /api/run and /api/run/trace serving the recorded sample: Start opens the live view, frames grow, Stop reads the trace before the stop request, the ended run stays viewable, no page errors.",
+      "Corrected the viewer README and the escalation record, which on main still said the viewer cannot show the run."
+    ],
+    "work_in_progress": [],
+    "blockers": [
+      "Never run against a real Vercel Sandbox; needs the engine image pushed to Vercel Container Registry and NLT_SANDBOX_IMAGE / NLT_RUN_CONTROL set on a protected Preview deployment (Joshua pushes the image; the agent sets the Preview variables)."
+    ],
+    "decisions_made": [],
+    "decisions_pending": [
+      "First real run: confirm Godot starts in a sandbox and that NLT_OBSERVER_TRACE writes the trace there."
+    ],
+    "escalations": [
+      "docs/escalations/2026-10-30-container-run-endpoint.md - items 1 to 5 decided; item 3 built"
+    ],
+    "next_agent_notes": "PR #134 is merged; this is a follow-up PR. Batch pushes: each push builds three Vercel projects and the free plan stopped deployments ('api-deployments-free-per-day', 100) during the previous PR's many pushes. Never judge a test run from a piped command's exit code: redirect output to a file and record the code. The Playwright check used for this lives only in the agent scratchpad, not in the repo.",
+    "files_modified": [
+      "vercel/viewer/src/feed/liveRun.ts",
+      "vercel/viewer/test/live-run.test.ts",
+      "vercel/viewer/README.md",
+      "docs/escalations/2026-10-30-container-run-endpoint.md",
+      "docs/agent-log/handoffs/2026-11-05-claude-live-run-fix.json"
+    ],
+    "tests_run": [
+      "npm test (vercel/viewer): 82 tests",
+      "tsc --noEmit",
+      "npm run build",
+      "Playwright run of the full live flow against a faked API (exit code recorded: 0)"
+    ],
+    "tests_passing": true,
+    "pr_url": "(new draft PR; #134 is merged)"
+  }
+}
